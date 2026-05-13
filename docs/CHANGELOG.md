@@ -2,6 +2,18 @@
 
 All notable changes to claude-skeleton are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [0.8.0] - 2026-05-13 — Per-file hashes enable safe automated updates
+
+- **`.skeleton-version` now stores per-file SHA-256 hashes.** `install.sh` writes a `files` object mapping every installed `.claude/` file's relative path to its content hash at install time. Top-level files (`CLAUDE.md`, etc.) and `--mode=merge` skipped files are not hashed — `update.sh` doesn't touch the former and backfills the latter on first encounter.
+- **Schema migration: shell key:value → JSON.** Old markers (versions ≤ 0.7.0) used `version: 0.7.0\nmode: merge\n…` lines; new markers are JSON. Parsing requires `python` (or `python3`) on `PATH`; `jq` is optional / not used. `python` is shipped with most Git Bash for Windows installs.
+- **`update.sh` six-way classification.** Each installed file is now bucketed using the recorded / current / template hash triple: `TEMPLATE_UPDATED` (safe to apply), `LOCALLY_MODIFIED` (warn, never auto-update), `UNCHANGED`, `LOCAL_MATCHES_TEMPLATE` (rare), `NEW`, `ORPHAN`. Replaces v1's binary diff that prompted on any difference.
+- **`--auto-apply` semantics tightened.** Applies `TEMPLATE_UPDATED` and `NEW` automatically; never `LOCALLY_MODIFIED` or `ORPHAN` — those always require explicit per-file input. Force-disabled during backfill.
+- **One-time backfill on pre-0.8.0 markers.** Old shell-format markers trigger a `BACKFILL MODE` warning: prominent banner, forced interactive review, recorded-hash := current-on-disk-hash assumption (can't detect local mods made before migration). Marker is upgraded to JSON after the run.
+- **Atomic marker writes.** `install.sh` and `update.sh` both write to `.skeleton-version.tmp.$$` then `mv -f`, preventing partial markers on interrupt.
+- **CRLF/LF handling.** Python output is reconfigured to LF on stdout (`sys.stdout.reconfigure(newline="\n")`) and on file open (`open(..., newline="\n")`). Bash side defensively strips CR from dumped marker fields. Discovered during testing — Windows Python 3's text-mode stdout was emitting CRLF, breaking the TSV-to-bash parser.
+- **`docs/INSTALLATION.md`** rewritten for update flow: classification table, hash mechanism, backfill notes. v1 limitation section removed.
+- **Tests** (against `C:/Users/darre/Dev/test-skeleton-install/`): fresh-install marker validates as JSON with 25 files, all 64-char hex hashes; classification scenarios T2-T5 detect 0 / 1 / 1 / 1 expected counts; T6 backfill prints warning, disables `--auto-apply`, accurately classifies, writes JSON marker. Trainer-View dry-run (existing v0.6.0 marker, untouched) classifies 16 TEMPLATE_UPDATED + 0 LOCALLY_MODIFIED — backfill compatibility confirmed without modifying TV.
+
 ## [0.7.0] - 2026-05-13 — Validated on real-world Flutter+Firebase production target
 
 - **Migrated Trainer-View ("Forged In") to claude-skeleton baseline** via `install.sh --mode=merge --claude-only`. 12 new files added (11 baseline + `.skeleton-version`); zero tracked-file modifications to TV's existing 7 agents, 5 skills, 4 hooks, 2 scripts, 13-row ROUTING.md, CLAUDE.md, CLAUDE_MANAGER.md. Non-destructive install validated on real production code. TV's `CLAUDE_MANAGER.md` extended with an "extended frontmatter convention" section (TV-specific `effort` / `memory` / `color` fields acknowledged); `hooks/README.md` extended with an orphan-scripts acknowledgment for TV's two unregistered hooks.
