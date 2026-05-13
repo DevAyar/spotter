@@ -1,0 +1,27 @@
+# Plugins — {{PROJECT_NAME}}
+
+The canonical log of third-party plugins installed in this project. Per `CLAUDE_MANAGER.md`, every plugin hook addition, every local modification to a plugin file, and every deviation from a plugin's defaults gets a one-line note here so the next session (human or agent) can see what's actually in play.
+
+This file is the *plugin discipline* record described in `docs/PHILOSOPHY.md` ("Plugin evaluation discipline").
+
+## Installed plugins
+
+<!-- One row per plugin. Format:
+| Plugin | Tier | Installed | Hook additions | Local mods | Notes |
+| `name` | T1/T2/T3 | YYYY-MM-DD | hooks added (or "none") | files patched (or "none") | one-line context |
+-->
+
+| Plugin | Tier | Installed | Hook additions | Local mods | Notes |
+|---|---|---|---|---|---|
+| _none yet_ | — | — | — | — | — |
+
+## Conventions
+
+- **Add a row before adding the plugin.** If you find yourself installing a plugin and the row isn't here, stop, add the row, then continue.
+- **Update the row when you patch a plugin file.** Local mods are easy to lose at update time; the row is the breadcrumb.
+- **Remove the row when you uninstall.** Don't keep stale entries.
+- **No secrets in this file.** API keys, tokens, project IDs that aren't already public go in `.claude/settings.local.json` or the user's secret store, never here.
+
+## Why this file exists
+
+A plugin ecosystem accumulates entropy fast. Without a written record, you end up with hooks that fire silently, scripts that have been edited two versions ago, and no way to tell what's "vanilla" anymore. One file, one log, one source of truth — same as every other doc in this skeleton.

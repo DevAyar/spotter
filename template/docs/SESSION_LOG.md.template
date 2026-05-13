@@ -1,6 +1,35 @@
-<!-- TODO: Phase 4b — SESSION_LOG.md template for target projects.
-     Per-session log: date/time, grade, state, done this session, plan check, next moves. -->
-
 # Session log — {{PROJECT_NAME}}
 
-Stub template. Phase 4a placeholder.
+Per-session record. Reverse-chronological — newest at top. Each entry captures what was attempted, what landed, and what's next.
+
+## Format
+
+```markdown
+## YYYY-MM-DD — <short title>
+
+<one-paragraph summary of the session — what was the goal, what got done, what was learned>
+
+**Changed:** <list of files or areas touched>
+**Next:** <followups for the next session>
+
+### (Optional) Audit — <scope> — YYYY-MM-DD
+
+<audit-helper report body — appended by the `/audit` slash command>
+```
+
+Sessions can also contain `### Review`, `### Decision`, or other subheaders for in-session events worth recording separately.
+
+## Conventions
+
+- One H2 per session. If a single date has multiple sessions, suffix the title (`— morning`, `— deploy`, etc.).
+- Keep summaries short — the diff and the commit messages are the canonical record of *what changed*. This log captures *why* and *what's next*.
+- Don't delete old entries. They're the project's memory; the manager reads them when the work feels disoriented.
+- `/audit` appends subheaders under the current day's entry — if no entry exists for today, create the stub first.
+
+## Entries
+
+<!-- Newest at top. Delete this placeholder when you add the first real entry. -->
+
+## YYYY-MM-DD — _replace with first session_
+
+_Replace this stub with your first session entry following the format above._

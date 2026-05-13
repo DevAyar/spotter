@@ -1,6 +1,51 @@
-<!-- TODO: Phase 4b — ARCHITECTURE.md template for target projects.
-     Describes the target project's own architecture (not the skeleton's). -->
-
 # Architecture — {{PROJECT_NAME}}
 
-Stub template. Phase 4a placeholder.
+The structure of this project: what the major components are, how they fit together, and the decisions worth knowing before making changes.
+
+This file documents *this project's* architecture, not the skeleton's. See `CLAUDE_MANAGER.md` for the manager-and-helper meta-architecture; see `docs/PHILOSOPHY.md` (if present) for design principles.
+
+## Overview
+
+<!-- One-paragraph elevator pitch of the system: what it does, who uses it, and what it talks to. -->
+
+_Replace with a short overview of the system._
+
+## Components
+
+<!-- List the major moving parts. For each, one line on what it owns. Aim for 3-8 entries — if you have more, the system probably has a level of grouping above this. -->
+
+- **_Component A_** — _what it owns._
+- **_Component B_** — _what it owns._
+- **_Component C_** — _what it owns._
+
+## Data flow
+
+<!-- How data enters the system, where it lives, and where it goes. A short numbered list or a small diagram. -->
+
+1. _Entry point — how requests/events arrive._
+2. _Processing — what happens to them._
+3. _Storage / output — where they end up._
+
+## External dependencies
+
+<!-- Services, APIs, databases this project talks to. Note any that are critical-path vs. nice-to-have. -->
+
+- _Replace with external service list._
+
+## Decisions worth knowing
+
+<!-- Non-obvious architectural choices and the reasoning behind them. The "future-you will thank you" section. -->
+
+- _Replace with key architectural decisions and rationale._
+
+## What's out of scope
+
+<!-- Brief note on what this project *isn't*, so future scope creep has something to push against. -->
+
+- _Replace with explicit non-goals._
+
+## How to keep this file current
+
+- Update `Components` and `Data flow` when the structure changes.
+- Add to `Decisions worth knowing` whenever you make a non-obvious tradeoff.
+- Don't let it grow into a manual — link out to deeper docs rather than inlining everything.

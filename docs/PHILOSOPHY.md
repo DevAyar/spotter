@@ -55,7 +55,7 @@ Before any third-party plugin, skill, or agent is added to the skeleton, it pass
 
 Plugins that fail any of these don't get added. Loose plugin discipline is how Claude Code projects rot — a year of "this looks useful" leaves you with twenty half-integrated skills that conflict.
 
-In Phase 4c+, this check is encoded in an `integration-checker` skill that runs before any plugin install.
+Today this is enforced by review, not by code. A future `plugin-integration-checker` skill could automate it; for now, the rules above are the discipline. (The `integration-installer` agent shipped in Phase 4c handles install *mechanics*, not plugin-discipline pre-checks — different concern.)
 
 ## Non-destructive install
 

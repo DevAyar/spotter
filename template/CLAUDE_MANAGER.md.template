@@ -48,7 +48,7 @@ Helpers live in `.claude/agents/`. The baseline roster:
 
 When integrating third-party plugins (T3):
 
-1. **No silent hook installs.** Every hook addition is explicit and gets a one-line note in `PLUGINS.md` (or equivalent).
+1. **No silent hook installs.** Every hook addition is explicit and gets a one-line note in `PLUGINS.md`.
 2. **No outbound network at hook time.** Hooks must not depend on remote calls that could hang the session.
 3. **Local modifications get recorded.** If a plugin's hook or script is edited locally, note it so plugin updates don't clobber the change.
 4. **No secrets in plugin files.** Never commit API keys or tokens via a plugin.

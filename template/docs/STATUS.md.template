@@ -1,6 +1,46 @@
-<!-- TODO: Phase 4b — STATUS.md template for target projects.
-     Living doc: current phase, north star, what's working, what's blocked, known issues. -->
-
 # Status — {{PROJECT_NAME}}
 
-Stub template. Phase 4a placeholder.
+Living doc. The manager reads this at session start to recover state. Update after each meaningful change — fresher beats prettier.
+
+## Current focus
+
+<!-- One-line answer to "what are we trying to ship right now?" Replace with the actual current focus. -->
+
+- _Replace with current sprint goal, phase, or milestone._
+
+## In progress
+
+<!-- Work actively underway. Each bullet should name an owner or "team" and a rough state. -->
+
+- _Replace with active work items._
+
+## Blocked
+
+<!-- Anything that needs an external dependency, a decision, or a review before it can proceed. -->
+
+- _None currently. List blockers here with what they're waiting on._
+
+## Recent wins
+
+<!-- Last few significant landings — what worked, briefly. Trim as it gets stale. -->
+
+- _Replace with recently shipped work._
+
+## Known issues
+
+<!-- Bugs, ergonomic problems, or smells the team has decided to live with for now. Each entry should name the workaround if any. -->
+
+- _Replace with known issues + workarounds._
+
+## North star
+
+<!-- One short paragraph: what is this project ultimately for? Re-read this when the work feels lost. -->
+
+_Replace with the project's north-star statement._
+
+## How to update this file
+
+- Append `Recent wins`, prune as the list grows past ~5 entries.
+- Move things from `In progress` → `Recent wins` when they land.
+- Move things from `Blocked` → `In progress` when the blocker clears.
+- Don't let `Known issues` become a graveyard — close or escalate items that age past a few weeks.
