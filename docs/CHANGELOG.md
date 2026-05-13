@@ -2,6 +2,12 @@
 
 All notable changes to claude-skeleton are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [0.3.0] - 2026-05-13 — project-tuner-helper
+
+- **New agent**: `project-tuner-helper` (`template/.claude/agents/05_meta/`). Inspects the target project after baseline installation, recommends placeholder fills, helper tightening, and project-specific helpers, awaits user approval, and generates only what was approved. Language-agnostic (Python, JS/TS, Go, Rust, Flutter, Godot, Bash).
+- **Routing**: new row in `ROUTING.md.template` mapping "set up new project / install skeleton / tune skeleton to this project" to `project-tuner-helper`.
+- **Install flow status**: customization side of the two-agent install flow is now functional. Mechanics side (`integration-installer`) lands in Phase 4c.
+
 ## [0.2.0] - 2026-05-13 — Baseline template content
 
 - **Baseline agents** (`template/.claude/agents/`): `research-helper`, `audit-helper`, `monitoring-helper`, `plan-coordinator`. Minimal frontmatter; section-routing documented as a behavioral instruction in each agent body.
