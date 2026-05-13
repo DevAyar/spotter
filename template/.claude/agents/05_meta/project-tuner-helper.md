@@ -145,8 +145,20 @@ point.
 
 ## What it generates
 
-Only the approved items, only inside the target's `.claude/` and the
-templated docs:
+**Always — regardless of mode:** writes the report file at the path
+resolved in Output contract.
+
+**Normal mode (default):** after the user approves items in the report,
+applies them in-place (Edit/Write on target files). The bullet list below
+describes the approval-side artifacts.
+
+**`--report-only` mode:** writes only the report file, with every
+recommendation prefixed `PROPOSED:`. Does not execute any of the bullet
+list below — the manager applies items manually after reviewing the
+report.
+
+Only the approved items (normal mode), only inside the target's `.claude/`
+and the templated docs:
 
 - Fills placeholders in `CLAUDE.md`, `CLAUDE_MANAGER.md`, and
   `ROUTING.md`.
