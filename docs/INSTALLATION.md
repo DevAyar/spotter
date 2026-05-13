@@ -71,6 +71,32 @@ bash scripts/install.sh --dry-run [--mode=...] [--claude-only]
 The output lists every file that would be copied (`+`), skipped (`=`),
 or overwritten (`~`).
 
+## Important: subagent registration requires session restart
+
+Claude Code discovers subagents from `.claude/agents/` at session
+start. Newly-installed subagents from claude-skeleton are present on
+disk immediately after install but are **not** yet dispatchable in
+your current Claude Code session.
+
+To activate the newly-installed agents:
+
+1. Complete the install (or `update.sh` run).
+2. Close your current Claude Code session.
+3. Reopen Claude Code in the same project.
+4. Newly-installed agents now appear in the subagent registry.
+
+Skills and slash commands **do** pick up in the same session — only
+subagents need a restart.
+
+If you dispatch a newly-installed subagent before restarting, Claude
+Code falls back to the `general-purpose` agent with the agent's
+contract inlined. This works but costs more tokens (the contract
+isn't cached as a registered agent).
+
+Validated by three real-world migrations: Phase 3 PolyClaude trial in
+Trainer-View, Phase 4c skeleton-on-skeleton dogfood in this repo,
+Phase 4f Trainer-View migration to claude-skeleton.
+
 ## Update an existing install
 
 ```bash
