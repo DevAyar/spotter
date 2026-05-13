@@ -58,8 +58,27 @@ A structured drift report grouped by category. For each finding:
 
 - **Type** — orphan / dead-ref / doc-drift / missing-route.
 - **Location** — file path + line number where applicable.
-- **Severity** — high (broken behavior), medium (silent
-  inconsistency), low (cosmetic).
+- **Severity** — graded against this rubric (escalate if unsure):
+
+  - **HIGH** — misleads the user/agent at install-time, ships to
+    users, or is likely to cause action on wrong information.
+    Examples: dead routing row pointing at a missing file; agent
+    contract that describes behavior the body doesn't implement;
+    `install.sh` advertising a flag that doesn't work.
+  - **MEDIUM** — causes confusion or extra clicks but doesn't
+    mislead, doesn't ship corrupted, recoverable. Examples: routing
+    row missing for an installed handler (discoverability hit, not
+    correctness); doc reference to a file that exists but uses a
+    slightly stale name; stub template that ships as a `TODO`
+    placeholder.
+  - **LOW** — cosmetic, doesn't affect behavior, defer to a polish
+    pass. Examples: heading-case inconsistency; count mismatch in
+    prose (`"five helpers"` when there are six and the table itself
+    is correct).
+
+  If unsure between two levels, **escalate to the higher one** and
+  let the manager decide. False positives are cheaper than false
+  negatives.
 - **Suggested fix** — a one-line recommendation. The manager decides
   whether to act.
 
