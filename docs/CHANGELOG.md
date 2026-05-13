@@ -2,6 +2,13 @@
 
 All notable changes to claude-skeleton are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [0.7.0] - 2026-05-13 — Validated on real-world Flutter+Firebase production target
+
+- **Migrated Trainer-View ("Forged In") to claude-skeleton baseline** via `install.sh --mode=merge --claude-only`. 12 new files added (11 baseline + `.skeleton-version`); zero tracked-file modifications to TV's existing 7 agents, 5 skills, 4 hooks, 2 scripts, 13-row ROUTING.md, CLAUDE.md, CLAUDE_MANAGER.md. Non-destructive install validated on real production code. TV's `CLAUDE_MANAGER.md` extended with an "extended frontmatter convention" section (TV-specific `effort` / `memory` / `color` fields acknowledged); `hooks/README.md` extended with an orphan-scripts acknowledgment for TV's two unregistered hooks.
+- **`project-tuner-helper` output contract rewritten.** Agent now writes its full report to a file (default `.claude/agent-memory/project-tuner-report-<timestamp>.md`) and returns a brief summary paragraph (path / counts H·M·L / top-3 critical / report-only honor flag). Discovered during TV migration — Agent tool output window truncated a 115k-token inspection between subagent and manager. Returns are now capped at ~300 tokens. Template only; installed copies pick up the fix on next `update.sh` run.
+- **`project-tuner-helper` `--report-only` mode formalized.** Adds `PROPOSED:` prefix to every recommendation; disables Edit/Write on project files (still writes the report file itself); self-audits the finalized report and notes any breach in the return paragraph. Documented in agent body and frontmatter description.
+- **Subagent registration limitation confirmed (3rd observation).** Phase 3 PolyClaude promotion in Trainer-View, Phase 4c dogfood in this repo, and Phase 4f TV migration all required a Claude Code session restart before newly-installed subagents in numbered folders became dispatchable. Worth documenting as a permanent caveat in `docs/INSTALLATION.md` — deferred to next phase.
+
 ## [0.6.0] - 2026-05-13 — Validation milestone
 
 - **Validation on a real target.** `bash scripts/install.sh --mode=fresh --target <throwaway>` exercised against a fresh non-skeleton project (`C:\Users\darre\Dev\test-skeleton-install\`). Verified: 31 files copy correctly (10 agents, 5 skills, 2 scripts, 4 commands, 3 hook files, 1 settings.json, 3 top-level docs, 3 `docs/` templates); `.skeleton-version` written with all six fields populated; top-level and `docs/*` templates render alongside `.claude/` (first run without `--claude-only`).
