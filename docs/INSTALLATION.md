@@ -103,27 +103,65 @@ Phase 4f Trainer-View migration to claude-skeleton.
 bash <path-to-claude-skeleton>/scripts/update.sh
 ```
 
-The updater reads `.claude/.skeleton-version`, compares each file in
-`.claude/` against the current template, and walks you through:
+The updater reads `.claude/.skeleton-version`, classifies every
+file in `.claude/` against the current template using SHA-256
+hashes, and walks you through each category.
 
-- **New files** in the template → "copy all?" prompt.
-- **Differing files** → "[A]pply all / [R]eview individually /
-  [S]kip all" — review mode shows a `diff -u` per file before deciding.
+### How `update.sh` classifies changes
 
-Add `--auto-apply` to skip the per-category prompt and apply all
-template diffs without asking (new files still confirm once;
-conflicts still prompt).
+Each installed file is one of:
 
-### v1 limitation
+| Class | Meaning | Default action |
+|---|---|---|
+| **UNCHANGED** | Recorded hash == current == template. | Skip silently. |
+| **TEMPLATE_UPDATED** | You haven't touched it; template moved on. | `[A]pply all / [R]eview / [S]kip all`. |
+| **LOCALLY_MODIFIED** | You've changed it since install. | Per-file prompt, default `[K]eep`. Never auto-updated. |
+| **NEW** | Template has it; you don't. | `Copy all? [Y/n]`. |
+| **ORPHAN** | You have it (in marker); template no longer ships it. | `Delete? [y/N]`. |
 
-`update.sh` cannot reliably distinguish "you modified this file" from
-"the template moved on since your install" without per-file hashes in
-`.skeleton-version`. v1 treats any diff as "needs review" — the diff
-is always shown before any overwrite. Per-file hashing lands in v2.
+`--auto-apply` accepts `TEMPLATE_UPDATED` and `NEW` automatically.
+It **never** applies to `LOCALLY_MODIFIED` or `ORPHAN` — those
+always require explicit input.
 
 Top-level files (`CLAUDE.md`, etc.) are not updated by `update.sh` —
 they're project-specific. Re-run `install.sh` manually if you want
 to refresh them.
+
+### Per-file hashes in `.skeleton-version`
+
+`install.sh` records a SHA-256 hash of every `.claude/` file it
+writes into `.skeleton-version`. `update.sh` uses three hashes per
+file — recorded-at-install, current-on-disk, current-in-template —
+to distinguish your local edits from upstream changes precisely.
+That's what makes "this file is safe to update" vs "you've changed
+this, review first" a reliable distinction.
+
+The marker is JSON; parsing requires `python` (or `python3`) on
+`PATH`. Git Bash for Windows ships with Python 3 in most installs;
+if missing, install Python 3 and rerun. `jq` is **not** required.
+
+### First update after 0.8.0 (one-time backfill)
+
+Markers created by claude-skeleton < 0.8.0 use a shell-format
+key:value schema with no per-file hashes. On first run with such a
+marker, `update.sh` enters **BACKFILL MODE**:
+
+- Prints a prominent warning that pre-existing local modifications
+  cannot be detected.
+- Force-disables `--auto-apply` for this run.
+- Treats every currently installed file as if it were pristine
+  (recorded := current hash).
+- Files differing from the template are classified as
+  `TEMPLATE_UPDATED` — **including** any local modifications you
+  made before 0.8.0. Review individually if you have known local
+  changes.
+- After the run, the marker is migrated to JSON with per-file
+  hashes. Subsequent runs use precise classification.
+
+If you have important local modifications and want to preserve
+them across the 0.8.0 migration, either commit them before
+running `update.sh` (so you can see them in the diff) or accept
+the warning and use `[R]eview individually` to spot them.
 
 ## Uninstall
 
