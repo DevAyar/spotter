@@ -2,6 +2,19 @@
 
 All notable changes to claude-skeleton are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [0.4.0] - 2026-05-13 — Meta-management layer
+
+- **Four new agents** (`template/.claude/agents/05_meta/`):
+  - `system-memory-helper` — system inventory (agents / skills / scripts / commands / hooks / plugins).
+  - `agent-slicer` — surgical edits to existing agent files with frontmatter validation.
+  - `workflow-suggester` — pattern detection over `SESSION_LOG.md`; pure suggestion.
+  - `self-audit-helper` — meta-system drift detection (orphans, dead refs, doc drift, missing routes).
+- **Two new skills** (`template/.claude/skills/`):
+  - `token-efficiency-monitor` — observational alert when a subtask's cost exceeds 1.5× its expected envelope.
+  - `plugin-roster-search` — lightweight capability → handler lookup across `.claude/` and active plugin directories.
+- **Routing**: six new rows in `ROUTING.md.template`, grouped by purpose (inventory & search, modification, audit, observation).
+- **Architectural milestone**: the meta-system now has recursive ownership — the skeleton can watch, modify, and audit itself. Each agent and skill is context-aware: it walks whatever `.claude/` is active where it runs. Works inside `claude-skeleton` (managing the meta-system's development) and inside any target project after install.
+
 ## [0.3.0] - 2026-05-13 — project-tuner-helper
 
 - **New agent**: `project-tuner-helper` (`template/.claude/agents/05_meta/`). Inspects the target project after baseline installation, recommends placeholder fills, helper tightening, and project-specific helpers, awaits user approval, and generates only what was approved. Language-agnostic (Python, JS/TS, Go, Rust, Flutter, Godot, Bash).
