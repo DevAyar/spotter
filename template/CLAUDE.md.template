@@ -26,7 +26,7 @@ Read `CLAUDE_MANAGER.md` for dispatch rules and the helper roster. Read `ROUTING
 
 ## Where things live
 
-- `.claude/agents/` — subagents (helpers), organized by purpose (`01_research`, `02_audit`, `03_monitoring`, `04_planning`, ...).
+- `.claude/agents/` — subagents (helpers), organized by purpose (`01_research`, `02_audit`, `03_monitoring`, `04_planning`, `05_meta`).
 - `.claude/skills/` — behavioral skills (rules the manager honors without a hook).
 - `.claude/scripts/` — mechanical wrappers (`commit.sh`, `deploy.sh`, ...).
 - `.claude/commands/` — slash commands.

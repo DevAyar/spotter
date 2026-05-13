@@ -104,8 +104,9 @@ templated docs:
   the existing numbering.
 - Appends project-specific routing rows below the
   `<!-- Project-specific routes -->` marker in `ROUTING.md`.
-- Extends watched-file lists inside skill folders
-  (`.claude/skills/<skill>/WATCHED.md` and similar markers).
+- Extends watched-file lists inline in the relevant `SKILL.md`
+  (e.g. `.claude/skills/schema-verify-before-edit/SKILL.md`), below
+  the `<!-- Project-specific watched files -->` extension marker.
 - Optionally updates `docs/STATUS.md` and `docs/ARCHITECTURE.md` to
   reflect the customized state — only if the user opts in.
 

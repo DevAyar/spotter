@@ -38,13 +38,15 @@ Quick summary:
 
 ## Status
 
-- **Phase 4a (current):** project foundation. Directory layout, initial docs, version 0.1.0.
-- **Phase 4b:** populate `template/.claude/` with baseline agents, skills, hooks; build `project-tuner-helper`.
-- **Phase 4c:** install/update mechanism (`scripts/install.sh`) + `integration-installer`.
+- **Phase 4a:** project foundation. Directory layout, initial docs, version 0.1.0. ✓
+- **Phase 4b:** populated `template/.claude/` with baseline agents, skills, scripts, commands, hooks. Reached 0.2.0. ✓
+- **Phase 4b.5:** added `project-tuner-helper` — the customization side of the install flow. Reached 0.3.0. ✓
+- **Phase 4b.6:** added the meta-management layer (`05_meta/` tier) — agents and skills that watch, modify, and audit the system itself. Reached 0.4.0. ✓
+- **Phase 4c (next):** install / update mechanism (`scripts/install.sh`) + `integration-installer`.
 - **Phase 4d-e:** validation, test projects.
 - **Phase 5+:** iteration on real-world use.
 
-Installation instructions land in Phase 4c. For now, this is a foundation under active construction.
+Current version: **0.4.0**. The skeleton's content is functional; the install mechanics are what remain before target projects can pull it in.
 
 ## Documentation
 

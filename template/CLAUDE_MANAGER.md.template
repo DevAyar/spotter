@@ -30,12 +30,17 @@ Helpers live in `.claude/agents/`. The baseline roster:
 | 2 | `audit-helper` | `02_audit/` | Drift detection between docs and code reality. |
 | 3 | `monitoring-helper` | `03_monitoring/` | Session retro, grading recent work. |
 | 4 | `plan-coordinator` | `04_planning/` | Multi-file cross-cutting change planning. |
+| 5 | `project-tuner-helper` | `05_meta/` | Post-install customization. Inspects target, fills placeholders, generates approved customizations. |
+| 6 | `system-memory-helper` | `05_meta/` | System inventory — lists installed agents, skills, scripts, commands, hooks, plugins. |
+| 7 | `agent-slicer` | `05_meta/` | Surgical edits to existing agent files with frontmatter validation. |
+| 8 | `workflow-suggester` | `05_meta/` | Pattern detection over `SESSION_LOG.md`; suggests captures. |
+| 9 | `self-audit-helper` | `05_meta/` | Meta-system drift detection (orphans, dead refs, doc drift, missing routes). |
 
 <!-- project-tuner-helper extends this roster with project-specific helpers. -->
 
 ## Tier system
 
-- **T1 — Always-on baseline.** The four helpers above, the two scripts (commit/deploy), the two hooks (SessionStart/PreCompact), the three skills. Ships in every install.
+- **T1 — Always-on baseline.** The nine helpers above (four core + five meta), the two scripts (commit/deploy), the two hooks (SessionStart/PreCompact), the five skills (`schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, `token-efficiency-monitor`, `plugin-roster-search`). Ships in every install.
 - **T2 — Escalation.** Helpers and scripts added for this project's specific needs. Loaded by default but project-specific.
 - **T3 — On-demand plugins.** Opt-in tooling (e.g. `browser-tester`). The manager only invokes T3 when explicitly relevant.
 

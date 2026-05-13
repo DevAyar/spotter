@@ -59,7 +59,7 @@ claude-skeleton/
 │   ├── INSTALLATION.md # How to install (Phase 4c)
 │   └── CHANGELOG.md    # Version history
 ├── README.md
-├── VERSION             # Single-line semver (0.1.0)
+├── VERSION             # Single-line semver (canonical version source)
 ├── LICENSE             # MIT
 └── .gitignore
 ```
@@ -135,6 +135,22 @@ Either stage can be invoked independently:
 - `integration-installer` alone for a CI-style automated install (no interactive tuning).
 - `project-tuner-helper` alone for re-tuning an existing install (e.g., after the target's stack changes).
 
+## Helper roster overview
+
+`template/.claude/agents/` ships organized by numbered tier folders, each holding helpers of a related role. The skeleton-baseline tiers at 0.4.0:
+
+| Tier | Folder | Helpers | Role |
+|---|---|---|---|
+| 1 | `01_research/` | `research-helper` | Docs / library / API lookup. |
+| 2 | `02_audit/` | `audit-helper` | Drift detection between docs and reality. |
+| 3 | `03_monitoring/` | `monitoring-helper` | Session retro and grading. |
+| 4 | `04_planning/` | `plan-coordinator` | Multi-file cross-cutting change planning. |
+| 5 | `05_meta/` | `project-tuner-helper`, `system-memory-helper`, `agent-slicer`, `workflow-suggester`, `self-audit-helper` | Meta-management — customizes, inspects, modifies, and audits the system itself. |
+
+`template/.claude/skills/` ships five baseline skills at 0.4.0: `schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first` (behavioral conventions for the manager), plus `token-efficiency-monitor` and `plugin-roster-search` (meta-management observers).
+
+The `05_meta/` tier is what makes the skeleton self-managing: `project-tuner-helper` customizes a fresh install, `self-audit-helper` watches the meta-system for drift, `agent-slicer` modifies agents safely, `system-memory-helper` answers "what's installed," and `workflow-suggester` proposes captures for recurring patterns. Each is context-aware — it inspects whatever `.claude/` is active where it runs, so it works inside `claude-skeleton` itself and inside any target project after install.
+
 ## Where things live
 
 A quick map of which file owns which kind of decision:
@@ -150,10 +166,8 @@ A quick map of which file owns which kind of decision:
 | Skeleton's own dev tools | `.claude/` | Not shipped to target projects. |
 | Install / update scripts | `scripts/` | Phase 4c. |
 
-## Deferred (Phase 4b+)
+## Deferred
 
-- Concrete template content in `template/.claude/{agents,skills,scripts,commands,hooks}/` (Phase 4b).
-- `project-tuner-helper` agent implementation (Phase 4b).
 - `integration-installer` agent + `scripts/install.sh`, `scripts/update.sh`, `scripts/uninstall.sh` (Phase 4c).
 - Test projects under `test-projects/` for validation (Phase 4d-e).
 - `INSTALLATION.md` content (Phase 4c).
