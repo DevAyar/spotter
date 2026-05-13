@@ -1,0 +1,9 @@
+# Force LF endings for shell scripts on all platforms.
+# Bash will not execute a script whose shebang line ends in CRLF.
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Force LF for skill / hook markdown that ships executable behavior.
+# (markdown elsewhere uses platform default)
+template/.claude/hooks/**/*.md text eol=lf
+template/.claude/scripts/**/*.md text eol=lf
