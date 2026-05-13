@@ -17,5 +17,6 @@ The routing table maps task patterns to handlers. The manager consults this at s
 | Edit on source file under `src/` or `lib/` | `post-edit-test-suggest` | Skill | Test command |
 | Session start after compact | `sessionstart-rules.sh` | Hook | `compactPrompt` from settings |
 | Before auto-compact | `precompact-backup.sh` | Hook | STATUS.md, SESSION_LOG.md, CLAUDE.md |
+| "Set up new project / install skeleton / tune skeleton to this project" | `project-tuner-helper` | Agent | (no preload — inspects target on dispatch) |
 
 <!-- Project-specific routes: project-tuner-helper extends below -->
