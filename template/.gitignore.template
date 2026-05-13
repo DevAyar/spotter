@@ -1,0 +1,5 @@
+# TODO: Phase 4b — baseline .gitignore additions for target projects.
+# These entries get merged into the target's existing .gitignore (non-destructive).
+
+# Claude Code session-local state
+.claude/agent-memory/

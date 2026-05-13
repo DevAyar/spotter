@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Claude Code session-local state (per Trainer-View convention)
+.claude/agent-memory/
+
+# Test projects (used for install validation in Phase 4d-e)
+/test-projects/
