@@ -2,6 +2,16 @@
 
 All notable changes to claude-skeleton are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [0.5.0] - 2026-05-13 — Install mechanism
+
+- **`scripts/install.sh`** — curl- or local-installable. Three modes (fresh / merge / replace) with the non-destructive rule enforced. `--claude-only` flag for skeleton-on-skeleton installs. `--dry-run` for safe previews. Auto-detects skeleton checkout by walking up from the script; falls back to cloning the public repo. Auto-detects target via `git rev-parse`. Refuses non-git targets, self-installs (without `--claude-only`), and dirty preflight conditions. Writes `.claude/.skeleton-version` after a successful install. On any error, rolls back every file added by the run.
+- **`scripts/update.sh`** — diff-driven update flow. Reads `.skeleton-version`, scans each file under `.claude/` against the current template, presents per-category and per-file decisions. Backs up before overwriting; rollback restores on error. v1 cannot distinguish locally-modified from template-updated without per-file hashes — documented as a limitation.
+- **New agent**: `integration-installer` (`template/.claude/agents/05_meta/`) — judgment-driven companion to `install.sh`. Inspects target state, decides mode appropriateness, surfaces edge cases, produces a structured install plan with the exact script invocation. Does not modify files itself. Coordinates with `project-tuner-helper` as the second stage.
+- **`.gitattributes`** — forces LF endings for `*.sh` and `*.bash` on all platforms. Bash refuses CRLF shebangs.
+- **First dogfood install**: `bash scripts/install.sh --mode=merge --claude-only` against this repo. Populated root `.claude/` with 10 agents, 5 skills, 2 scripts, 4 commands, 3 hook files, and `.skeleton-version`. Existing meta-dev `settings.json` preserved by the non-destructive rule. 23 files match `template/.claude/` byte-for-byte (verified). Clears Finding F16 from the 4b.6 meta-system drift audit.
+- **`docs/INSTALLATION.md`** — real content (install / update / uninstall / modes / dry-run / troubleshooting) replacing the Phase 4a stub.
+- **Limitation**: subagent registration for custom agents under `.claude/agents/` requires a session restart in Claude Code. Skills register live (verified in-session after the dogfood install).
+
 ## [0.4.0] - 2026-05-13 — Meta-management layer
 
 - **Four new agents** (`template/.claude/agents/05_meta/`):
