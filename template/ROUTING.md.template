@@ -17,6 +17,7 @@ The routing table maps task patterns to handlers. The manager consults this at s
 | Edit on source file under `src/` or `lib/` | `post-edit-test-suggest` | Skill | Test command |
 | Session start after compact | `sessionstart-rules.sh` | Hook | `compactPrompt` from settings |
 | Before auto-compact | `precompact-backup.sh` | Hook | STATUS.md, SESSION_LOG.md, CLAUDE.md |
+| "Install / re-install / troubleshoot install of claude-skeleton" | `integration-installer` | Agent | Target path + desired mode |
 | "Set up new project / install skeleton / tune skeleton to this project" | `project-tuner-helper` | Agent | (no preload — inspects target on dispatch) |
 | "What do I have available / list installed agents / where is X" | `system-memory-helper` | Agent | (no preload — walks `.claude/` on dispatch) |
 | "Find a handler for capability X" | `plugin-roster-search` | Skill | (lightweight grep across descriptions) |
