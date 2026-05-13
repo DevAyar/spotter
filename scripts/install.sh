@@ -79,7 +79,7 @@ write_marker_json() {
 import json, sys
 files = {}
 for line in sys.stdin:
-    line = line.rstrip("\n")
+    line = line.rstrip("\r\n")
     if not line: continue
     parts = line.split("\t", 1)
     if len(parts) != 2: continue
@@ -95,7 +95,7 @@ out = {
 if sys.argv[7]:
     out["updated_at"] = sys.argv[7]
 out["files"] = files
-with open(sys.argv[8], "w") as f:
+with open(sys.argv[8], "w", newline="\n") as f:
     json.dump(out, f, indent=2, sort_keys=True)
     f.write("\n")
 ' "$version" "$commit" "$installed_at" "$mode" "$claude_only" "$source" "$updated_at" "$tmp" || { rm -f "$tmp"; return 1; }
