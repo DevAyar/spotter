@@ -18,6 +18,12 @@ TMP_CLONE_DIR=""
 ADDED_FILES=()
 ADDED_DIRS=()
 
+# Per-file install hashes: one "<relpath><TAB><sha256>" entry per non-top file copied/overwritten
+INSTALLED_HASHES=()
+
+# JSON parsing tool (detected at startup)
+JSON_TOOL=""
+
 # Counters
 COPIED=0
 SKIPPED=0
@@ -40,6 +46,61 @@ ok()   { printf '%s%s%s\n' "${C_GREEN}" "$*" "${C_RESET}"; }
 warn() { printf '%s%s%s\n' "${C_YELLOW}" "$*" "${C_RESET}" >&2; }
 err()  { printf '%s%s%s\n' "${C_RED}"   "$*" "${C_RESET}" >&2; }
 die()  { err "error: $*"; exit 1; }
+
+# ---- JSON helpers ----
+detect_json_tool() {
+  if command -v python >/dev/null 2>&1; then
+    JSON_TOOL="python"
+  elif command -v python3 >/dev/null 2>&1; then
+    JSON_TOOL="python3"
+  else
+    die "JSON parsing requires python on PATH (not found)"
+  fi
+}
+
+# record_installed_hash <absolute-target-path>
+# Records "<relpath-from-target><TAB><sha256>" into INSTALLED_HASHES.
+record_installed_hash() {
+  local tgt="$1"
+  local rel hash
+  rel="${tgt#$TARGET_PATH/}"
+  hash=$(sha256sum "$tgt" 2>/dev/null | awk '{print $1}')
+  [ -n "$hash" ] || die "sha256sum failed for $tgt"
+  INSTALLED_HASHES+=("$rel"$'\t'"$hash")
+}
+
+# write_marker_json <file> <version> <commit> <installed_at> <mode> <claude_only> <source> <updated_at_or_empty>
+# Reads "<relpath>\t<hash>" lines from stdin and writes them as the files object.
+# Atomic: writes to <file>.tmp.$$ then mv.
+write_marker_json() {
+  local file="$1" version="$2" commit="$3" installed_at="$4" mode="$5" claude_only="$6" source="$7" updated_at="$8"
+  local tmp="${file}.tmp.$$"
+  "$JSON_TOOL" -c '
+import json, sys
+files = {}
+for line in sys.stdin:
+    line = line.rstrip("\n")
+    if not line: continue
+    parts = line.split("\t", 1)
+    if len(parts) != 2: continue
+    files[parts[0]] = parts[1]
+out = {
+  "version": sys.argv[1],
+  "commit": sys.argv[2],
+  "installed_at": sys.argv[3],
+  "mode": sys.argv[4],
+  "claude_only": (sys.argv[5] == "true"),
+  "source": sys.argv[6],
+}
+if sys.argv[7]:
+    out["updated_at"] = sys.argv[7]
+out["files"] = files
+with open(sys.argv[8], "w") as f:
+    json.dump(out, f, indent=2, sort_keys=True)
+    f.write("\n")
+' "$version" "$commit" "$installed_at" "$mode" "$claude_only" "$source" "$updated_at" "$tmp" || { rm -f "$tmp"; return 1; }
+  mv -f "$tmp" "$file"
+}
 
 # ---- Cleanup / rollback ----
 cleanup() {
@@ -248,6 +309,7 @@ process_file() {
     overwrite)
       cp -p "$src" "$tgt"
       ensure_exec_if_script "$tgt"
+      [ "$top" != "top" ] && record_installed_hash "$tgt"
       OVERWRITTEN=$((OVERWRITTEN+1))
       ;;
     copy)
@@ -255,6 +317,7 @@ process_file() {
       cp -p "$src" "$tgt"
       ensure_exec_if_script "$tgt"
       ADDED_FILES+=("$tgt")
+      [ "$top" != "top" ] && record_installed_hash "$tgt"
       COPIED=$((COPIED+1))
       ;;
   esac
@@ -325,9 +388,14 @@ write_version_marker() {
   commit=$(git -C "$SOURCE_PATH" rev-parse HEAD 2>/dev/null || echo "unknown")
   ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   ensure_dir "$TARGET_PATH/.claude"
-  printf 'version: %s\ncommit: %s\ninstalled_at: %s\nmode: %s\nclaude_only: %s\nsource: %s\n' \
-    "$version" "$commit" "$ts" "$MODE" "$CLAUDE_ONLY" "$SOURCE_PATH" > "$marker"
-  ADDED_FILES+=("$marker")
+  local marker_existed=false
+  [ -f "$marker" ] && marker_existed=true
+  {
+    if [ ${#INSTALLED_HASHES[@]} -gt 0 ]; then
+      printf '%s\n' "${INSTALLED_HASHES[@]}"
+    fi
+  } | write_marker_json "$marker" "$version" "$commit" "$ts" "$MODE" "$CLAUDE_ONLY" "$SOURCE_PATH" ""
+  [ "$marker_existed" = false ] && ADDED_FILES+=("$marker")
 }
 
 # ---- Summary ----
@@ -361,6 +429,7 @@ summary() {
 
 # ---- Main ----
 parse_args "$@"
+detect_json_tool
 resolve_skeleton_root
 resolve_target_root
 preflight
