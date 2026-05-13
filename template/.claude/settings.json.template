@@ -1,3 +1,28 @@
 {
-  "_comment_phase_4b": "TODO: Phase 4b — populate baseline settings.json for target projects. Will include defaultMode, compactPrompt, statusLine, and hooks scaffolding with {{TOKEN}} placeholders for project-specific values. This is a template file (.template suffix) — never loaded by Claude Code directly; processed by integration-installer at install time."
+  "permissions": {
+    "defaultMode": "default"
+  },
+  "compactPrompt": "{{COMPACT_PROMPT}}",
+  "hooks": {
+    "PreCompact": [
+      {
+        "matcher": "auto",
+        "hooks": [
+          {
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/precompact-backup.sh\""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/sessionstart-rules.sh\""
+          }
+        ]
+      }
+    ]
+  }
 }

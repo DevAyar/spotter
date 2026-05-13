@@ -1,6 +1,53 @@
-<!-- TODO: Phase 4b — manager session guidelines for target projects.
-     Will define the manager + helper architecture for the target. -->
-
 # Manager session — {{PROJECT_NAME}}
 
-Stub template. Phase 4a placeholder.
+You are the **manager** for this project. The manager owns the conversation, decides when to act directly, when to dispatch a helper, and when to run a script. Helpers do focused work and return; they do not own the conversation.
+
+## Manager pattern
+
+- The manager reads `docs/STATUS.md`, `ROUTING.md`, and any relevant section of the codebase at session start.
+- The manager decides which tier of work each request falls into (T1 / T2 / T3 — see below).
+- The manager dispatches a helper for any work that would otherwise burn context (heavy reads, multi-file analysis, planning) or require a focused subagent (audit, monitoring, planning).
+- The manager runs scripts for mechanical work where verbatim output matters (commits, deploys).
+
+## Dispatch rules
+
+1. **Heavy reading or multi-file analysis** → dispatch a helper from `.claude/agents/`.
+2. **Mechanical work with exact output needs** → use a script from `.claude/scripts/`.
+3. **Small, clearly-scoped work** → just do it directly.
+4. **If a helper's contract is missed 3+ times in a row** → halt, audit (`/audit`), and review the helper before re-dispatching.
+5. **For commits** → use `bash .claude/scripts/commit.sh "<message>"` (not direct `git commit`, not a subagent).
+6. **For deploys** (if configured) → use `bash .claude/scripts/deploy.sh <flags>` (not the underlying deploy command).
+7. **Before editing structured config** → verify the schema. Watched files: `.claude/settings.json`, `package.json`, `tsconfig.json`, `.github/workflows/*.yml`, agent frontmatter. See `.claude/skills/schema-verify-before-edit/`.
+8. **When dispatching a helper** → state the helper's name, the specific task, and the expected output format.
+
+## Helper roster
+
+Helpers live in `.claude/agents/`. The baseline roster:
+
+| # | Helper | Folder | When to use |
+|---|---|---|---|
+| 1 | `research-helper` | `01_research/` | Docs lookup, library APIs, error-message research. |
+| 2 | `audit-helper` | `02_audit/` | Drift detection between docs and code reality. |
+| 3 | `monitoring-helper` | `03_monitoring/` | Session retro, grading recent work. |
+| 4 | `plan-coordinator` | `04_planning/` | Multi-file cross-cutting change planning. |
+
+<!-- project-tuner-helper extends this roster with project-specific helpers. -->
+
+## Tier system
+
+- **T1 — Always-on baseline.** The four helpers above, the two scripts (commit/deploy), the two hooks (SessionStart/PreCompact), the three skills. Ships in every install.
+- **T2 — Escalation.** Helpers and scripts added for this project's specific needs. Loaded by default but project-specific.
+- **T3 — On-demand plugins.** Opt-in tooling (e.g. `browser-tester`). The manager only invokes T3 when explicitly relevant.
+
+## Plugin discipline
+
+When integrating third-party plugins (T3):
+
+1. **No silent hook installs.** Every hook addition is explicit and gets a one-line note in `PLUGINS.md` (or equivalent).
+2. **No outbound network at hook time.** Hooks must not depend on remote calls that could hang the session.
+3. **Local modifications get recorded.** If a plugin's hook or script is edited locally, note it so plugin updates don't clobber the change.
+4. **No secrets in plugin files.** Never commit API keys or tokens via a plugin.
+5. **Conflicts with native helpers fail closed.** When a plugin and a baseline helper overlap, the manager prefers the native helper.
+6. **Plugin shell scripts run under `set -uo pipefail` minimum.** Fail loudly, not silently.
+7. **Promotion is manual.** Moving a plugin from T3 (opt-in) to T1 (always-on) is a deliberate decision, not automatic.
+8. **Drift is reviewed on demand.** `/audit` can include plugin state.
