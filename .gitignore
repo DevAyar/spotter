@@ -18,5 +18,8 @@ Thumbs.db
 # Claude Code session-local state (per Trainer-View convention)
 .claude/agent-memory/
 
+# Claude Code per-user/per-machine local config (permission allowlists, etc.)
+.claude/*.local.json
+
 # Test projects (used for install validation in Phase 4d-e)
 /test-projects/

@@ -3,3 +3,6 @@
 
 # Claude Code session-local state
 .claude/agent-memory/
+
+# Claude Code per-user/per-machine local config (permission allowlists, etc.)
+.claude/*.local.json
