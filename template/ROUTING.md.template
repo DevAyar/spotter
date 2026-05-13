@@ -19,8 +19,10 @@ The routing table maps task patterns to handlers. The manager consults this at s
 | Before auto-compact | `precompact-backup.sh` | Hook | STATUS.md, SESSION_LOG.md, CLAUDE.md |
 | "Set up new project / install skeleton / tune skeleton to this project" | `project-tuner-helper` | Agent | (no preload — inspects target on dispatch) |
 | "What do I have available / list installed agents / where is X" | `system-memory-helper` | Agent | (no preload — walks `.claude/` on dispatch) |
+| "Find a handler for capability X" | `plugin-roster-search` | Skill | (lightweight grep across descriptions) |
 | "Modify agent N's tools / scope / description" | `agent-slicer` | Agent | Target agent file |
 | "Audit the meta-system for drift / orphans / dead refs" | `self-audit-helper` | Agent | (no preload — walks `.claude/` on dispatch) |
+| Token usage on subtask exceeds 1.5× expected envelope | `token-efficiency-monitor` | Skill | Task type + actual cost |
 | "What patterns are recurring / what should be automated" | `workflow-suggester` | Agent | `docs/SESSION_LOG.md` |
 
 <!-- Project-specific routes: project-tuner-helper extends below -->
