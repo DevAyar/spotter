@@ -2,6 +2,10 @@
 
 All notable changes to claude-skeleton are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+- Added `bash-safety` skill to `template/.claude/skills/`: noise-path excludes, timeout discipline, background-bash wait/kill rules. Prevents zombie tasks from unbounded scans hitting `.git`/`.godot`/`node_modules`/build caches. Surfaced by a hung "Count Godot file types" task in the Echoes session.
+
 ## [0.9.0] - 2026-05-14 — CI: automated three-platform validation
 
 - **`.github/workflows/ci.yml` — three-platform matrix CI.** Runs on every push to `main` and every PR across `ubuntu-latest`, `windows-latest`, and `macos-latest`. `fail-fast: false`, so a single-platform break still surfaces results from the other two. Uses `actions/checkout@v4` and `actions/setup-python@v5` (3.11), then a sequence of named scenario steps from `.github/test-fixtures/scenarios.sh`.
