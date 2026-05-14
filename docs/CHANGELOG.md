@@ -2,6 +2,21 @@
 
 All notable changes to claude-skeleton are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [0.9.0] - 2026-05-14 — CI: automated three-platform validation
+
+- **`.github/workflows/ci.yml` — three-platform matrix CI.** Runs on every push to `main` and every PR across `ubuntu-latest`, `windows-latest`, and `macos-latest`. `fail-fast: false`, so a single-platform break still surfaces results from the other two. Uses `actions/checkout@v4` and `actions/setup-python@v5` (3.11), then a sequence of named scenario steps from `.github/test-fixtures/scenarios.sh`.
+- **`.github/test-fixtures/scenarios.sh` — six scenarios.** Each runs in its own `mktemp -d` target, runs assertions, and trap-cleans:
+  - `fresh-install` — clean target → marker is valid JSON with 25 files, all 64-char hex hashes.
+  - `fresh-refuse` — populated target → `--mode=fresh` exits non-zero; marker bytes unchanged.
+  - `merge-add` — deleted file is re-added by `--mode=merge`; untouched neighbors confirmed by hash.
+  - `local-mod-detect` — `update.sh --dry-run` reports `LOCALLY_MODIFIED` for a target file modified after install.
+  - `local-mod-preserve` — `update.sh` with `[K]eep` leaves the local file bytes intact.
+  - `backfill-migrate` — legacy shell-format marker migrated to JSON after one `update.sh` run.
+- **Portability fix: `sha256sum` vs `shasum -a 256`.** Surfaced by adding macOS to the CI matrix — macOS doesn't ship `sha256sum`. Both `install.sh` and `update.sh` now detect the available command at startup (`detect_sha256`) and route hashing through a shared `$SHA256_CMD`. macOS users can now run the install scripts; previously they would have hit `sha256sum: command not found`.
+- **Bug fix in `install.sh`: merge-mode rerun set-e trip.** `write_version_marker` ended with `[ "$marker_existed" = false ] && ADDED_FILES+=("$marker")`. When the marker already existed (re-running `install.sh` in merge mode), the `[` test returned 1, propagated through `&&` to the function's exit code, and tripped `set -e`. The merge install would then roll back the one new file it had just added. Replaced with explicit `if/fi`. Surfaced by the `merge-add` scenario.
+- **README CI badge.** Standard GitHub Actions badge directly after the title — current `main` build state is visible at-a-glance for anyone landing on the repo.
+- **INSTALLATION.md + ARCHITECTURE.md** got CI sections / rows pointing to the workflow and scenarios fixture.
+
 ## [0.8.0] - 2026-05-13 — Per-file hashes enable safe automated updates
 
 - **`.skeleton-version` now stores per-file SHA-256 hashes.** `install.sh` writes a `files` object mapping every installed `.claude/` file's relative path to its content hash at install time. Top-level files (`CLAUDE.md`, etc.) and `--mode=merge` skipped files are not hashed — `update.sh` doesn't touch the former and backfills the latter on first encounter.
