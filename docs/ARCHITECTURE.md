@@ -52,11 +52,12 @@ claude-skeleton/
 │   ├── CLAUDE_MANAGER.md.template
 │   ├── ROUTING.md.template
 │   └── .gitignore.template
-├── scripts/            # Install / update / uninstall scripts (Phase 4c)
+├── scripts/            # Install / update scripts. Uninstall TBD.
 ├── docs/               # This project's own documentation
 │   ├── PHILOSOPHY.md   # Design principles
 │   ├── ARCHITECTURE.md # This file
-│   ├── INSTALLATION.md # How to install (Phase 4c)
+│   ├── INSTALLATION.md # How to install / update
+│   ├── ROADMAP.md      # v1.1+ / v1.2+ / v2.0 sequencing
 │   └── CHANGELOG.md    # Version history
 ├── README.md
 ├── VERSION             # Single-line semver (canonical version source)
@@ -74,24 +75,28 @@ Strict semantic versioning. The current version lives in `VERSION` at the projec
 
 ### Per-project install version tracking
 
-When a target project installs claude-skeleton, the installed version is recorded in a marker file inside the target's `.claude/` (proposed path: `.claude/.skeleton-version`). On update, the install script reads this marker, compares it to the current `VERSION`, and runs only the migrations that apply.
+When a target project installs claude-skeleton, the installed version is recorded in a marker file at `.claude/.skeleton-version` — JSON, with per-file SHA-256 hashes since 0.8.0 for safe automated updates. On update, `update.sh` reads this marker, compares hashes file-by-file against the current template, and classifies each file (`TEMPLATE_UPDATED` / `LOCALLY_MODIFIED` / `UNCHANGED` / `NEW` / `ORPHAN`) before prompting.
 
-Without this marker, every update would have to assume the worst (full re-merge with all version migrations). The marker turns updates into focused diffs.
+Pre-0.8.0 shell-format markers get migrated automatically on first `update.sh` run via the backfill path — the warning is prominent and `--auto-apply` is forced off so the user can't accidentally bulk-overwrite local modifications during the migration. After backfill, subsequent runs use precise classification.
+
+Without per-file hashes, every update would have to assume the worst (full re-merge with all version migrations). The hash mechanism turns updates into focused, reviewable diffs.
 
 ## Install flow
 
 Installing claude-skeleton into a target project is a two-stage flow with two distinct agents. The separation matters: file operations are mechanical and safety-critical; project customization is judgment-driven. Mixing them produces an install that's either too cautious or too eager.
 
-### Stage 1 — `integration-installer` (Phase 4c)
+### Stage 1 — `scripts/install.sh` + optional `integration-installer` companion
 
 Handles install **mechanics**. Operates under the non-destructive install rule (see `PHILOSOPHY.md`).
 
+`install.sh` (shipped 0.5.0) is the mechanical workhorse — bash script, three modes (fresh / merge / replace), atomic JSON marker write, rollback on any error. Cross-platform via Git Bash on Windows, native bash on Linux / macOS. The `integration-installer` agent (also 0.5.0, lives in `template/.claude/agents/05_meta/`) is the optional judgment companion — it inspects target state, recommends a mode, surfaces edge cases, and produces a structured install plan that `install.sh` then executes. Either can be invoked alone; together they cover both the script-style automated install and the conversational manager-driven install.
+
 Responsibilities:
-- File operations (copy, merge, skip).
-- Merge-mode detection: choose between `--mode=fresh`, `--mode=merge`, `--mode=replace`.
-- Non-destructive overwrite rules: never overwrite an existing file in the target without explicit `--force` confirmation.
-- Version tracking: write `.skeleton-version` marker, log install metadata.
-- Rollback on failure: if any step errors, restore the target's `.claude/` to its pre-install state.
+- File operations (copy, merge, skip) — `install.sh`.
+- Mode selection (`--mode=fresh`, `--mode=merge`, `--mode=replace`) — `install.sh` enforces, `integration-installer` recommends.
+- Non-destructive overwrite rules: never overwrite an existing file without explicit `--force` confirmation — `install.sh`.
+- Version tracking: write the JSON `.skeleton-version` marker with per-file SHA-256 hashes — `install.sh`.
+- Rollback on failure: if any step errors, restore the target's `.claude/` to its pre-install state — `install.sh`.
 
 Owns the question: **"How do I put these files into the target safely?"**
 
@@ -100,7 +105,7 @@ Install modes:
 - `--mode=merge` (default) — adds missing files. Leaves existing files alone. Reports what was added and what was skipped.
 - `--mode=replace` — requires `--force` and interactive confirmation. The escape hatch for users who explicitly want to overwrite. Defaults to refusing.
 
-### Stage 2 — `project-tuner-helper` (Phase 4b)
+### Stage 2 — `project-tuner-helper`
 
 Runs **after** `integration-installer` completes successfully. Inspects the target project and helps customize the freshly-installed baseline.
 
@@ -137,7 +142,7 @@ Either stage can be invoked independently:
 
 ## Helper roster overview
 
-`template/.claude/agents/` ships organized by numbered tier folders, each holding helpers of a related role. The skeleton-baseline tiers at 0.4.0:
+`template/.claude/agents/` ships organized by numbered tier folders, each holding helpers of a related role. The skeleton-baseline roster at 0.9.0:
 
 | Tier | Folder | Helpers | Role |
 |---|---|---|---|
@@ -145,11 +150,11 @@ Either stage can be invoked independently:
 | 2 | `02_audit/` | `audit-helper` | Drift detection between docs and reality. |
 | 3 | `03_monitoring/` | `monitoring-helper` | Session retro and grading. |
 | 4 | `04_planning/` | `plan-coordinator` | Multi-file cross-cutting change planning. |
-| 5 | `05_meta/` | `project-tuner-helper`, `system-memory-helper`, `agent-slicer`, `workflow-suggester`, `self-audit-helper` | Meta-management — customizes, inspects, modifies, and audits the system itself. |
+| 5 | `05_meta/` | `project-tuner-helper`, `system-memory-helper`, `agent-slicer`, `workflow-suggester`, `self-audit-helper`, `integration-installer` | Meta-management — customizes, inspects, modifies, audits, and installs. |
 
-`template/.claude/skills/` ships five baseline skills at 0.4.0: `schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first` (behavioral conventions for the manager), plus `token-efficiency-monitor` and `plugin-roster-search` (meta-management observers).
+`template/.claude/skills/` ships six baseline skills at 0.9.0: `schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, and `bash-safety` (behavioral conventions for the manager), plus `token-efficiency-monitor` and `plugin-roster-search` (meta-management observers).
 
-The `05_meta/` tier is what makes the skeleton self-managing: `project-tuner-helper` customizes a fresh install, `self-audit-helper` watches the meta-system for drift, `agent-slicer` modifies agents safely, `system-memory-helper` answers "what's installed," and `workflow-suggester` proposes captures for recurring patterns. Each is context-aware — it inspects whatever `.claude/` is active where it runs, so it works inside `claude-skeleton` itself and inside any target project after install.
+The `05_meta/` tier is what makes the skeleton self-managing: `project-tuner-helper` customizes a fresh install, `self-audit-helper` watches the meta-system for drift, `agent-slicer` modifies agents safely, `system-memory-helper` answers "what's installed," `workflow-suggester` proposes captures for recurring patterns, and `integration-installer` is the judgment companion to `scripts/install.sh`. Each is context-aware — it inspects whatever `.claude/` is active where it runs, so it works inside `claude-skeleton` itself and inside any target project after install.
 
 ## Where things live
 
@@ -160,15 +165,17 @@ A quick map of which file owns which kind of decision:
 | Current version | `VERSION` | Canonical source. |
 | Design principles | `docs/PHILOSOPHY.md` | The "why" of the skeleton. |
 | Project layout | `docs/ARCHITECTURE.md` | This file. |
-| Install / update / uninstall instructions | `docs/INSTALLATION.md` | Filled in Phase 4c. |
+| Install / update instructions | `docs/INSTALLATION.md` | Real content as of Phase 4g (includes the per-file-hash mechanism). |
+| Forward-looking sequencing | `docs/ROADMAP.md` | v1.1+ / v1.2+ / v2.0. Living. |
 | Version history | `docs/CHANGELOG.md` | Keep-a-Changelog format. |
 | Template content (shipping) | `template/` | Everything under here is shippable artifact. |
 | Skeleton's own dev tools | `.claude/` | Not shipped to target projects. |
-| Install / update scripts | `scripts/` | Phase 4c. |
+| Install / update scripts | `scripts/` | `install.sh` + `update.sh`. |
 | Continuous integration | `.github/workflows/ci.yml` + `.github/test-fixtures/scenarios.sh` | Cross-platform smoke tests for the install/update path (Ubuntu, Windows, macOS). |
 
 ## Deferred
 
-- `integration-installer` agent + `scripts/install.sh`, `scripts/update.sh`, `scripts/uninstall.sh` (Phase 4c).
-- Test projects under `test-projects/` for validation (Phase 4d-e).
-- `INSTALLATION.md` content (Phase 4c).
+- `scripts/uninstall.sh` — explicit removal flow. v1.0 documentation lists the manual `rm -rf` recipe.
+- A first-party `test-projects/` directory under the repo for in-tree end-to-end validation. CI runs install/update scenarios in throwaway `mktemp -d` targets ([`.github/test-fixtures/scenarios.sh`](../.github/test-fixtures/scenarios.sh)) and that has been sufficient through 0.9.0.
+
+For forward-looking work — v1.1+ capture / reuse loop, v1.2+ `manager-optimizer`, v2.0 plugin recommendation system — see [`docs/ROADMAP.md`](ROADMAP.md).

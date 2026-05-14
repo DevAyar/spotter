@@ -4,7 +4,7 @@
 
 > A battle-tested orchestration skeleton for Claude Code projects.
 
-**Status: pre-alpha, in active development.** This README is a draft and will be updated once the project is installable.
+**Status:** v0.9.0 — install, update, and CI shipped. Used in production on Trainer-View (Flutter + Firebase) and Echoes-Of-Gill (Godot). See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next.
 
 ## What it is
 
@@ -38,29 +38,23 @@ Quick summary:
 - Non-destructive install — the target project's existing structure always wins.
 - "Not every task is an AI task" — scripts for mechanical work.
 
-## Status
+## What ships at v0.9.0
 
-- **Phase 4a:** project foundation. Directory layout, initial docs, version 0.1.0. ✓
-- **Phase 4b:** populated `template/.claude/` with baseline agents, skills, scripts, commands, hooks. Reached 0.2.0. ✓
-- **Phase 4b.5:** added `project-tuner-helper` — the customization side of the install flow. Reached 0.3.0. ✓
-- **Phase 4b.6:** added the meta-management layer (`05_meta/` tier) — agents and skills that watch, modify, and audit the system itself. Reached 0.4.0. ✓
-- **Phase 4c (next):** install / update mechanism (`scripts/install.sh`) + `integration-installer`.
-- **Phase 4d-e:** validation, test projects.
-- **Phase 5+:** iteration on real-world use.
+- **Orchestration discipline** — directive layer in `template/CLAUDE_MANAGER.md.template` (strategic judgment patterns, dispatch mechanics, plugin marketplace composition, three-commit cadence, recursive ownership L0/L1/L2).
+- **Baseline tooling** — 9 baseline agents, 6 baseline skills, 2 scripts (`commit.sh`, `deploy.sh`), 4 slash commands (`/commit`, `/audit`, `/deploy`, `/smoke-test`), 2 hooks (SessionStart, PreCompact).
+- **Install / update infrastructure** — `install.sh` (three modes), `update.sh` (six-way classification using per-file SHA-256 hashes with backfill for legacy markers), atomic JSON `.skeleton-version` marker.
+- **CI** — three-platform matrix (Ubuntu, Windows, macOS) running six install/update scenarios on every push and PR.
 
-Current version: **0.4.0**. The skeleton's content is functional; the install mechanics are what remain before target projects can pull it in.
+For phase-by-phase history see [`docs/CHANGELOG.md`](docs/CHANGELOG.md). For what's coming next — the v1.1+ capture / reuse loop, v1.2+ `manager-optimizer`, v2.0 plugin recommendation system — see [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Documentation
 
 - [`docs/PHILOSOPHY.md`](docs/PHILOSOPHY.md) — design principles.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — project layout and install flow.
-- [`docs/INSTALLATION.md`](docs/INSTALLATION.md) — install/update (stub).
+- [`docs/INSTALLATION.md`](docs/INSTALLATION.md) — install / update, including the per-file-hash mechanism.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — v1.1+ / v1.2+ / v2.0 sequencing.
 - [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — version history.
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
----
-
-*Draft README. Update once the install mechanism lands.*
