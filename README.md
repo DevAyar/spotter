@@ -1,5 +1,7 @@
 # claude-skeleton
 
+[![CI](https://github.com/DevAyar/claude-skeleton/actions/workflows/ci.yml/badge.svg)](https://github.com/DevAyar/claude-skeleton/actions/workflows/ci.yml)
+
 > A battle-tested orchestration skeleton for Claude Code projects.
 
 **Status: pre-alpha, in active development.** This README is a draft and will be updated once the project is installable.

@@ -165,6 +165,7 @@ A quick map of which file owns which kind of decision:
 | Template content (shipping) | `template/` | Everything under here is shippable artifact. |
 | Skeleton's own dev tools | `.claude/` | Not shipped to target projects. |
 | Install / update scripts | `scripts/` | Phase 4c. |
+| Continuous integration | `.github/workflows/ci.yml` + `.github/test-fixtures/scenarios.sh` | Cross-platform smoke tests for the install/update path (Ubuntu, Windows, macOS). |
 
 ## Deferred
 

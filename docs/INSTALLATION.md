@@ -219,6 +219,23 @@ Two follow-up agents handle the post-install customization:
 
 Both are documented in [`ARCHITECTURE.md`](ARCHITECTURE.md#install-flow).
 
+## CI
+
+The `install.sh` / `update.sh` install path is exercised on every
+push to `main` and every PR via GitHub Actions, across
+`ubuntu-latest`, `windows-latest`, and `macos-latest` runners. The
+scenarios live in
+[`.github/test-fixtures/scenarios.sh`](../.github/test-fixtures/scenarios.sh)
+and cover: fresh install, `--mode=fresh` refusal on a populated
+target, `--mode=merge` re-adding a deleted file without touching
+neighbors, `LOCALLY_MODIFIED` detection in `update.sh --dry-run`,
+`[K]eep` actually preserving local bytes, and the 0.8.0 backfill
+migration from the legacy shell-format marker to JSON.
+
+If you change either script or the template, CI catches it before
+merge. The current state of `main` is shown by the badge at the top
+of [`README.md`](../README.md).
+
 ## Related
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — project layout and the
