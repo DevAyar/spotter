@@ -21,6 +21,9 @@ DELETED_BACKUPS=()  # entries: "<path>|<backup-path>" for orphan deletes
 # JSON parsing tool (detected at startup)
 JSON_TOOL=""
 
+# SHA-256 command (detected at startup — sha256sum on Linux/Git Bash, shasum -a 256 on macOS)
+SHA256_CMD=""
+
 # Marker state (populated by dump_marker)
 declare -A MARKER_FIELDS=()
 declare -A MARKER_HASHES=()
@@ -297,8 +300,18 @@ preflight() {
 }
 
 # ---- Classification ----
+detect_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    SHA256_CMD="sha256sum"
+  elif command -v shasum >/dev/null 2>&1; then
+    SHA256_CMD="shasum -a 256"
+  else
+    die "sha256sum or shasum required (neither found on PATH)"
+  fi
+}
+
 hash_file() {
-  sha256sum "$1" 2>/dev/null | awk '{print $1}'
+  $SHA256_CMD "$1" 2>/dev/null | awk '{print $1}'
 }
 
 src_for_rel() {
@@ -673,6 +686,7 @@ summary() {
 # ---- Main ----
 parse_args "$@"
 detect_json_tool
+detect_sha256
 resolve_skeleton_root
 resolve_target_root
 preflight

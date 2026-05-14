@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Show environment
+        shell: bash
+        run: |
+          uname -a
+          python --version
+          command -v sha256sum >/dev/null 2>&1 && echo "sha256sum: yes" || echo "sha256sum: no"
+          command -v shasum     >/dev/null 2>&1 && echo "shasum: yes"     || echo "shasum: no"
+          bash --version | head -1
+
+      - name: install.sh --help
+        shell: bash
+        run: bash scripts/install.sh --help >/dev/null
+
+      - name: update.sh --help
+        shell: bash
+        run: bash scripts/update.sh --help >/dev/null
+
+      - name: Scenario - fresh-install
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh fresh-install
+
+      - name: Scenario - fresh-refuse
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh fresh-refuse
+
+      - name: Scenario - merge-add
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh merge-add
+
+      - name: Scenario - local-mod-detect
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh local-mod-detect
+
+      - name: Scenario - local-mod-preserve
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh local-mod-preserve
+
+      - name: Scenario - backfill-migrate
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh backfill-migrate

@@ -24,6 +24,9 @@ INSTALLED_HASHES=()
 # JSON parsing tool (detected at startup)
 JSON_TOOL=""
 
+# SHA-256 command (detected at startup — sha256sum on Linux/Git Bash, shasum -a 256 on macOS)
+SHA256_CMD=""
+
 # Counters
 COPIED=0
 SKIPPED=0
@@ -58,14 +61,30 @@ detect_json_tool() {
   fi
 }
 
+# ---- SHA-256 helpers ----
+detect_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    SHA256_CMD="sha256sum"
+  elif command -v shasum >/dev/null 2>&1; then
+    SHA256_CMD="shasum -a 256"
+  else
+    die "sha256sum or shasum required (neither found on PATH)"
+  fi
+}
+
+# sha256_of <path> → 64-char hex hash on stdout
+sha256_of() {
+  $SHA256_CMD "$1" 2>/dev/null | awk '{print $1}'
+}
+
 # record_installed_hash <absolute-target-path>
 # Records "<relpath-from-target><TAB><sha256>" into INSTALLED_HASHES.
 record_installed_hash() {
   local tgt="$1"
   local rel hash
   rel="${tgt#$TARGET_PATH/}"
-  hash=$(sha256sum "$tgt" 2>/dev/null | awk '{print $1}')
-  [ -n "$hash" ] || die "sha256sum failed for $tgt"
+  hash=$(sha256_of "$tgt")
+  [ -n "$hash" ] || die "sha256 failed for $tgt"
   INSTALLED_HASHES+=("$rel"$'\t'"$hash")
 }
 
@@ -395,7 +414,9 @@ write_version_marker() {
       printf '%s\n' "${INSTALLED_HASHES[@]}"
     fi
   } | write_marker_json "$marker" "$version" "$commit" "$ts" "$MODE" "$CLAUDE_ONLY" "$SOURCE_PATH" ""
-  [ "$marker_existed" = false ] && ADDED_FILES+=("$marker")
+  if [ "$marker_existed" = false ]; then
+    ADDED_FILES+=("$marker")
+  fi
 }
 
 # ---- Summary ----
@@ -430,6 +451,7 @@ summary() {
 # ---- Main ----
 parse_args "$@"
 detect_json_tool
+detect_sha256
 resolve_skeleton_root
 resolve_target_root
 preflight
