@@ -24,11 +24,57 @@ JSON_TOOL=""
 # SHA-256 command (detected at startup — sha256sum on Linux/Git Bash, shasum -a 256 on macOS)
 SHA256_CMD=""
 
-# Marker state (populated by dump_marker)
-declare -A MARKER_FIELDS=()
-declare -A MARKER_HASHES=()
+# Marker state (populated by dump_marker) — scalar fields + a parallel-arrays
+# emulation of a path→hash map so this script runs on macOS's bash 3.2 (no
+# `declare -A`). MARKER_HASH_ENTRIES holds "path<TAB>hash" entries.
+MARKER_VERSION=""
+MARKER_COMMIT=""
+MARKER_INSTALLED_AT=""
+MARKER_MODE=""
+MARKER_CLAUDE_ONLY=""
+MARKER_SOURCE=""
+MARKER_UPDATED_AT=""
+MARKER_HASH_ENTRIES=()
 MARKER_HAS_FILES_OBJECT=false
 BACKFILL_MODE=false
+
+# ---- marker_hash_* helpers (bash 3.2-compatible map emulation) ----
+marker_hash_get() {
+  local key="$1" entry
+  for entry in "${MARKER_HASH_ENTRIES[@]:-}"; do
+    [ -z "$entry" ] && continue
+    if [ "${entry%%	*}" = "$key" ]; then
+      printf '%s' "${entry#*	}"
+      return 0
+    fi
+  done
+}
+
+marker_hash_set() {
+  local key="$1" val="$2" i
+  for ((i=0; i<${#MARKER_HASH_ENTRIES[@]}; i++)); do
+    if [ "${MARKER_HASH_ENTRIES[$i]%%	*}" = "$key" ]; then
+      MARKER_HASH_ENTRIES[$i]="$key"$'\t'"$val"
+      return 0
+    fi
+  done
+  MARKER_HASH_ENTRIES+=("$key"$'\t'"$val")
+}
+
+marker_hash_unset() {
+  local key="$1" entry new=()
+  for entry in "${MARKER_HASH_ENTRIES[@]:-}"; do
+    [ -z "$entry" ] && continue
+    if [ "${entry%%	*}" != "$key" ]; then
+      new+=("$entry")
+    fi
+  done
+  MARKER_HASH_ENTRIES=("${new[@]:-}")
+  # Re-empty the trailing placeholder, if any.
+  if [ ${#MARKER_HASH_ENTRIES[@]} -eq 1 ] && [ -z "${MARKER_HASH_ENTRIES[0]}" ]; then
+    MARKER_HASH_ENTRIES=()
+  fi
+}
 
 # Findings buckets (populated by classify)
 UNCHANGED_FILES=()
@@ -72,7 +118,7 @@ detect_json_tool() {
 }
 
 # dump_marker: read .skeleton-version (JSON or legacy shell format) and
-# populate MARKER_FIELDS, MARKER_HASHES, MARKER_HAS_FILES_OBJECT.
+# populate MARKER_* scalars, MARKER_HASH_ENTRIES, and MARKER_HAS_FILES_OBJECT.
 dump_marker() {
   local marker="$TARGET_PATH/.claude/.skeleton-version"
   local dump tag key val
@@ -109,9 +155,19 @@ else:
   dump="${dump//$'\r'/}"
   while IFS=$'\t' read -r tag key val; do
     case "$tag" in
-      FIELD)     MARKER_FIELDS["$key"]="$val" ;;
+      FIELD)
+        case "$key" in
+          version)      MARKER_VERSION="$val" ;;
+          commit)       MARKER_COMMIT="$val" ;;
+          installed_at) MARKER_INSTALLED_AT="$val" ;;
+          mode)         MARKER_MODE="$val" ;;
+          claude_only)  MARKER_CLAUDE_ONLY="$val" ;;
+          source)       MARKER_SOURCE="$val" ;;
+          updated_at)   MARKER_UPDATED_AT="$val" ;;
+        esac
+        ;;
       HAS_FILES) if [ "$key" = "true" ]; then MARKER_HAS_FILES_OBJECT=true; fi ;;
-      HASH)      MARKER_HASHES["$key"]="$val" ;;
+      HASH)      MARKER_HASH_ENTRIES+=("$key"$'\t'"$val") ;;
     esac
   done <<< "$dump"
   return 0
@@ -332,7 +388,7 @@ classify() {
   local tgt_claude="$TARGET_PATH/.claude"
   local src rel mapped tgt full_rel
   local hash_recorded hash_current hash_template
-  declare -A in_template=()
+  local in_template=()
 
   while IFS= read -r src; do
     [ -f "$src" ] || continue
@@ -346,7 +402,7 @@ classify() {
     esac
     tgt="$tgt_claude/$mapped"
     full_rel=".claude/$mapped"
-    in_template[$full_rel]=1
+    in_template+=("$full_rel")
 
     if [ ! -e "$tgt" ]; then
       NEW_FILES+=("$full_rel")
@@ -355,12 +411,12 @@ classify() {
 
     hash_template=$(hash_file "$src")
     hash_current=$(hash_file "$tgt")
-    hash_recorded="${MARKER_HASHES[$full_rel]:-}"
+    hash_recorded=$(marker_hash_get "$full_rel")
 
     if [ -z "$hash_recorded" ]; then
       # No recorded hash → per-file backfill.
       BACKFILL_MODE=true
-      MARKER_HASHES[$full_rel]="$hash_current"
+      marker_hash_set "$full_rel" "$hash_current"
       hash_recorded="$hash_current"
     fi
 
@@ -376,10 +432,19 @@ classify() {
     fi
   done < <(find "$skel_claude" -type f 2>/dev/null)
 
-  # Orphan detection: any marker entry not seen in template
-  local rec_path
-  for rec_path in "${!MARKER_HASHES[@]}"; do
-    if [ -z "${in_template[$rec_path]:-}" ]; then
+  # Orphan detection: any marker entry not seen in template.
+  local entry rec_path found p
+  for entry in "${MARKER_HASH_ENTRIES[@]:-}"; do
+    [ -z "$entry" ] && continue
+    rec_path="${entry%%	*}"
+    found=false
+    for p in "${in_template[@]:-}"; do
+      if [ "$p" = "$rec_path" ]; then
+        found=true
+        break
+      fi
+    done
+    if [ "$found" = false ]; then
       ORPHAN_FILES+=("$rec_path")
     fi
   done
@@ -410,7 +475,7 @@ maybe_announce_backfill() {
 # ---- Print findings ----
 print_findings() {
   local installed_version current_version
-  installed_version="${MARKER_FIELDS[version]:-unknown}"
+  installed_version="${MARKER_VERSION:-unknown}"
   current_version=$(tr -d '[:space:]' < "$SOURCE_PATH/VERSION")
   echo
   info "installed: ${installed_version}    current: ${current_version}"
@@ -482,7 +547,7 @@ apply_new() {
     ensure_exec_if_script "$tgt"
     ADDED_FILES+=("$tgt")
     h=$(hash_file "$tgt")
-    MARKER_HASHES[$rel]="$h"
+    marker_hash_set "$rel" "$h"
     APPLIED=$((APPLIED+1))
   done
   ok "applied ${#NEW_FILES[@]} new file(s)"
@@ -522,7 +587,7 @@ apply_all_template_updates() {
     if [ "$DRY_RUN" = false ]; then
       backup_then_overwrite "$src" "$tgt"
       h=$(hash_file "$tgt")
-      MARKER_HASHES[$rel]="$h"
+      marker_hash_set "$rel" "$h"
     fi
     APPLIED=$((APPLIED+1))
   done
@@ -544,7 +609,7 @@ review_template_updates() {
           if [ "$DRY_RUN" = false ]; then
             backup_then_overwrite "$src" "$tgt"
             h=$(hash_file "$tgt")
-            MARKER_HASHES[$rel]="$h"
+            marker_hash_set "$rel" "$h"
           fi
           APPLIED=$((APPLIED+1))
           break
@@ -594,7 +659,7 @@ apply_local_modifications() {
           if [ "$DRY_RUN" = false ]; then
             backup_then_overwrite "$src" "$tgt"
             h=$(hash_file "$tgt")
-            MARKER_HASHES[$rel]="$h"
+            marker_hash_set "$rel" "$h"
           fi
           APPLIED=$((APPLIED+1))
           break
@@ -632,7 +697,7 @@ apply_orphans() {
       for rel in "${ORPHAN_FILES[@]}"; do
         tgt="$TARGET_PATH/$rel"
         [ -f "$tgt" ] && backup_then_delete "$tgt"
-        unset 'MARKER_HASHES[$rel]'
+        marker_hash_unset "$rel"
         APPLIED=$((APPLIED+1))
       done
       ok "deleted ${#ORPHAN_FILES[@]} orphan(s)"
@@ -656,13 +721,14 @@ write_version_marker() {
   version=$(tr -d '[:space:]' < "$SOURCE_PATH/VERSION")
   commit=$(git -C "$SOURCE_PATH" rev-parse HEAD 2>/dev/null || echo "unknown")
   ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-  local installed_at="${MARKER_FIELDS[installed_at]:-unknown}"
-  local prev_mode="${MARKER_FIELDS[mode]:-merge}"
-  local prev_claude_only="${MARKER_FIELDS[claude_only]:-false}"
+  local installed_at="${MARKER_INSTALLED_AT:-unknown}"
+  local prev_mode="${MARKER_MODE:-merge}"
+  local prev_claude_only="${MARKER_CLAUDE_ONLY:-false}"
   {
-    local p
-    for p in "${!MARKER_HASHES[@]}"; do
-      printf '%s\t%s\n' "$p" "${MARKER_HASHES[$p]}"
+    local entry
+    for entry in "${MARKER_HASH_ENTRIES[@]:-}"; do
+      [ -z "$entry" ] && continue
+      printf '%s\n' "$entry"
     done
   } | write_marker_json "$marker" "$version" "$commit" "$installed_at" "$prev_mode" "$prev_claude_only" "$SOURCE_PATH" "$ts"
 }
