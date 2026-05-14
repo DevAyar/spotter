@@ -2,9 +2,21 @@
 
 All notable changes to claude-skeleton are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [1.0.0] - 2026-05-14 — Orchestration layer ready for daily use
 
-- Added `bash-safety` skill to `template/.claude/skills/`: noise-path excludes, timeout discipline, background-bash wait/kill rules. Prevents zombie tasks from unbounded scans hitting `.git`/`.godot`/`node_modules`/build caches. Surfaced by a hung "Count Godot file types" task in the Echoes session.
+The first stable cut. Install / update infrastructure shipped, directive layer locked, validated on two real production targets. v1.0 is the orchestration layer ready for daily use across multiple real projects; v1.1+ work (the capture/reuse loop) starts on top of this baseline.
+
+**Strategic layer.** `template/CLAUDE_MANAGER.md.template` is the directive layer the manager reads at session start. Carries the strategic judgment patterns (when to dispatch a helper vs read directly, when to escalate vs propose, when to question framing vs execute), the recursive ownership L0 / L1 / L2 framing (L3 reserved for v1.2+ `manager-optimizer`), the three-commit cadence (work / docs / VERSION+CHANGELOG → push), and the plugin marketplace composition section naming the seven ecosystem sources claude-skeleton composes with. Verbatim design principle: *"Don't be a directory; be a quality filter."*
+
+**Infrastructure.** `scripts/install.sh` (three modes: fresh / merge / replace; atomic JSON marker write; rollback on any error). `scripts/update.sh` (six-way classification using per-file SHA-256 hashes recorded at install time, with one-time backfill for legacy shell-format markers). `template/.claude/scripts/commit.sh` (verbatim five-section commit wrapper) and `template/.claude/scripts/deploy.sh` (uncommitted-changes check, POST-DEPLOY SMOKE TEST banner). GitHub Actions CI on Ubuntu / macOS / Windows runs six install/update scenarios on every push and every PR (`fresh-install`, `fresh-refuse`, `merge-add`, `local-mod-detect`, `local-mod-preserve`, `backfill-migrate`).
+
+**Agents, skills, commands.** Nine baseline agents: `research-helper`, `audit-helper`, `monitoring-helper`, `plan-coordinator`, plus the five 05_meta agents — `project-tuner-helper`, `system-memory-helper`, `agent-slicer`, `workflow-suggester`, `self-audit-helper`, `integration-installer`. Six baseline skills: `schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, `bash-safety` (noise-path excludes, timeout discipline, background-bash wait/kill rules — prevents zombie tasks from unbounded scans hitting `.git`/`.godot`/`node_modules`/build caches), `token-efficiency-monitor`, `plugin-roster-search`. Four slash commands (`/commit`, `/audit`, `/deploy`, `/smoke-test`). Two hooks (`sessionstart-rules.sh`, `precompact-backup.sh`).
+
+**Validation.** Retrofitted onto and stable across two real production targets at different stack profiles: **Trainer-View** (Flutter + Firebase, mobile app shipping features) and **Echoes-Of-Gill** (Godot, game in active development). Two stacks, two team sizes, two update cadences — install/update path survives both.
+
+**Sequencing.** `docs/ROADMAP.md` orders v1.1+ / v1.2+ / v2.0. The v1.1+ centerpiece is the **capture / reuse loop**: `session-observer` notices recurring patterns in actual session work, `workflow-suggester` evolves from suggesting in the abstract to drafting concrete proposed-helper / proposed-script files, `/goals` provides the clarifying-questions layer, `script-builder` formalises approved captures into reusable scripts following the 5-section discipline. Closes the four named autonomy gaps in one named loop.
+
+**Story.** `docs/STORY.md` is the canonical narrative — what claude-skeleton is, why it exists (ADHD-driven design rationale as constraint-forced discipline that turns out to be generally useful for LLM collaboration over weeks), how it works, what's distinctive, and what it isn't. 1839 words, peer-conversational register.
 
 ## [0.9.0] - 2026-05-14 — CI: automated three-platform validation
 
