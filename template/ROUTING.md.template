@@ -2,6 +2,8 @@
 
 The routing table maps task patterns to handlers. The manager consults this at session start to know "for X, dispatch Y."
 
+This table is the mechanical "for X, dispatch Y" map. The strategic "when to dispatch a helper vs read files directly, when to escalate vs propose, when to question the user's framing vs execute" judgment patterns live in `CLAUDE_MANAGER.md` — the routing table assumes the dispatch decision has been made and answers "to whom."
+
 ## Baseline routes
 
 | Task pattern | Handler | Type | Context to load |

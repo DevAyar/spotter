@@ -22,7 +22,7 @@ Defaults: plain English, jargon-with-translation, what-to-do-next first. Skip pr
 
 ## Manager + helper architecture
 
-Read `CLAUDE_MANAGER.md` for dispatch rules and the helper roster. Read `ROUTING.md` for the task → handler table.
+`CLAUDE_MANAGER.md` is the directive layer — read it for the helper roster, the dispatch rules and strategic judgment patterns (when to dispatch a helper vs read directly, when to escalate vs propose, when to question framing vs execute), the recursive ownership **L0 / L1 / L2** framing, the three-commit cadence, and the **plugin marketplace composition** (how this project draws from the broader Claude Code ecosystem). `ROUTING.md` is the task → handler table.
 
 ## Where things live
 
