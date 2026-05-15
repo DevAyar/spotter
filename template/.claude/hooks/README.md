@@ -1,9 +1,10 @@
 # Hooks
 
-Baseline Claude Code hooks that ship with claude-skeleton. Two events are wired up by default in `settings.json`:
+Baseline Claude Code hooks that ship with claude-skeleton. Three events are wired up by default in `settings.json`:
 
 - **SessionStart** → `sessionstart-rules.sh` — re-injects durable rules from `compactPrompt` at session start.
 - **PreCompact** → `precompact-backup.sh` — backs up STATUS.md, SESSION_LOG.md, and CLAUDE.md before auto-compaction.
+- **SessionEnd** → `sessionend-observe.sh` — records the session boundary for `session-observer` to scan back from at next session start.
 
 ## What does NOT ship: `PostToolUse` and `SubagentStop`
 
@@ -35,3 +36,4 @@ If you're adding `PostToolUse` or `SubagentStop`, **re-read the finding above** 
 
 - `sessionstart-rules.sh` requires `jq`. If jq is missing the hook no-ops; the session still starts cleanly.
 - `precompact-backup.sh` requires nothing beyond standard POSIX tools.
+- `sessionend-observe.sh` requires nothing beyond standard POSIX tools (uses `mkdir`, `printf`, `date`).
