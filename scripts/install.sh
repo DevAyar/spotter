@@ -88,11 +88,12 @@ record_installed_hash() {
   INSTALLED_HASHES+=("$rel"$'\t'"$hash")
 }
 
-# write_marker_json <file> <version> <commit> <installed_at> <mode> <claude_only> <source> <updated_at_or_empty>
+# write_marker_json <file> <version> <commit> <installed_at> <mode> <claude_only> <source> <updated_at_or_empty> <cached_skeleton_head_or_empty> <cached_skeleton_head_fetched_at_or_empty>
 # Reads "<relpath>\t<hash>" lines from stdin and writes them as the files object.
 # Atomic: writes to <file>.tmp.$$ then mv.
 write_marker_json() {
   local file="$1" version="$2" commit="$3" installed_at="$4" mode="$5" claude_only="$6" source="$7" updated_at="$8"
+  local cached_head="${9:-}" cached_fetched_at="${10:-}"
   local tmp="${file}.tmp.$$"
   "$JSON_TOOL" -c '
 import json, sys
@@ -113,11 +114,13 @@ out = {
 }
 if sys.argv[7]:
     out["updated_at"] = sys.argv[7]
+out["cached_skeleton_head"] = sys.argv[8] if sys.argv[8] else None
+out["cached_skeleton_head_fetched_at"] = sys.argv[9] if sys.argv[9] else None
 out["files"] = files
-with open(sys.argv[8], "w", newline="\n") as f:
+with open(sys.argv[10], "w", newline="\n") as f:
     json.dump(out, f, indent=2, sort_keys=True)
     f.write("\n")
-' "$version" "$commit" "$installed_at" "$mode" "$claude_only" "$source" "$updated_at" "$tmp" || { rm -f "$tmp"; return 1; }
+' "$version" "$commit" "$installed_at" "$mode" "$claude_only" "$source" "$updated_at" "$cached_head" "$cached_fetched_at" "$tmp" || { rm -f "$tmp"; return 1; }
   mv -f "$tmp" "$file"
 }
 
@@ -413,7 +416,7 @@ write_version_marker() {
     if [ ${#INSTALLED_HASHES[@]} -gt 0 ]; then
       printf '%s\n' "${INSTALLED_HASHES[@]}"
     fi
-  } | write_marker_json "$marker" "$version" "$commit" "$ts" "$MODE" "$CLAUDE_ONLY" "$SOURCE_PATH" ""
+  } | write_marker_json "$marker" "$version" "$commit" "$ts" "$MODE" "$CLAUDE_ONLY" "$SOURCE_PATH" "" "" ""
   if [ "$marker_existed" = false ]; then
     ADDED_FILES+=("$marker")
   fi

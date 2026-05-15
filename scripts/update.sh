@@ -9,6 +9,7 @@ SOURCE_PATH=""
 TARGET_PATH=""
 AUTO_APPLY=false
 DRY_RUN=false
+CHECK_REMOTE=false
 SKELETON_REPO_URL="https://github.com/DevAyar/claude-skeleton.git"
 TMP_CLONE_DIR=""
 
@@ -34,6 +35,8 @@ MARKER_MODE=""
 MARKER_CLAUDE_ONLY=""
 MARKER_SOURCE=""
 MARKER_UPDATED_AT=""
+MARKER_CACHED_SKELETON_HEAD=""
+MARKER_CACHED_SKELETON_HEAD_FETCHED_AT=""
 MARKER_HASH_ENTRIES=()
 MARKER_HAS_FILES_OBJECT=false
 BACKFILL_MODE=false
@@ -130,8 +133,8 @@ with open(sys.argv[1]) as f:
 stripped = text.lstrip()
 if stripped.startswith("{"):
     d = json.loads(text)
-    for k in ("version","commit","installed_at","mode","claude_only","source","updated_at"):
-        if k in d:
+    for k in ("version","commit","installed_at","mode","claude_only","source","updated_at","cached_skeleton_head","cached_skeleton_head_fetched_at"):
+        if k in d and d[k] is not None:
             v = d[k]
             if isinstance(v, bool):
                 v = "true" if v else "false"
@@ -157,13 +160,15 @@ else:
     case "$tag" in
       FIELD)
         case "$key" in
-          version)      MARKER_VERSION="$val" ;;
-          commit)       MARKER_COMMIT="$val" ;;
-          installed_at) MARKER_INSTALLED_AT="$val" ;;
-          mode)         MARKER_MODE="$val" ;;
-          claude_only)  MARKER_CLAUDE_ONLY="$val" ;;
-          source)       MARKER_SOURCE="$val" ;;
-          updated_at)   MARKER_UPDATED_AT="$val" ;;
+          version)                          MARKER_VERSION="$val" ;;
+          commit)                           MARKER_COMMIT="$val" ;;
+          installed_at)                     MARKER_INSTALLED_AT="$val" ;;
+          mode)                             MARKER_MODE="$val" ;;
+          claude_only)                      MARKER_CLAUDE_ONLY="$val" ;;
+          source)                           MARKER_SOURCE="$val" ;;
+          updated_at)                       MARKER_UPDATED_AT="$val" ;;
+          cached_skeleton_head)             MARKER_CACHED_SKELETON_HEAD="$val" ;;
+          cached_skeleton_head_fetched_at)  MARKER_CACHED_SKELETON_HEAD_FETCHED_AT="$val" ;;
         esac
         ;;
       HAS_FILES) if [ "$key" = "true" ]; then MARKER_HAS_FILES_OBJECT=true; fi ;;
@@ -174,10 +179,11 @@ else:
 }
 
 # write_marker_json — atomic write of new-format marker.
-# Args: <file> <version> <commit> <installed_at> <mode> <claude_only> <source> <updated_at_or_empty>
+# Args: <file> <version> <commit> <installed_at> <mode> <claude_only> <source> <updated_at_or_empty> <cached_skeleton_head_or_empty> <cached_skeleton_head_fetched_at_or_empty>
 # Reads "<relpath>\t<hash>" lines from stdin.
 write_marker_json() {
   local file="$1" version="$2" commit="$3" installed_at="$4" mode="$5" claude_only="$6" source="$7" updated_at="$8"
+  local cached_head="${9:-}" cached_fetched_at="${10:-}"
   local tmp="${file}.tmp.$$"
   "$JSON_TOOL" -c '
 import json, sys
@@ -198,11 +204,13 @@ out = {
 }
 if sys.argv[7]:
     out["updated_at"] = sys.argv[7]
+out["cached_skeleton_head"] = sys.argv[8] if sys.argv[8] else None
+out["cached_skeleton_head_fetched_at"] = sys.argv[9] if sys.argv[9] else None
 out["files"] = files
-with open(sys.argv[8], "w", newline="\n") as f:
+with open(sys.argv[10], "w", newline="\n") as f:
     json.dump(out, f, indent=2, sort_keys=True)
     f.write("\n")
-' "$version" "$commit" "$installed_at" "$mode" "$claude_only" "$source" "$updated_at" "$tmp" || { rm -f "$tmp"; return 1; }
+' "$version" "$commit" "$installed_at" "$mode" "$claude_only" "$source" "$updated_at" "$cached_head" "$cached_fetched_at" "$tmp" || { rm -f "$tmp"; return 1; }
   mv -f "$tmp" "$file"
 }
 
@@ -283,6 +291,12 @@ Options:
                    user input.  DISABLED during the first run after a 0.7.x→0.8.0
                    schema migration (backfill mode).
   --dry-run        Print the update plan without changing anything.
+  --check-remote   Fetch the latest released version from the skeleton repo
+                   (`git ls-remote --tags`, 10s timeout) and cache it in
+                   .claude/.skeleton-version under `cached_skeleton_head`.
+                   `drift-checker` reads this cache at session start to surface
+                   drift notices. No diff/classification flow runs in this mode.
+                   Requires network + git on PATH; nothing else is touched.
   --help           Show this help.
 
 Backfill (one-time):
@@ -303,10 +317,11 @@ parse_args() {
       --source)     shift; SOURCE_PATH="${1:-}" ;;
       --target=*)   TARGET_PATH="${1#--target=}" ;;
       --target)     shift; TARGET_PATH="${1:-}" ;;
-      --auto-apply) AUTO_APPLY=true ;;
-      --dry-run)    DRY_RUN=true ;;
-      --help|-h)    show_help; exit 0 ;;
-      *)            die "unknown argument: $1 (see --help)" ;;
+      --auto-apply)   AUTO_APPLY=true ;;
+      --dry-run)      DRY_RUN=true ;;
+      --check-remote) CHECK_REMOTE=true ;;
+      --help|-h)      show_help; exit 0 ;;
+      *)              die "unknown argument: $1 (see --help)" ;;
     esac
     shift
   done
@@ -448,6 +463,63 @@ classify() {
       ORPHAN_FILES+=("$rec_path")
     fi
   done
+}
+
+# ---- --check-remote: refresh drift cache ----
+# Fetches the highest semver tag from the skeleton repo and writes it
+# to .claude/.skeleton-version under cached_skeleton_head (+
+# cached_skeleton_head_fetched_at). The ONLY network path in the
+# drift-check chain. Bounded by a 10s timeout; failure leaves the
+# marker untouched.
+check_remote() {
+  local marker="$TARGET_PATH/.claude/.skeleton-version"
+  [ -f "$marker" ] || die "target has no .claude/.skeleton-version — not a claude-skeleton install. Run install.sh first."
+  command -v git >/dev/null 2>&1 || die "git not on PATH (needed for --check-remote)"
+
+  dump_marker
+
+  info "fetching tags from $SKELETON_REPO_URL …"
+  local refs_output
+  if ! refs_output=$(timeout 10 git ls-remote --tags "$SKELETON_REPO_URL" 2>/dev/null); then
+    die "failed to fetch tags from $SKELETON_REPO_URL (timeout or network error). Marker unchanged."
+  fi
+
+  local latest_tag
+  latest_tag=$(printf '%s\n' "$refs_output" | "$JSON_TOOL" -c '
+import sys, re
+tags = []
+for line in sys.stdin:
+    line = line.strip()
+    if not line: continue
+    parts = line.split("refs/tags/", 1)
+    if len(parts) != 2: continue
+    tag = parts[1].rstrip("^{}")
+    m = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)", tag)
+    if not m: continue
+    tags.append(((int(m.group(1)), int(m.group(2)), int(m.group(3))), tag.lstrip("v")))
+if not tags:
+    sys.exit("no-semver-tags")
+tags.sort()
+print(tags[-1][1])
+') || die "no semver tags found on remote. Marker unchanged."
+
+  local ts
+  ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  {
+    local entry
+    for entry in "${MARKER_HASH_ENTRIES[@]:-}"; do
+      [ -z "$entry" ] && continue
+      printf '%s\n' "$entry"
+    done
+  } | write_marker_json "$marker" \
+        "$MARKER_VERSION" "$MARKER_COMMIT" "$MARKER_INSTALLED_AT" \
+        "${MARKER_MODE:-merge}" "${MARKER_CLAUDE_ONLY:-false}" "$MARKER_SOURCE" \
+        "$MARKER_UPDATED_AT" "$latest_tag" "$ts"
+
+  ok "drift cache refreshed"
+  printf '  cached: %s\n' "$latest_tag"
+  printf '  at:     %s\n' "$ts"
+  printf '  marker: %s\n' "$marker"
 }
 
 # ---- Backfill warning ----
@@ -730,7 +802,7 @@ write_version_marker() {
       [ -z "$entry" ] && continue
       printf '%s\n' "$entry"
     done
-  } | write_marker_json "$marker" "$version" "$commit" "$installed_at" "$prev_mode" "$prev_claude_only" "$SOURCE_PATH" "$ts"
+  } | write_marker_json "$marker" "$version" "$commit" "$installed_at" "$prev_mode" "$prev_claude_only" "$SOURCE_PATH" "$ts" "$MARKER_CACHED_SKELETON_HEAD" "$MARKER_CACHED_SKELETON_HEAD_FETCHED_AT"
 }
 
 summary() {
@@ -752,6 +824,11 @@ summary() {
 # ---- Main ----
 parse_args "$@"
 detect_json_tool
+if [ "$CHECK_REMOTE" = true ]; then
+  resolve_target_root
+  check_remote
+  exit 0
+fi
 detect_sha256
 resolve_skeleton_root
 resolve_target_root
