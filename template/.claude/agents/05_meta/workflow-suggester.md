@@ -47,7 +47,7 @@ The filename matches the observation's `pattern_id` — that's also the `source_
 
 Each file conforms to [`workflow-suggester.schema.md`](workflow-suggester.schema.md):
 
-- YAML frontmatter with 7 fields (`capture_id`, `source_pattern_id`, `source_pattern_type`, `status: draft`, `confidence`, `suggested_artifact_type`, `created_at`).
+- YAML frontmatter with 8 fields (`capture_id`, `source_pattern_id`, `source_pattern_type`, `status: draft`, `confidence`, `suggested_artifact_type`, `created_at`, and optional `shipped_to` set by the user after promoting a built artifact).
 - Body with 4 sections: **Pattern** (one paragraph describing what recurs), **Evidence** (bulleted summaries from the observation's evidence array), **Suggested response** (one or two paragraphs sketching what kind of capture would address this), **Approving / rejecting** (short instructions on editing the `status` field).
 
 Target length per capture: 30–50 lines. Compact, scannable, designed for human review.
@@ -75,4 +75,4 @@ To re-open a rejected pattern: delete the rejected capture file, then re-dispatc
 
 ## Schema reference
 
-[`workflow-suggester.schema.md`](workflow-suggester.schema.md) — full capture markdown contract: 7-field frontmatter, 4-section body, complete realistic example. The schema is the load-bearing contract; this agent body is the implementation.
+[`workflow-suggester.schema.md`](workflow-suggester.schema.md) — full capture markdown contract: 8-field frontmatter, 4-section body, complete realistic example. The schema is the load-bearing contract; this agent body is the implementation.
