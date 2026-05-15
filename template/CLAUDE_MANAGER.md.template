@@ -125,6 +125,12 @@ Dispatch `drift-checker` **manually** when the user asks "am I up to date with s
 
 Dispatch `task-watchdog` **manually** when the user asks "did the prior session have anything slow or failing?" — manager runs the agent, which shells out to the same script. The observations land in `.claude/observations/` and `workflow-suggester` picks them up like any other source. `task-watchdog` is the **canonical producer** of `recurring_failure` observations (ownership transferred from `session-observer` at Phase 5) and the only producer of `other`-typed long-running-bash observations in v1.1.0. v1.1.0 scope is duration + recurring-failures only; resource-anomaly signals (memory, tokens, CPU) bundle with v1.2.0's `token-efficiency-monitor` proactive upgrade. Real-time / mid-execution signals stay deferred until a polling hook surface exists. Failure of the script never blocks session start.
 
+### When to dispatch cruft-checker
+
+`cruft-checker` is **dogfood-only** — it lives in the skeleton repo's own `.claude/`, NOT in `template/`, because it audits the skeleton's own roadmap / schemas / cross-doc references. Project-level cruft is handled by v1.2.0's `infrastructure-auditor` under `template/`. The skeleton's `.claude/settings.json` registers `bash .claude/scripts/cruft-check.sh --hook` as a second SessionStart hook entry; the `--hook` flag enables a 24h cooldown gate (marker at `.claude/.last-cruft-check`). Hook-mode runs silently — observation files are the deliverable.
+
+Dispatch `cruft-checker` **manually** when the user just edited a doc and wants an immediate scan ("did I just break a link / mismatch a count / leave a stale phase ref?"). Without the `--hook` flag, the cooldown is ignored and the scan always runs. The agent emits `pattern_type: other` observations with descriptive notes per the session-observer schema; `workflow-suggester` (next dispatch) drafts captures with `suggested_artifact_type: doc-fix`. There's no `doc-fix-builder` X-builder in v1.1.x — the manager applies fixes manually after capture approval. `cruft-checker` is read-only — never auto-fixes, never hits the network. Heuristic 6 (deprecation refs) and heuristic 8 are deferred to follow-up phases.
+
 ## Section-routing — the core read discipline
 
 When you're about to `Read` a file larger than ~300 lines, **do not Read it end-to-end**. Instead:
