@@ -3,7 +3,7 @@
 The wire format for one observation entry under `.claude/observations/<pattern_id>.json`.
 
 This schema is the contract shared by:
-- **Producers**: `session-observer` (v1.1.0), `task-watchdog` (v1.1+ Phase 4, recurring-failure observations). Future producers add their name to the `source` enum without breaking existing consumers.
+- **Producers**: `session-observer` (v1.1.0, all pattern types except `recurring_failure`), `task-watchdog` (v1.1+ Phase 5, canonical producer of `recurring_failure` observations and `other`-typed long-running-bash observations). Future producers add their name to the `source` enum without breaking existing consumers.
 - **Consumers**: `workflow-suggester` (v1.1+ Phase 2 extension — drafts captures from observation files). Future consumers (v2.0 plugin recommendation system, v1.2+ `manager-optimizer`) read the same schema.
 
 Lock the schema; extend the enums. New producers register a `source` value, new pattern shapes register a `pattern_type` value. Field names and field semantics are stable surface area.
@@ -14,7 +14,7 @@ Lock the schema; extend the enums. New producers register a `source` value, new 
 |---|---|---|---|
 | `pattern_id` | string (64-char lowercase hex) | yes | Stable SHA-256 of `pattern_type + normalized_signature`. Same pattern → same id across sessions and across producers. The filename is `<pattern_id>.json`. |
 | `source` | string enum (extensible) | yes | Which producer emitted this observation. v1.1.0 values: `session-observer`, `task-watchdog`, `manual`, `other`. |
-| `pattern_type` | string enum (extensible) | yes | What kind of pattern. v1.1.0 values: `repeated_command`, `repeated_edit`, `error_resolution`, `recurring_failure`, `other`. |
+| `pattern_type` | string enum (extensible) | yes | What kind of pattern. v1.1.0 values: `repeated_command`, `repeated_edit`, `error_resolution`, `recurring_failure` (canonical producer: `task-watchdog`), `other`. |
 | `occurrences` | integer (≥ 2) | yes | Count of times this pattern was observed across the producer's inspection windows. Monotonic — updates on re-observation. Minimum 2 (a single sighting isn't a pattern). |
 | `first_seen` | string (ISO-8601 UTC) | yes | When `pattern_id` was first observed. Set once on creation. Format: `YYYY-MM-DDTHH:MM:SSZ`. |
 | `last_seen` | string (ISO-8601 UTC) | yes | When `pattern_id` was most recently observed. Updates on each re-observation. |

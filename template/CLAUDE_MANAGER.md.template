@@ -99,7 +99,7 @@ Reference: https://code.claude.com/docs/en/model-config
 
 At session start, check `.claude/observations/`. If `.session-ended` is present (written by the SessionEnd hook of the previous session), dispatch `session-observer` first — it writes fresh observation files from the previous session's activity per the schema in [`session-observer.schema.md`](.claude/agents/05_meta/session-observer.schema.md), then removes the marker. If observation files exist (with or without the marker), scan them when planning multi-step work — recurring patterns there are signals you've done this before.
 
-Observation files are read-only context for planning; the manager doesn't modify them. Phase 2's `workflow-suggester` extension consumes them to draft captures (helpers, scripts, slash commands). If an observation matches the current task, surface it ("we've seen this pattern N times — consider a capture") and let the user decide whether to formalize or proceed manually. Don't auto-draft from observations in v1.1.0; that's Phase 2's job.
+Observation files are read-only context for planning; the manager doesn't modify them. Two producers write to `.claude/observations/` in v1.1.0: `session-observer` (repeated commands, repeated edits, error-resolution sequences, `other`-typed anomalies) and `task-watchdog` (canonical producer of `recurring_failure` observations and `other`-typed long-running-bash observations, invoked automatically by the SessionStart hook chain). `workflow-suggester` consumes everything in the directory to draft captures (helpers, scripts, slash commands). If an observation matches the current task, surface it ("we've seen this pattern N times — consider a capture") and let the user decide whether to formalize or proceed manually. Don't auto-draft from observations in v1.1.0 — workflow-suggester is the explicit-dispatch consumer.
 
 ### When to dispatch workflow-suggester
 
@@ -118,6 +118,12 @@ The handoff after drafting is **user-handled promotion**. Manager relays the wor
 `drift-checker` is invoked **automatically** by the SessionStart hook chain — `sessionstart-rules.sh` runs `.claude/scripts/drift-check.sh` and folds any `[skeleton-drift]` notice into `additionalContext`. Silent when the installed `version` matches the cached `cached_skeleton_head`; surfaces a notice when they differ, when the cache is empty, or when the marker is missing/malformed. Manager doesn't need to dispatch the agent in that path — the hook does the work.
 
 Dispatch `drift-checker` **manually** when the user asks "am I up to date with skeleton?" or similar — manager runs the agent, which shells out to the same `drift-check.sh` and surfaces the output directly. The v1.2.0 `infrastructure-auditor` will dispatch this agent alongside `cruft-checker` + `artifact-fit-analyzer` as part of a scheduled project-level audit pass; the agent shell is the dispatchable surface for that future flow. `drift-checker` is **read-only** — it never runs `update.sh`, never hits the network (that's `bash scripts/update.sh --check-remote`'s job, on explicit user invocation), and never writes the marker. The notice recommends action; the user runs `bash scripts/update.sh`.
+
+### When to dispatch task-watchdog
+
+`task-watchdog` is invoked **automatically** by the SessionStart hook chain — `sessionstart-rules.sh` runs `.claude/scripts/task-watchdog.sh` after `drift-check.sh`. The script reads the prior session's `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl` transcript (retrospective only — Claude Code doesn't yet expose a polling hook for real-time signals), pairs `tool_use`/`tool_result` events, and writes observation files for two pattern shapes: long-running bash calls (≥5min, `pattern_type: other` with notes) and recurring failures (same normalized signature ≥3 times in-session, `pattern_type: recurring_failure`). Idempotent via `.claude/observations/.last-watchdog-session`. Normally silent — observation files are the deliverable.
+
+Dispatch `task-watchdog` **manually** when the user asks "did the prior session have anything slow or failing?" — manager runs the agent, which shells out to the same script. The observations land in `.claude/observations/` and `workflow-suggester` picks them up like any other source. `task-watchdog` is the **canonical producer** of `recurring_failure` observations (ownership transferred from `session-observer` at Phase 5) and the only producer of `other`-typed long-running-bash observations in v1.1.0. v1.1.0 scope is duration + recurring-failures only; resource-anomaly signals (memory, tokens, CPU) bundle with v1.2.0's `token-efficiency-monitor` proactive upgrade. Real-time / mid-execution signals stay deferred until a polling hook surface exists. Failure of the script never blocks session start.
 
 ## Section-routing — the core read discipline
 
@@ -160,12 +166,13 @@ Helpers live in `.claude/agents/`. The baseline roster:
 | 8 | `workflow-suggester` | `05_meta/` | L2 | Pattern detection over `SESSION_LOG.md`; suggests captures. |
 | 9 | `self-audit-helper` | `05_meta/` | L2 | Meta-system drift detection (orphans, dead refs, doc drift, missing routes). |
 | 10 | `drift-checker` | `05_meta/` | L2 | Read-only version-drift check against `.skeleton-version`; surfaced by SessionStart hook. |
+| 11 | `task-watchdog` | `05_meta/` | L2 | Retrospective observer: long-running bash calls + recurring failures in prior session; invoked by SessionStart hook. |
 
 <!-- TEMPLATE STUB — project-tuner-helper extends this roster with project-specific helpers. -->
 
 ## Tier system
 
-- **T1 — Always-on baseline.** The ten helpers above (four core + six meta), the two scripts (commit/deploy), the two hooks (SessionStart/PreCompact), the six skills (`schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, `bash-safety`, `token-efficiency-monitor`, `plugin-roster-search`). Ships in every install.
+- **T1 — Always-on baseline.** The eleven helpers above (four core + seven meta), the two scripts (commit/deploy), the two hooks (SessionStart/PreCompact), the six skills (`schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, `bash-safety`, `token-efficiency-monitor`, `plugin-roster-search`). Ships in every install.
 - **T2 — Escalation.** Helpers and scripts added for this project's specific needs. Loaded by default but project-specific.
 - **T3 — On-demand plugins.** Opt-in tooling (e.g. `browser-tester`). The manager only invokes T3 when explicitly relevant.
 
