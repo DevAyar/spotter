@@ -129,10 +129,11 @@ Generalizing to `<ext>` lets the same script handle `.gd`, `.cs`,
 
 ## Approving / rejecting
 Edit `status` in the frontmatter:
-- `approved` — future `script-builder` (Phase 3) picks this up to generate the actual script.
+- `approved` — `script-builder` picks this up to draft the actual script under `.claude/scripts/drafts/`.
+- `shipped` — set this AFTER promoting a drafted artifact into `.claude/scripts/`. Add a `shipped_to:` field pointing at the promoted path (e.g. `shipped_to: .claude/scripts/count-files-by-ext.sh`). Terminal success state.
 - `rejected` — workflow-suggester respects this as "do not re-suggest." Keep the file; don't delete.
 
-To re-open: delete this file and re-dispatch workflow-suggester.
+To re-open a rejected pattern: delete this file and re-dispatch workflow-suggester.
 ```
 
 That file is 36 lines including frontmatter — comfortably in the 30–50 target. Body density matches the bash-safety skill and observation-schema examples elsewhere in the skeleton.
