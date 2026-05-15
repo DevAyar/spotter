@@ -23,3 +23,11 @@ Thumbs.db
 
 # Test projects (used for install validation in Phase 4d-e)
 /test-projects/
+
+# Runtime observation files (written by session-observer / task-watchdog /
+# cruft-checker). Persistent on disk for cross-session workflow-suggester
+# consumption, but not part of source-of-truth repo state.
+.claude/observations/*.json
+.claude/.session-ended
+.claude/.last-watchdog-session
+.claude/.last-cruft-check
