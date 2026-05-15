@@ -2,23 +2,18 @@
 
 The sequencing doc for claude-skeleton. v1.0 → v2.0+. Living — updated as slices land. For backward-looking history see [`CHANGELOG.md`](CHANGELOG.md).
 
-## v1.0 — what ships
+## v1.0 — shipped (retrospective recap)
 
-Current cut is **v0.9.0**. v1.0 is one short slice away — the 6b story doc lands and the version flips. What's already in:
+Cut at [5630caa] on 2026-05-14. The orchestration layer is in production daily use across **Trainer-View** (Flutter + Firebase) and **Echoes-Of-Gill** (Godot), with **Fitness-Website** as the third target on deck.
+
+What landed:
 
 - **Orchestration discipline** — `template/CLAUDE_MANAGER.md.template` carries the directive layer (strategic judgment patterns, dispatch mechanics, plugin marketplace composition, three-commit cadence, recursive ownership L0/L1/L2). Read top-down at session start; the manager onboards from this file alone.
-- **Baseline tooling** — 9 baseline agents (4 core helpers + 5 meta), 6 baseline skills (`schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, `bash-safety`, `token-efficiency-monitor`, `plugin-roster-search`), 2 baseline scripts (`commit.sh`, `deploy.sh`), 4 baseline commands (`/commit`, `/audit`, `/deploy`, `/smoke-test`), 2 baseline hooks (SessionStart, PreCompact).
+- **Baseline tooling** — 9 baseline agents (4 core helpers + 5 meta), 6 baseline skills, 2 baseline scripts, 4 baseline commands, 2 baseline hooks (SessionStart, PreCompact).
 - **Install / update infrastructure** — `install.sh` (three modes: fresh / merge / replace), `update.sh` (six-way classification using per-file SHA-256 hashes, with backfill for legacy markers), atomic JSON `.skeleton-version` marker.
 - **CI** — three-platform matrix (Ubuntu, Windows, macOS) running six install/update scenarios on every push and PR.
 
-Remaining for v1.0 cut:
-- **Story doc** — `docs/6B_OUTLINE.md` (outline lands this slice); full prose lands in 6b.
-
-v1.0 = orchestration layer ready for daily use across multiple real projects.
-
-## v1.0 — success criteria (informal)
-
-claude-skeleton is at v1.0 when I and a few peers use it productively over a month, no major install bugs surface, and the patterns hold across the two active production targets — **Trainer-View** (Flutter + Firebase) and **Echoes-Of-Gill** (Godot). No SLOs. No metrics theatre. A felt threshold: when I stop noticing the skeleton's seams during normal work, it's at v1.0.
+**Success-criteria framing (retrospective):** the bar was *felt threshold*, not metrics — claude-skeleton at v1.0 when I and a few peers use it productively over a month, no major install bugs, patterns hold across the two production targets. That's what happened. See [`CHANGELOG.md`](CHANGELOG.md) `[1.0.0]` for the full per-slice breakdown.
 
 ## v1.1+ — the capture / reuse loop
 
@@ -26,82 +21,187 @@ The centerpiece of v1.1+. Today the manager learns within a session and forgets 
 
 ### The four autonomy gaps
 
-The loop maps directly to the four named gaps in the current system:
+The loop still maps to the four named gaps in the system, but the resolutions have shifted as components land:
 
 | # | Gap | Closes when |
 |---|---|---|
-| 1 | **Auto-dispatch by intent** — the manager has to be told to dispatch a helper; it can't infer from request shape. | The manager has enough captured patterns to anticipate. Hard problem; partial closure via the loop, full closure waits on real usage data. |
-| 2 | **System-proposes-own-evolution** — the meta-system can suggest captures in the abstract but doesn't draft them. | `workflow-suggester` evolves from "suggests in prose" to "drafts a concrete proposed-helper file." User approves or amends; no more "you should automate this" without a starting artefact. |
-| 3 | **Clarifying-questions layer** — the manager either guesses the intent or asks one-off questions; no structured intake before non-trivial work. | `/goals` ships — broad → narrow → edge-case clarifying questions → comprehensive design doc → persisted to `/goal` artefact. |
-| 4 | **Proactive token optimization** — `token-efficiency-monitor` reports after a subtask blows its envelope; warning lands too late. | The same monitor learns to flag *before* dispatch when the planned scope smells over-budget. Observational → proactive. |
+| 1 | **Auto-dispatch by intent** — the manager has to be told to dispatch a helper; it can't infer from request shape. | Deferred to v1.2+ post-`manager-optimizer`, once real dispatch data exists. Manual dispatch via `CLAUDE_MANAGER.md.template` patterns continues to work in v1.1.0. See [Cuts](#cuts--rationale-for-whats-not-in-the-queue). |
+| 2 | **System-proposes-own-evolution** — the meta-system can suggest captures in the abstract but doesn't draft them. | **Closed in v1.1.0** by `workflow-suggester` (rewritten to draft concrete capture files) and the first downstream X-builder `script-builder` (drafts bash scripts from approved captures). |
+| 3 | **Clarifying-questions layer** — the manager either guesses the intent or asks one-off questions; no structured intake before non-trivial work. | **Closes in v1.2.0** via `/goals` expanded — research → targeted clarify → spec pipeline that X-builders consume natively. Merges with the clarifying-questions layer. |
+| 4 | **Proactive token optimization** — `token-efficiency-monitor` reports after a subtask blows its envelope; warning lands too late. | **Closes in v1.2.0** via `token-efficiency-monitor` upgraded from observational to proactive (flags before dispatch when planned scope smells over-budget). Needs design pass on Claude Code's token-data exposure to agents. |
 
-### The loop's three components
+### v1.1.0 — tight scope (5 components)
 
-The loop wires three components (one new agent, one extended existing agent, one new generator) plus the `/goals` clarifying layer:
+The capture/reuse loop in its first shippable form. Three primitives shipped; two queued. No `/goals` dependency at this tier — X-builders read captures directly.
 
-- **`session-observer`** *(new — real-time)*. Notices repeated patterns in actual session work. Different from `monitoring-helper` (post-session retro): the observer runs alongside the session, surfaces "you've done X three times this week / month", and emits an observation that `workflow-suggester` can consume. Lightweight; no heavy summarization at runtime.
-- **`workflow-suggester`** *(extending existing agent)*. Today it suggests captures in the abstract from `SESSION_LOG.md`. v1.1+ it **drafts** them — a concrete proposed-helper or proposed-script file lands on disk in a `proposed/` directory, ready for the user to approve, amend, or reject. The draft is the artefact; the suggestion is the by-product.
-- **`script-builder`** *(new)*. Formalizes approved captures into reusable scripts. Honors the 5-section discipline `commit.sh` and `deploy.sh` already follow: verbatim output, path-shape guard, error handling, explicit exit codes, one-line description. Generated scripts go straight into the project's `.claude/scripts/` if approved at that scope; into a draft directory otherwise.
+- **`session-observer`** ✓ *(shipped — Phase 1).* Real-time observation primitive. Notices repeated patterns during the session and emits structured observation files (`.claude/observations/<pattern_id>.json`) with redaction rules and a stable 8-field schema. Multi-source extensible — future producers (`task-watchdog`, `cruft-checker`) write against the same schema.
+- **`workflow-suggester`** ✓ *(shipped — Phase 2).* Schema-driven consumer of observations. Walks `.claude/observations/`, filters to warranted patterns (confidence threshold `med`/`high`), and drafts concrete capture files at `.claude/captures/<pattern_id>.md` with a 7-field frontmatter and a 4-section body. The four lifecycle states are `draft → approved → shipped` (terminal success) and `rejected` (do-not-re-suggest marker). Idempotent by filename.
+- **`script-builder`** ✓ *(shipped — Phase 3, first X-builder).* Reads captures filtered to `status: approved AND suggested_artifact_type: script` and drafts bash files at `.claude/scripts/drafts/<pattern_id>.sh.draft`. Honors the 5-section discipline (shebang+strict-mode / constants / helpers / main / cleanup), `bash-safety` integration, path-shape guards. The `.sh.draft` extension makes drafts unexecutable until the user promotes them.
+- **`task-watchdog`** *(queued).* Live monitor for the runtime side. Pings the user when a tool call runs past N minutes; pairs with `bash-safety` to catch zombies the skill can't prevent. Second producer against the `session-observer` schema (writes long-running-tool observations). Substantial design pass needed — real-time vs retrospective instrumentation, 5-signal scope.
+- **`drift-checker`** *(queued).* `.skeleton-version` marker drift between installed projects and the skeleton's current head. Read-only, notification-only — no auto-apply, no auto-update. Smallest design surface in v1.1.0; mostly mechanics on top of the existing marker.
 
-### `/goals` integration
+### v1.1.x — polish before v1.2.0
 
-The clarifying-questions layer. Conversation shape: broad → narrow → edge-case → comprehensive design doc → ships to a persisted `/goal` artefact. Pairs naturally with `script-builder`: use `/goals` to spec what a script needs to do, what failure modes matter, what's explicitly out of scope, *before* generating the script. The spec is the script's commit-message body when it ships.
+Three items that sharpen v1.1.0 without expanding the meta-evolution surface:
 
-### How the loop closes the gaps
+- **`cruft-checker`** — third observation producer. Surfaces dangling refs, doc-rot, stale `CHANGELOG` entries, deprecated patterns still referenced in code. Feeds `workflow-suggester` like any other observation source.
+- **`code-quality-auditor`** — Layer 3 of the 3-layer plugin verification. Reads actual source code of community plugins and evaluates fitness vs description. Integrates with the existing `integration-checker`; both fold into v2.0.
+- **Lessons-log integration as `suggested_artifact_type: lesson`.** Rather than a separate skill, lessons collapse into the captures surface — `workflow-suggester` drafts lesson captures, the user approves them, and they live alongside script/skill/agent/command captures in the same lifecycle.
 
-A concrete walk-through:
+### How the loop closes the gaps (in v1.1.0)
 
-1. `session-observer` notices a recurring pattern over the last two weeks ("you've manually summarized SESSION_LOG before each retrospective four times").
-2. `workflow-suggester` drafts a concrete capture — a proposed `session-summarizer` skill file in `proposed/skills/`.
-3. User uses `/goals` to refine the spec: what's the input, what's the output, what's the failure mode, what's out of scope.
-4. `script-builder` generates the formal script (or skill, or helper) honoring the 5-section discipline and the `/goals`-locked spec.
-5. Next time the pattern recurs, the script handles it. The pattern stops being a recurring manual chore.
+A concrete walk-through, no `/goals` dependency:
 
-Each component closes one of the four autonomy gaps; together they close the meta-gap that v1.1+ targets — *the system improves itself with the user always in the approval seat*.
+1. `session-observer` notices a recurring pattern over the last two weeks ("you've manually summarized SESSION_LOG before each retrospective four times") and emits an observation.
+2. `workflow-suggester` walks observations, filters to warranted ones, and drafts a capture file at `.claude/captures/<pattern_id>.md` with `status: draft, suggested_artifact_type: script`.
+3. User reviews the capture. Edits `status` to `approved`.
+4. `script-builder` walks captures, filters to `status: approved AND suggested_artifact_type: script`, and drafts a bash file at `.claude/scripts/drafts/<pattern_id>.sh.draft`.
+5. User reviews the draft, optionally edits, promotes by `mv`-ing into `.claude/scripts/<descriptive-name>.sh` + `chmod +x`. User flips the capture to `status: shipped` and adds `shipped_to:` pointing at the promoted path.
+6. Next time the pattern recurs, the script handles it. The pattern stops being a recurring manual chore.
 
-## v1.2+ — `manager-optimizer` (L3)
+Each lifecycle stage closes one of the four autonomy gaps in part; together they close the meta-gap that v1.1+ targets — *the system improves itself with the user always in the approval seat*.
+
+## v1.2.0 — meta-evolution release
+
+Where the system grows hands. Opens with `manager-optimizer` (the Level-3 meta-meta framing preserved from earlier roadmap cuts), then expands to nine components that turn the v1.1.0 primitives into a self-tuning surface.
+
+### `manager-optimizer` (L3)
 
 Level-3 meta-meta. Watches **how the manager decides** — which judgment patterns fire, when dispatch happens vs. direct read, where escalation thresholds land in practice, where `/goals` gets invoked vs. skipped. Suggests refinements to `CLAUDE_MANAGER.md.template` based on observed decision drift.
 
-Explicitly post-v1.1+. The reason is empirical, not architectural: without `/goals` and the capture/reuse loop generating real usage data, `manager-optimizer` would optimize against vibes. v1.2+ is the version where the meta-system has enough self-observation to be worth tuning.
+Post-v1.1.0 for the same empirical reason cited in the earlier roadmap: without `/goals` expanded and the capture/reuse loop generating real usage data, `manager-optimizer` would optimize against vibes. v1.2.0 is the version where the meta-system has enough self-observation to be worth tuning.
 
-## Dependency graph
+### `artifact-fit-analyzer`
 
-```
-/goals (v1.1+) ─┬─> script-builder (uses /goals to spec scripts before generating)
-                └─> manager-optimizer (v1.2+, watches /goals invocation patterns)
+Detects redundancy, inefficiency, and missing combinations across the project's existing agents / skills / scripts / commands / hooks. Drafts consolidation captures when two helpers overlap, missing-coverage captures when a recurring pattern has no artefact, or removal captures when an artefact never gets dispatched. Manager executes consolidation edits directly — no new builder needed for "rename, merge, or delete an existing artefact."
 
-capture/reuse loop (v1.1+) ──> manager-optimizer (v1.2+, needs real usage data)
-capture/reuse loop (v1.1+) ──> v2.0 plugin recommendation (needs stable patterns to recommend against)
-```
+### `/goals` expanded
 
-`/goals` ships first. Everything downstream waits on it generating real signal — `script-builder` reads goal specs as input, `manager-optimizer` watches goal-invocation patterns, the plugin recommendation system uses captured pain points as match keys. v1.1+ work parallelizes within the loop but not across the v1.1 → v1.2 → v2.0 boundary.
+Research → targeted clarify → spec pipeline. Merges with Gap #3 (clarifying-questions layer). Pause-only-on-big-questions tuning — the conversation shape stays broad → narrow → edge-case → spec, but the system asks fewer one-off questions and instead surfaces the open spec gaps in a single batch. Outputs a structured spec doc that X-builders consume natively (script-builder reads it as input rather than re-deriving scope from the capture alone).
 
-## v2.0 — plugin recommendation system
+### Loop pruning (via `manager-optimizer`)
 
-A curated catalog matching pain points and project context to specific marketplace plugins or community-library helpers. Catalog grows month by month — recommendations get sharper as the capture/reuse loop generates usage data the recommender can match against.
+Retires captures that never get approved or scripts that never get dispatched. Driven by observation data — if a capture sits in `status: draft` for 60+ days, or a promoted script gets zero dispatch hits over a month, `manager-optimizer` surfaces a pruning suggestion. Same human-in-the-loop discipline as everything else; the system suggests, the user approves.
 
-The foundation is already in v1.0: `CLAUDE_MANAGER.md.template`'s plugin marketplace composition section names the seven ecosystem sources we draw from (official `/plugin` marketplace, `claude-code-templates`, `claude-agentic-framework`, `wshobson/agents`, `claude-skills`, `awesome-claude-code-subagents`, `ClaudeFast`). v2.0 turns that section from "here is the ecosystem we compose with" into "for the shape of *this* project, here are the three plugins that pair best."
+### `meta-session-observer` + `template-promoter`
 
-Design principle (locked, verbatim from Slice A):
+The multi-project graduation mechanism. `meta-session-observer` runs at a higher tier than `session-observer` — it sees patterns *across installed projects*, not within one. When a pattern hits the graduation threshold (see [Locked architectural principles](#locked-architectural-principles)), `workflow-suggester` drafts a graduation capture (`suggested_artifact_type: graduation`). On approval, `template-promoter` executes: moves the artefact into `template/`, updates `install.sh` manifests, regenerates baseline hashes, updates CI scenarios. The skeleton learns from its own deployments.
+
+### `token-efficiency-monitor` (upgraded)
+
+Closes Gap #4. Today the monitor is observational — reports after a subtask blows its envelope. v1.2.0 makes it proactive: flags before dispatch when the planned scope smells over-budget, suggests narrower framings, recommends alternative helpers with smaller surface area. Needs design pass on Claude Code's token-data exposure to agents (what's readable at dispatch time vs. only post-hoc).
+
+### `infrastructure-auditor` (project-level)
+
+Scheduled audit coordinator that lives in `template/` — installed in every project. Dispatches `cruft-checker` + `drift-checker` + `artifact-fit-analyzer` against THIS project's `.claude/` on a cadence (weekly default, configurable via `/goals` `schedule` field). Surfaces a single consolidated report instead of three independent ones.
+
+### `roadmap-auditor` (skeleton-level)
+
+The skeleton's own auditor. ONLY in the dogfood `.claude/`, **not** in `template/`. Audits the roadmap docs, schemas, cross-phase contracts. Surfaces drift between what the roadmap claims and what the codebase actually does. Same scheduled cadence as `infrastructure-auditor`, but scoped to the skeleton's own meta-evolution surface.
+
+### Scheduled-goals support in `/goals`
+
+New `schedule` field on goals. Goals with a schedule live under `.claude/goals/scheduled/`. A session-start hook surfaces due items so they don't drop. The mechanism that drives `infrastructure-auditor` and `roadmap-auditor` cadence.
+
+## Locked architectural principles
+
+Decisions that hold across all v1.2+ work. Captured here so future slices don't relitigate them.
+
+### Multi-project graduation
+
+A pattern graduates from one project's `.claude/` into `template/` (i.e. ships to every installation) when it crosses a hard threshold:
+
+- **≥66% of installed projects** show the same pattern (the bar is broad adoption, not narrow taste).
+- **Minimum 3 projects** in the sample (one or two installs is anecdote).
+- **≥4 weeks stable** — the pattern hasn't been edited or reverted recently in any of the contributing projects.
+- **Zero negative observations** in the same 4-week window (no project has flagged the pattern as broken, noisy, or contraindicated).
+
+v1.2+ mechanism: `meta-session-observer` watches the cross-install signal → `workflow-suggester` drafts a graduation capture (`suggested_artifact_type: graduation`) → user approves → `template-promoter` executes the move, updates `install.sh` manifests, regenerates baseline hashes, updates CI scenarios. The threshold and mechanism together prevent the skeleton from inheriting one project's idiosyncrasies.
+
+### Two distinct audit surfaces
+
+The skeleton runs audits at two scopes; mixing them would muddy the discipline.
+
+- **Project-level (`infrastructure-auditor` in `template/`).** Audits a single project's `.claude/`. Installed everywhere. Dispatches the project-level checkers (`cruft-checker`, `drift-checker`, `artifact-fit-analyzer`). Findings are local to the project.
+- **Skeleton-level (`roadmap-auditor` in dogfood only).** Audits the skeleton's own roadmap, schemas, cross-phase contracts. Lives ONLY in the skeleton's dogfood `.claude/`, never in `template/`. Findings are about the skeleton itself — drift between roadmap claims and codebase reality.
+
+Shared mechanics (cruft detection, doc-rot catches), different scope. Both are scheduled via `/goals` expanded `schedule` field.
+
+## v2.0 — plugin ecosystem layer
+
+A curated discipline for matching pain points and project context to specific marketplace plugins or community-library helpers. Catalog grows month by month — recommendations get sharper as the capture/reuse loop generates usage data the recommender can match against.
+
+v2.0 folds three pieces that previously had separate phase numbers:
+
+- **`integration-checker`** — Layer 1+2 of plugin verification (manifest sanity, surface area).
+- **`code-quality-auditor`** — Layer 3 (reads actual source, evaluates fitness vs description). Lands in v1.1.x; folds into the plugin surface here.
+- **Curated catalog** — only if community-curation value materializes. The standalone-phase framing is gone; a static catalog without a quality filter is just a directory.
+
+The foundation is already in v1.0: `CLAUDE_MANAGER.md.template`'s plugin marketplace composition section names the seven ecosystem sources the manager draws from. v2.0 turns that section from "here is the ecosystem we compose with" into "for the shape of *this* project, here are the three plugins that pair best — and here are five that don't, with reasons."
+
+Design principle (locked, verbatim):
 
 > **Don't be a directory; be a quality filter.**
 
 The point isn't to list every plugin. It's to give the manager a discipline for picking the right ones for the project at hand and rejecting the wrong ones early.
 
-## Future-future (not committed scope; logged so they don't drop)
+## v3.0+ / future-future (out of v2.0 scope)
 
-Two ideas worth keeping visible but explicitly **outside v2.0**.
+One idea kept visible but explicitly **outside v2.0**.
 
 ### Multi-LLM orchestration
 
 Running the skeleton's structure across multiple LLMs — Claude + DeepSeek + others — with the manager arbitrating which model handles which subtask. Architectural identity question rather than a feature: claude-skeleton was designed against Claude Code's specific affordances (subagent dispatch, slash commands, hooks, skill discovery). Re-targeting it for general LLM orchestration would change the project's centre of gravity.
 
-Skeleton stays Claude-Code-only through v2.0. If multi-LLM is pursued later, it's a sibling project (different name, shared lineage) or a v3.0+ direction with an explicit fork-the-identity conversation — not a feature graft.
+Skeleton stays Claude-Code-only through v2.0. If multi-LLM is pursued later, it's a **sibling project** (different name, shared lineage — e.g. `claude-skeleton-bridge`) or a v3.0+ direction with an explicit fork-the-identity conversation — not a feature graft.
 
-### task-watchdog
+## Cuts — rationale for what's not in the queue
 
-A live monitor that pings the user when a tool call runs past N minutes. Pairs with `bash-safety` to catch the zombies the skill can't prevent — `bash-safety` is the preventive discipline (excludes, timeouts, maxdepth, wait/kill), `task-watchdog` is the reactive net. Same v1.1+ family as the capture/reuse loop, but separate from it; the watchdog is observation about runtime, the loop is observation about patterns.
+Three pieces were on earlier candidate lists and have been explicitly cut. Logged so the rationale doesn't have to be re-derived.
+
+### `skill-builder` and `agent-builder`
+
+Cut from the v1.1+ X-builder sequence. Markdown writing is cheap — no automation gain from a builder that just stamps frontmatter and a body. `/goals` expanded (v1.2.0) produces the spec; manual write handles execution. The recommendation/analysis function for "should this be a skill, agent, script, or command?" moves to `artifact-fit-analyzer` (v1.2.0).
+
+`script-builder` stays because bash has real discipline beyond markdown — strict-mode, path-shape guards, error handling, `bash-safety` integration. The X-builder pattern earns its keep on artefacts with non-trivial structural constraints.
+
+### Gap #1 — auto-dispatch by intent
+
+Deferred to v1.2+ post-`manager-optimizer`, once real dispatch data exists. Trying to close Gap #1 in v1.1.0 would mean inferring intent from request shape without empirical grounding — exactly the "optimize against vibes" trap that pushed `manager-optimizer` itself to v1.2+. Manual dispatch via `CLAUDE_MANAGER.md.template` patterns continues to work in v1.1.0; the gap is a known seam, not a blocker.
+
+### Plugin recommendation as a standalone v2.0 phase
+
+Folded into `integration-checker` + `code-quality-auditor`. The earlier framing imagined a standalone catalog phase; that framing was a partial picture of the same thing. A curated catalog without quality verification is a directory (which the principle above rules out); quality verification without a catalog is just `integration-checker`. The two only justify a v2.0 phase together.
+
+## Dependency graph (updated)
+
+```
+v1.1.0 loop (3 shipped, 2 queued):
+  observations → captures → drafts (script-builder)
+                                  │
+                                  ├─> task-watchdog (queued, second producer against observation schema)
+                                  └─> drift-checker (queued, marker check, no auto-apply)
+
+v1.1.x polish:
+  cruft-checker (third observation producer) ──> workflow-suggester
+  code-quality-auditor ──> integration-checker (both fold into v2.0)
+  lessons → suggested_artifact_type: lesson (no separate skill)
+
+v1.2.0 meta-evolution:
+  /goals expanded ──> X-builders consume spec docs natively
+  manager-optimizer ──> watches dispatch patterns, suggests CLAUDE_MANAGER updates
+                  └─> loop pruning (retires unused captures and scripts)
+  meta-session-observer ──> cross-install signal ──> template-promoter
+                                                ──> graduation captures
+  infrastructure-auditor ──> dispatches cruft-checker + drift-checker + artifact-fit-analyzer
+  roadmap-auditor (skeleton dogfood only) ──> roadmap / schema / contract drift
+  scheduled-goals support ──> session-start hook surfaces due items
+
+v2.0:
+  Plugin recommendation surface ──> folds integration-checker + code-quality-auditor + catalog
+```
+
+`/goals` expanded ships in v1.2.0 and unlocks the meta-evolution tier. v1.1.0 work parallelizes within the loop (task-watchdog and drift-checker can land independently). v1.1.x → v1.2.0 → v2.0 is a hard sequence — each tier consumes signal that only exists once the prior tier has been in production for some weeks.
 
 ## Closing — scope discipline
 
