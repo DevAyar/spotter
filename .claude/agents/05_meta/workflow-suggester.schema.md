@@ -20,10 +20,11 @@ UTF-8 markdown with YAML frontmatter delimited by `---` lines. Filename is `<sou
 | `capture_id` | string (64-char lowercase hex) | Stable id for this capture. By default `capture_id == source_pattern_id` — one capture per pattern, idempotency check is direct. Future producers needing multiple captures per pattern would derive `capture_id` from `source_pattern_id + discriminator`; v1.1.0 producers should match the default. |
 | `source_pattern_id` | string (64-char lowercase hex) | The `pattern_id` of the observation that triggered this draft. Foreign key into `.claude/observations/<source_pattern_id>.json`. Stable across re-runs — same pattern → same id. |
 | `source_pattern_type` | string enum | Copied verbatim from the observation for at-a-glance context. v1.1.0 values: `repeated_command`, `repeated_edit`, `error_resolution`, `recurring_failure`, `other`. |
-| `status` | string enum | `draft` (set by workflow-suggester on creation) \| `approved` (user-edited; future X-builders pick up) \| `rejected` (user-edited; do-not-re-suggest marker). All three count as "already considered" for idempotency. |
+| `status` | string enum | `draft` (set by workflow-suggester on creation) \| `approved` (user-edited; downstream X-builders pick up) \| `shipped` (user-edited after promote; the artifact has been built and promoted) \| `rejected` (user-edited; do-not-re-suggest marker). All four count as "already considered" for idempotency. |
 | `confidence` | string enum | Copied from observation: `low` \| `med` \| `high`. workflow-suggester's default threshold skips `low`, so captures on disk should be `med` or `high` unless thresholds were tuned. |
 | `suggested_artifact_type` | string enum (extensible) | What kind of capture would address this pattern. v1.1.0 values: `script`, `skill`, `agent`, `command`, `manual_action`, `unclear`. Future X-builders may register new values; consumers ignore unknown values. |
 | `created_at` | string (ISO-8601 UTC) | When workflow-suggester drafted this capture. Format: `YYYY-MM-DDTHH:MM:SSZ`. Set once on creation, never updated. |
+| `shipped_to` | string (path, optional) | When the user promotes a built artifact, they add this field with the project-relative path of the promoted artifact (e.g. `.claude/scripts/count-files-by-ext.sh`). Set once at promote; never updated. Optional and only meaningful when `status: shipped`. Not set by `workflow-suggester` or any X-builder — purely user-recorded traceability. |
 
 ## Body — 4 sections
 
@@ -61,10 +62,13 @@ Target length: 30–50 lines per capture file. Compact, scannable, designed for 
 | Value | Set by | Meaning | workflow-suggester behavior |
 |---|---|---|---|
 | `draft` | workflow-suggester on creation | "Drafted, awaiting human review" | Skip on re-run — idempotency. |
-| `approved` | User (manually edits frontmatter) | "Yes, build this. Future X-builders pick up." | Skip on re-run. |
+| `approved` | User (manually edits frontmatter) | "Yes, build this. Downstream X-builders pick up." | Skip on re-run. |
+| `shipped` | User (manually edits frontmatter after promote) | "Built and promoted. The artifact lives at `shipped_to`." | Skip on re-run. Downstream X-builders also skip — work already done. |
 | `rejected` | User (manually edits frontmatter) | "No, don't suggest this again." | Skip on re-run forever. File persists as a do-not-re-suggest marker. |
 
-All three statuses count as "already considered." The agent never sees a captured pattern again unless the user deletes the file.
+All four statuses count as "already considered." The agent never sees a captured pattern again unless the user deletes the file.
+
+The `shipped` status is the **terminal success state** in the capture lifecycle: `draft` → `approved` → `shipped`. The `shipped_to` field accompanies it, recording where the promoted artifact lives. Downstream X-builders (script-builder, future skill/agent/command-builders) also filter out `shipped` captures — they've already done the work.
 
 To re-open a rejected pattern (after some time has passed and the user reconsiders), delete the file and re-dispatch. The next run will see no existing capture for that pattern_id and draft a fresh one.
 
