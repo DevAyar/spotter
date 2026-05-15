@@ -49,10 +49,15 @@ UTF-8 markdown with YAML frontmatter delimited by `---` lines. Filename is `<sou
  actual X-builder retains design judgment>
 
 ## Approving / rejecting
-<short instructions: edit `status` in the frontmatter to `approved`
- or `rejected`. Note that rejected files persist as do-not-re-suggest
- markers; to re-open the pattern, delete the file and re-dispatch
- workflow-suggester>
+<short instructions matching the lifecycle: edit `status` from
+ `draft` to `approved` (downstream X-builders like `script-builder`
+ pick it up to draft the artifact), to `rejected` (permanent
+ do-not-re-suggest; file persists as a marker), or — after a
+ downstream X-builder has drafted and the user has promoted the
+ result — to `shipped` with a `shipped_to:` field pointing to the
+ promoted artifact path. To re-open a `rejected` pattern, delete
+ the file and re-dispatch workflow-suggester. See Status semantics
+ below for the full transition table>
 ```
 
 Target length: 30–50 lines per capture file. Compact, scannable, designed for a human to skim in 30 seconds and decide.
