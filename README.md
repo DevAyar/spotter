@@ -4,7 +4,7 @@
 
 > A battle-tested orchestration skeleton for Claude Code projects.
 
-**Status:** v0.9.0 — install, update, and CI shipped. Used in production on Trainer-View (Flutter + Firebase) and Echoes-Of-Gill (Godot). See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next.
+**Status:** v1.1.0 — the capture/reuse loop is live. Five components close autonomy Gap #2 (system-proposes-own-evolution). Used in production on Trainer-View (Flutter + Firebase) and Echoes-Of-Gill (Godot). See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next.
 
 ## What it is
 
@@ -38,14 +38,20 @@ Quick summary:
 - Non-destructive install — the target project's existing structure always wins.
 - "Not every task is an AI task" — scripts for mechanical work.
 
-## What ships at v0.9.0
+## What ships at v1.1.0
 
 - **Orchestration discipline** — directive layer in `template/CLAUDE_MANAGER.md.template` (strategic judgment patterns, dispatch mechanics, plugin marketplace composition, three-commit cadence, recursive ownership L0/L1/L2).
-- **Baseline tooling** — 9 baseline agents, 6 baseline skills, 2 scripts (`commit.sh`, `deploy.sh`), 4 slash commands (`/commit`, `/audit`, `/deploy`, `/smoke-test`), 2 hooks (SessionStart, PreCompact).
-- **Install / update infrastructure** — `install.sh` (three modes), `update.sh` (six-way classification using per-file SHA-256 hashes with backfill for legacy markers), atomic JSON `.skeleton-version` marker.
+- **Capture/reuse loop (v1.1.0)** — five-component pipeline that turns recurring patterns into reusable artefacts, user-approval-gated at every stage:
+  - `session-observer` — emits structured observations from `SESSION_LOG.md` at session end.
+  - `workflow-suggester` — drafts capture markdown from observations into `.claude/captures/`.
+  - `script-builder` — drafts bash scripts under `.claude/scripts/drafts/` from approved captures.
+  - `drift-checker` — surfaces version drift between the installed skeleton and the latest released tag at session start (read-only, no network at session start; `update.sh --check-remote` refreshes the cache).
+  - `task-watchdog` — retrospective scan of the prior session's tool-call transcript for long-running bash calls and recurring failures.
+- **Baseline tooling** — 14 agents (9 baseline + 5 capture/reuse loop), 6 skills, 4 scripts (`commit.sh`, `deploy.sh`, `drift-check.sh`, `task-watchdog.sh`), 4 slash commands (`/commit`, `/audit`, `/deploy`, `/smoke-test`), 3 hooks (`SessionStart`, `PreCompact`, `SessionEnd`).
+- **Install / update infrastructure** — `install.sh` (three modes), `update.sh` (six-way classification using per-file SHA-256 hashes with backfill for legacy markers, plus `--check-remote` for drift-cache refresh), atomic JSON `.skeleton-version` marker.
 - **CI** — three-platform matrix (Ubuntu, Windows, macOS) running six install/update scenarios on every push and PR.
 
-For phase-by-phase history see [`docs/CHANGELOG.md`](docs/CHANGELOG.md). For what's coming next — the v1.1+ capture / reuse loop, v1.2+ `manager-optimizer`, v2.0 plugin recommendation system — see [`docs/ROADMAP.md`](docs/ROADMAP.md).
+For phase-by-phase history see [`docs/CHANGELOG.md`](docs/CHANGELOG.md). For what's coming next — v1.1.x polish, v1.2+ `manager-optimizer`, v2.0 plugin recommendation system — see [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Documentation
 

@@ -2,7 +2,7 @@
 
 ## What this is
 
-claude-skeleton is an orchestration skeleton for Claude Code projects. Install it into a target project and you inherit a working manager-and-helpers setup — agents, skills, scripts, slash commands, hooks — already tuned, non-destructive, with safe automated updates. Current version: **v0.9.0**. Install / update / CI shipped, three-platform matrix green on every push and PR. Used in production today on two real projects with very different stacks: Trainer-View (Flutter + Firebase) and Echoes-Of-Gill (Godot). The audience is small — me and a few peers — and that's the audience this doc is written for.
+claude-skeleton is an orchestration skeleton for Claude Code projects. Install it into a target project and you inherit a working manager-and-helpers setup — agents, skills, scripts, slash commands, hooks — already tuned, non-destructive, with safe automated updates. Current version: **v1.1.0**. The capture/reuse loop is live (five components closing autonomy Gap #2), built on top of v1.0's install / update / CI foundation with the three-platform matrix green on every push and PR. Used in production today on two real projects with very different stacks: Trainer-View (Flutter + Firebase) and Echoes-Of-Gill (Godot). The audience is small — me and a few peers — and that's the audience this doc is written for.
 
 ## Why it exists
 
