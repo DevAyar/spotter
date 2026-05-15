@@ -113,6 +113,12 @@ When the user has approved one or more captures with `suggested_artifact_type: s
 
 The handoff after drafting is **user-handled promotion**. Manager relays the workflow: review the draft, optionally edit in place, `mv` + rename to `.claude/scripts/<descriptive-name>.sh`, `chmod +x`, then flip the source capture's `status` from `approved` to `shipped` with `shipped_to:` set to the new path. Re-dispatch is idempotent — if every approved-script capture already has a `.sh.draft`, zero new files are written. `script-builder` never auto-promotes, never modifies captures, never handles non-script `suggested_artifact_type` values (skill / agent / command / manual_action / unclear), and never auto-dispatches on capture status flip (manual dispatch only in v1.1.0).
 
+### When to dispatch drift-checker
+
+`drift-checker` is invoked **automatically** by the SessionStart hook chain — `sessionstart-rules.sh` runs `.claude/scripts/drift-check.sh` and folds any `[skeleton-drift]` notice into `additionalContext`. Silent when the installed `version` matches the cached `cached_skeleton_head`; surfaces a notice when they differ, when the cache is empty, or when the marker is missing/malformed. Manager doesn't need to dispatch the agent in that path — the hook does the work.
+
+Dispatch `drift-checker` **manually** when the user asks "am I up to date with skeleton?" or similar — manager runs the agent, which shells out to the same `drift-check.sh` and surfaces the output directly. The v1.2.0 `infrastructure-auditor` will dispatch this agent alongside `cruft-checker` + `artifact-fit-analyzer` as part of a scheduled project-level audit pass; the agent shell is the dispatchable surface for that future flow. `drift-checker` is **read-only** — it never runs `update.sh`, never hits the network (that's `bash scripts/update.sh --check-remote`'s job, on explicit user invocation), and never writes the marker. The notice recommends action; the user runs `bash scripts/update.sh`.
+
 ## Section-routing — the core read discipline
 
 When you're about to `Read` a file larger than ~300 lines, **do not Read it end-to-end**. Instead:
@@ -153,12 +159,13 @@ Helpers live in `.claude/agents/`. The baseline roster:
 | 7 | `agent-slicer` | `05_meta/` | L2 | Surgical edits to existing agent files with frontmatter validation. |
 | 8 | `workflow-suggester` | `05_meta/` | L2 | Pattern detection over `SESSION_LOG.md`; suggests captures. |
 | 9 | `self-audit-helper` | `05_meta/` | L2 | Meta-system drift detection (orphans, dead refs, doc drift, missing routes). |
+| 10 | `drift-checker` | `05_meta/` | L2 | Read-only version-drift check against `.skeleton-version`; surfaced by SessionStart hook. |
 
 <!-- TEMPLATE STUB — project-tuner-helper extends this roster with project-specific helpers. -->
 
 ## Tier system
 
-- **T1 — Always-on baseline.** The nine helpers above (four core + five meta), the two scripts (commit/deploy), the two hooks (SessionStart/PreCompact), the six skills (`schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, `bash-safety`, `token-efficiency-monitor`, `plugin-roster-search`). Ships in every install.
+- **T1 — Always-on baseline.** The ten helpers above (four core + six meta), the two scripts (commit/deploy), the two hooks (SessionStart/PreCompact), the six skills (`schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, `bash-safety`, `token-efficiency-monitor`, `plugin-roster-search`). Ships in every install.
 - **T2 — Escalation.** Helpers and scripts added for this project's specific needs. Loaded by default but project-specific.
 - **T3 — On-demand plugins.** Opt-in tooling (e.g. `browser-tester`). The manager only invokes T3 when explicitly relevant.
 

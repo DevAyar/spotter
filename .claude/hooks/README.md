@@ -2,7 +2,7 @@
 
 Baseline Claude Code hooks that ship with claude-skeleton. Three events are wired up by default in `settings.json`:
 
-- **SessionStart** → `sessionstart-rules.sh` — re-injects durable rules from `compactPrompt` at session start.
+- **SessionStart** → `sessionstart-rules.sh` — does two jobs in one hook: (1) re-injects durable rules from `compactPrompt`, and (2) invokes `.claude/scripts/drift-check.sh` and folds any drift notice into the same `additionalContext` block. Fires on every SessionStart event (no `matcher` restriction). Failure of drift-check (missing/malformed `.skeleton-version`, missing jq) is swallowed — the hook always emits cleanly and never blocks session start.
 - **PreCompact** → `precompact-backup.sh` — backs up STATUS.md, SESSION_LOG.md, and CLAUDE.md before auto-compaction.
 - **SessionEnd** → `sessionend-observe.sh` — records the session boundary for `session-observer` to scan back from at next session start.
 

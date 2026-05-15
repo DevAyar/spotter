@@ -138,7 +138,42 @@ this, review first" a reliable distinction.
 
 The marker is JSON; parsing requires `python` (or `python3`) on
 `PATH`. Git Bash for Windows ships with Python 3 in most installs;
-if missing, install Python 3 and rerun. `jq` is **not** required.
+if missing, install Python 3 and rerun. `jq` is **not** required by
+`install.sh` / `update.sh`, but **is** required by the SessionStart
+hook (`sessionstart-rules.sh`) — missing jq just disables rule
+re-injection and drift surfacing; the session still starts cleanly.
+
+### Drift cache (`cached_skeleton_head`)
+
+The marker carries two optional fields used by `drift-checker`:
+
+- `cached_skeleton_head` — last known remote release as a semver
+  string (e.g. `"1.0.0"`), or `null` if never refreshed.
+- `cached_skeleton_head_fetched_at` — ISO-8601 timestamp of when the
+  cache was last refreshed, or `null`.
+
+Both default to `null` on fresh installs and after legacy-marker
+backfill. They are read by `.claude/scripts/drift-check.sh` at
+session start to surface a "you're behind, run update.sh" notice
+when the installed `version` differs from the cached value.
+
+**`drift-checker` and `drift-check.sh` never hit the network and
+never write the marker.** The exclusive path that touches the
+network for drift purposes is:
+
+```bash
+bash <path-to-claude-skeleton>/scripts/update.sh --check-remote
+```
+
+This runs `git ls-remote --tags` against the skeleton repo
+(10-second timeout), picks the highest semver tag, writes
+`cached_skeleton_head` + `cached_skeleton_head_fetched_at`, and
+prints what it found. No diff/classification flow runs in
+`--check-remote` mode — it's a single-purpose, explicit, user-
+invoked refresh. Network failure leaves the marker untouched.
+
+Refresh the cache periodically (weekly is a reasonable cadence);
+drift-checker reads whatever was last cached.
 
 ### First update after 0.8.0 (one-time backfill)
 

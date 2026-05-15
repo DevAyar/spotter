@@ -81,6 +81,8 @@ Pre-0.8.0 shell-format markers get migrated automatically on first `update.sh` r
 
 Without per-file hashes, every update would have to assume the worst (full re-merge with all version migrations). The hash mechanism turns updates into focused, reviewable diffs.
 
+The marker also carries two optional drift-cache fields (`cached_skeleton_head`, `cached_skeleton_head_fetched_at`) populated by `update.sh --check-remote` on explicit user invocation. `drift-checker` (`.claude/agents/05_meta/drift-checker.md` + `.claude/scripts/drift-check.sh`) reads the cache at session start via the SessionStart hook chain and surfaces a version-drift notice when the installed `version` differs from `cached_skeleton_head`. drift-checker is strictly read-only and never touches the network — `--check-remote` is the only path that does, bounded by a 10-second timeout against `git ls-remote --tags`.
+
 ## Install flow
 
 Installing claude-skeleton into a target project is a two-stage flow with two distinct agents. The separation matters: file operations are mechanical and safety-critical; project customization is judgment-driven. Mixing them produces an install that's either too cautious or too eager.
