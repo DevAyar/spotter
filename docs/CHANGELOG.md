@@ -2,6 +2,10 @@
 
 All notable changes to claude-skeleton are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+- Default model set to `opusplan` in `template/.claude/settings.json.template` (Opus plan-mode + Sonnet execution). Skeleton's own dogfood `.claude/settings.json` updated to match. Override via `.claude/settings.json` per project.
+
 ## [1.0.0] - 2026-05-14 — Orchestration layer ready for daily use
 
 The first stable cut. Install / update infrastructure shipped, directive layer locked, validated on two real production targets. v1.0 is the orchestration layer ready for daily use across multiple real projects; v1.1+ work (the capture/reuse loop) starts on top of this baseline.

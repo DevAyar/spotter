@@ -85,6 +85,16 @@ Any `find` / `grep -r` / `wc` / `ls -R` at project scope triggers the `bash-safe
 
 Why a separate skill: a hung scan in the task panel costs minutes per occurrence and is silent. The skill is the discipline.
 
+### Model selection
+
+Default is **`opusplan`** — Opus during plan-mode reasoning, Sonnet during execution. Plan-mode is where the approval gate fires, so Opus quality there matters; execution is mostly mechanical, so Sonnet's speed and cost matter there.
+
+Override per-project by editing `.claude/settings.json`'s `"model"` field. Common alternatives: `"sonnet"` (pure Sonnet for cost-sensitive work), `"opus"` (pure Opus for max-quality sessions).
+
+Cross-provider note: `opusplan` works on the Anthropic API and Claude Platform with current models (Opus 4.7 + Sonnet 4.6). On Bedrock / Vertex / Foundry, the aliases resolve to older versions (Opus 4.6 + Sonnet 4.5) but the hybrid plan-then-execute pattern still applies.
+
+Reference: https://code.claude.com/docs/en/model-config
+
 ## Section-routing — the core read discipline
 
 When you're about to `Read` a file larger than ~300 lines, **do not Read it end-to-end**. Instead:
