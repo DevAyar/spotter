@@ -209,6 +209,8 @@ Decision tree: ask "does this introduce new mechanism or only edit existing pros
 
 When a dispatch prompt sets an explicit override (e.g. `COMMITS: single commit, no smoke test`), the prompt wins over this default rubric.
 
+Every shipped phase ships a `[Unreleased]` CHANGELOG bullet, regardless of size. Small fixes get short bullets; medium/large phases get summary bullets. The bullet is part of the phase's commit set (either in the final commit for small fixes, or in Commit C for three-commit cadence). Omitting the CHANGELOG bullet requires an explicit override in the dispatch prompt — default behavior is always to include it.
+
 ## Plugin marketplace composition
 
 ### Composition, not competition
