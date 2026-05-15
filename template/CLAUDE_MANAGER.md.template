@@ -107,6 +107,12 @@ When the manager (or user) wants to review patterns that have accumulated in obs
 
 The handoff after drafting is **human review**. Each capture lands with `status: draft` in its frontmatter — the user edits to `approved` (future X-builders like `script-builder` pick it up) or `rejected` (workflow-suggester respects as a do-not-re-suggest marker; file persists). Re-dispatch is idempotent: if every warranted observation already has a capture in any status, zero new files are written. `workflow-suggester` never auto-approves, never builds the suggested artifact itself (script-builder and friends land in later v1.1+ phases), and never modifies observations.
 
+### When to dispatch script-builder
+
+When the user has approved one or more captures with `suggested_artifact_type: script` and wants drafts emitted, dispatch `script-builder`. The agent reads `.claude/captures/*.md` filtered to `status: approved AND suggested_artifact_type: script`, plus existing `.claude/scripts/drafts/*.sh.draft` for idempotency, and writes one `.sh.draft` per warranted capture under `.claude/scripts/drafts/<source_pattern_id>.sh.draft`. Drafts follow the 5-section discipline (shebang+strict-mode / constants / helpers / main / cleanup) plus path-shape guards and `bash-safety` conventions baked in.
+
+The handoff after drafting is **user-handled promotion**. Manager relays the workflow: review the draft, optionally edit in place, `mv` + rename to `.claude/scripts/<descriptive-name>.sh`, `chmod +x`, then flip the source capture's `status` from `approved` to `shipped` with `shipped_to:` set to the new path. Re-dispatch is idempotent — if every approved-script capture already has a `.sh.draft`, zero new files are written. `script-builder` never auto-promotes, never modifies captures, never handles non-script `suggested_artifact_type` values (skill / agent / command / manual_action / unclear), and never auto-dispatches on capture status flip (manual dispatch only in v1.1.0).
+
 ## Section-routing — the core read discipline
 
 When you're about to `Read` a file larger than ~300 lines, **do not Read it end-to-end**. Instead:
