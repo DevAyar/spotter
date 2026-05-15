@@ -197,6 +197,18 @@ Smaller work collapses to one commit. Larger work expands (Phase 4g landed as A/
 
 When CI runs on each commit, a green build between A and B is also a checkpoint — work was reviewable at that boundary.
 
+### Commit cadence by phase size
+
+The A/B/C rhythm above is the default for medium-sized work. Two adjacent shapes collapse or expand it:
+
+- **Small fix** — one commit, no smoke test. Surgical doc-rot, single-file or byte-identical mirror edits, no mechanism change, no new artifact. Examples: field-count corrections, illustrative-example genericization, version-string updates in non-historical prose.
+- **Medium phase** — three-commit cadence (A/B/C above), smoke test before Commit A. New agent + script + hook wiring, schema extension, new artifact type. Examples: cruft-checker rollout, prior X-builder phases.
+- **Large overhaul** — split further, smoke test per slice. Multi-component sprints, cross-tier changes, anything spanning >1 agent + >1 schema simultaneously. Examples: future manager-optimizer rollout.
+
+Decision tree: ask "does this introduce new mechanism or only edit existing prose?" → small if prose-only; ask "does this span multiple new artifacts?" → large if yes; else medium.
+
+When a dispatch prompt sets an explicit override (e.g. `COMMITS: single commit, no smoke test`), the prompt wins over this default rubric.
+
 ## Plugin marketplace composition
 
 ### Composition, not competition
