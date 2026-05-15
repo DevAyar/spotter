@@ -1,6 +1,6 @@
 ---
 name: session-observer
-description: Detects repeated patterns in session work (commands run, files edited, errors hit, failures recurring) and writes structured observation files to .claude/observations/. The observation primitive — pure observer, never suggests or acts. Workflow-suggester consumes the output to draft captures; task-watchdog (v1.1+ Phase 4) will be a second producer for recurring-failure observations.
+description: Detects repeated patterns in session work (commands run, files edited, error-resolution sequences) and writes structured observation files to .claude/observations/. The observation primitive — pure observer, never suggests or acts. Workflow-suggester consumes the output to draft captures; task-watchdog (v1.1+ Phase 5) is the canonical producer of recurring-failure observations and long-running-bash anomaly observations.
 tools: Read, Grep, Glob, Write
 ---
 
@@ -34,10 +34,10 @@ Five `pattern_type` values in v1.1.0 scope:
 - **`repeated_command`** — the same tool + normalized args run 3+ times in the window. Normalization strips paths, timestamps, and other instance-specific values so the same intent matches across runs.
 - **`repeated_edit`** — the same file path edited 3+ times in the window. Hot file. Candidate for a generator, a template, or a question about whether the file should be split.
 - **`error_resolution`** — an error message followed by a fix-and-retry sequence, where the same error→fix pair recurs 2+ times. The same problem keeps coming back.
-- **`recurring_failure`** — a test or CI failure with the same signature recurring across runs. Phase 4 task-watchdog will also emit these.
-- **`other`** — anything that looks pattern-shaped but doesn't fit the above. Requires a `notes` field on the observation (free-text, ≤120 chars).
+- **`recurring_failure`** — **not emitted by this agent.** `task-watchdog` is the canonical producer (since Phase 5); session-observer ignores recurring-failure signals in its own scans. The pattern type stays in the schema enum because it's a valid type — just not for this producer.
+- **`other`** — anything that looks pattern-shaped but doesn't fit the above. Requires a `notes` field on the observation (free-text, ≤120 chars). session-observer emits `other` for genuine pattern-shaped anomalies; `task-watchdog` separately uses `other` for long-running bash calls (with a specific notes shape).
 
-Confidence heuristic (v1.1.0 default): ≥5 occurrences with a consistent signature → `high`; 3–4 → `med`; 2 → `low`. Producers can override when they have direct evidence of confidence (e.g. task-watchdog's recurring_failure with an exact stack-trace match → `high` at 2 occurrences).
+Confidence heuristic (v1.1.0 default): ≥5 occurrences with a consistent signature → `high`; 3–4 → `med`; 2 → `low`. Producers can override when they have direct evidence of confidence (e.g. `task-watchdog`'s recurring_failure with an exact stack-trace match → `high` at 2 occurrences, or `task-watchdog`'s single-sighting long-running bash at `low` confidence).
 
 ## What it outputs
 
