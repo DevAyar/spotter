@@ -5,6 +5,7 @@ All notable changes to claude-skeleton are documented here. Format follows [Keep
 ## [Unreleased]
 
 - Default model set to `opusplan` in `template/.claude/settings.json.template` (Opus plan-mode + Sonnet execution). Skeleton's own dogfood `.claude/settings.json` updated to match. Override via `.claude/settings.json` per project.
+- Added `session-observer` foundation (v1.1+ capture/reuse loop Phase 1): observation primitive at `template/.claude/agents/05_meta/session-observer.md`, contract schema at `session-observer.schema.md` (8 fields, multi-source-extensible enums for `source` and `pattern_type`), storage surface at `template/.claude/observations/` (one JSON file per `pattern_id`), and SessionEnd hook script at `template/.claude/hooks/sessionend-observe.sh` that records the session boundary. Observation only — no suggesting, drafting, or auto-action; those land in Phase 2 (`workflow-suggester` extension).
 
 ## [1.0.0] - 2026-05-14 — Orchestration layer ready for daily use
 
