@@ -24,6 +24,15 @@
           }
         ]
       }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/sessionend-observe.sh\""
+          }
+        ]
+      }
     ]
   }
 }
