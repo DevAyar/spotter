@@ -53,6 +53,8 @@ Each file conforms to [`workflow-suggester.schema.md`](workflow-suggester.schema
 
 Target length per capture: 30–50 lines. Compact, scannable, designed for human review.
 
+**suggested_artifact_type routing for cruft-checker observations**: cruft-checker notes carry a heuristic prefix (`"i: ..."`, `"iv: ..."`, `"viii: ..."`, etc.). Observations with notes starting `"viii: "` route to `suggested_artifact_type: infrastructure-fix` (hook-entry config-schema violations — a small manual config edit). All other cruft-checker observations route to `doc-fix` (markdown/prose drift). Both types are resolved manually by the user; neither has an X-builder in v1.1.x.
+
 After drafting all warranted captures, the agent reports to the manager a short summary:
 
 > Drafted N new capture(s) to `.claude/captures/`. Skipped K already-captured (any status). Skipped M below threshold (occurrences < 3 or confidence == low).
