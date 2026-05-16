@@ -14,6 +14,7 @@ All notable changes to claude-skeleton are documented here. Format follows [Keep
 - Extended commit-cadence rubric: every shipped phase ships a [Unreleased] CHANGELOG bullet by default. Closes the gap that caused Phase 8/8b/10/11 to require backfill commits.
 - Added CC permissions allow-list to settings.json (6 allow patterns, 10 deny patterns targeting destructive shapes). Eliminates per-tool-use prompts for common operations; preserves prompts on rm -rf, force push, hard reset, chmod 777, pipe-to-bash patterns.
 - Extended observation schema with `resolved_at` field. Producers (session-observer, task-watchdog, cruft-checker) now mark observations as resolved when underlying patterns are no longer present. Workflow-suggester filters resolved observations from capture generation. Migrated existing observations; closed out 5 lingering observations from Phase 8b cruft fixes.
+- cruft-checker tuning: heuristic vii now exempts `docs/CHANGELOG.md` (historical entries are accurate-at-ship-time, same logic as heuristic x). V_HEADING_RE extended to also match Phase-recap heading shapes (`### Phase N — ... vX.Y.Z`), closing the handoff:60 Phase-recap FP and the CHANGELOG:26 historical schema-claim FP. handoff:136 stays active — its `### Sprint rules locked in v1.1+` heading isn't a Phase-recap shape; deferred to follow-up if a different exemption is wanted.
 
 ## [1.1.0] - 2026-05-15 — The capture/reuse loop
 

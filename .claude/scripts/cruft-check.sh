@@ -357,6 +357,12 @@ def check_phase_refs():
 check_phase_refs()
 
 # ---- Heuristic vii: schema field-count claims ----
+# Fully exempt: history-heavy docs that legitimately reference past field counts.
+# Mirrors heuristic x's EXEMPT_VFILES philosophy. CHANGELOG historical entries
+# document schema field counts as they were at ship time — accurate-at-ship-time,
+# not live cruft.
+EXEMPT_SCHEMA_CLAIM_FILES = {'docs/CHANGELOG.md'}
+
 def count_schema_fields(schema_path):
     text = read_file(schema_path)
     if text is None: return None
@@ -394,6 +400,8 @@ for sp in SCHEMA_PATHS:
 
 def check_schema_claims():
     for md_file in walk_md_files():
+        if md_file in EXEMPT_SCHEMA_CLAIM_FILES:
+            continue
         text = read_file(md_file)
         if text is None: continue
         scanned = strip_code(text)
@@ -455,7 +463,13 @@ def find_exempt_regions(md_text):
     region_start = None
     region_level = None  # depth of the heading that opened the region
     HEADING_RE = re.compile(r'^(#{1,6})\s+(.*)$')
-    V_HEADING_RE = re.compile(r'^v\d+\.\d+', re.IGNORECASE)
+    # Matches either:
+    #   - `^v\d+\.\d+` — top-of-section version headings (e.g. `## v1.1.0`).
+    #   - `^Phase \d+\w?\b.*\bv\d+\.\d+` — Phase-recap headings that
+    #     legitimately reference older versions in their bodies
+    #     (e.g. `### Phase 6 — ... v1.1.0 release cut`).
+    # Phase headings WITHOUT a version reference are NOT matched.
+    V_HEADING_RE = re.compile(r'^(v\d+\.\d+|Phase \d+[a-z]?\b.*\bv\d+\.\d+)', re.IGNORECASE)
     for line in lines:
         line_start = pos
         pos += len(line)

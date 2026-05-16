@@ -42,9 +42,9 @@ No reads outside the project root. No network. No writes outside `.claude/observ
 | **iii** | VERSION ↔ CHANGELOG mismatch | `VERSION` content doesn't match the top dated `## [X.Y.Z]` header in `docs/CHANGELOG.md`. |
 | **iv** | README count claims | README's "Baseline tooling" bullet claims `N agents / N skills / N scripts / N commands / N hooks` but the actuals in `template/.claude/` differ. |
 | **v** | Phase reference to non-existent phase | A `.md` file mentions `Phase N` (or `Phase 4a`, etc.) that doesn't appear anywhere in `docs/CHANGELOG.md`. Catches typos, forward refs, retired phase numbers. |
-| **vii** | Stale schema field-count claim | A doc claims `<schema>` has an `N`-field schema but the actual schema file has a different count. |
+| **vii** | Stale schema field-count claim | A doc claims `<schema>` has an `N`-field schema but the actual schema file has a different count. Exempt: `docs/CHANGELOG.md` (historical entries document field counts as they were at ship time, same logic as heuristic x's CHANGELOG exemption). |
 | **ix** | Tag ↔ VERSION ↔ CHANGELOG at HEAD | When HEAD is tagged: tag (minus `v` prefix), `VERSION`, and top dated `CHANGELOG` header must all match. Skipped when HEAD is untagged. |
-| **x** | Cross-doc stale version reference | A `vX.Y.Z` reference in a non-exempt file/region points at a version older than current `VERSION`. Exempt: all of `docs/CHANGELOG.md`; any section under a `## v[0-9]+\.[0-9]+` heading in `docs/ROADMAP.md` and `claude-skeleton-handoff.md`. Forward references (≥ current) are not flagged. |
+| **x** | Cross-doc stale version reference | A `vX.Y.Z` reference in a non-exempt file/region points at a version older than current `VERSION`. Exempt: all of `docs/CHANGELOG.md`; any section under a `## v[0-9]+\.[0-9]+` heading OR a `### Phase N — ... vX.Y.Z`-style Phase-recap heading in `docs/ROADMAP.md` and `claude-skeleton-handoff.md`. Forward references (≥ current) are not flagged. |
 
 Heuristic 6 (deprecation-pattern references) and heuristic 8 are explicitly **deferred** to a follow-up phase. The numbering preserves room for them.
 
