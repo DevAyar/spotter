@@ -1,6 +1,6 @@
 ---
 name: workflow-suggester
-description: Reads observations from .claude/observations/ and drafts capture markdown files to .claude/captures/ for human review. Idempotent — skips observations that already have any capture (draft / approved / rejected). Pure drafting; does not build downstream artifacts, modify observations, or auto-approve. v1.1+ Phase 2 consumer of the capture/reuse loop.
+description: Reads observations from .claude/observations/ and drafts capture markdown files to .claude/captures/ for human review. Idempotent — skips observations that already have any capture (draft / approved / rejected) AND skips observations marked resolved by their producer (resolved_at non-null). Pure drafting; does not build downstream artifacts, modify observations, or auto-approve. v1.1+ Phase 2 consumer of the capture/reuse loop.
 tools: Read, Grep, Glob, Write
 ---
 
@@ -28,12 +28,13 @@ The agent does NOT read source code, settings, secrets, or anything outside thes
 
 ## Default thresholds
 
-An observation must satisfy **both**:
+An observation must satisfy **all three**:
 
+- `resolved_at` is `null` — observations marked resolved by their producer (cruft-checker's full resolve pass, session-observer's scoped resolve pass) are skipped. The underlying pattern is gone; re-suggesting would be noise. Cheapest check, runs first. Existing captures that reference resolved observations stay valid — resolution doesn't invalidate prior work.
 - `occurrences >= 3` — at least three sightings of the same pattern.
 - `confidence >= medium` — `med` or `high` only; `low`-confidence observations get skipped.
 
-These are the v1.1.0 defaults. Tunable by direct edit of this paragraph (the agent body is the source of truth for thresholds). If a project wants more aggressive drafting, drop to `occurrences >= 2` or include `low` confidence; if it wants less noise, raise `occurrences >= 5`.
+These are the v1.1.0 defaults. The `occurrences` and `confidence` thresholds are tunable by direct edit of this paragraph (the agent body is the source of truth). If a project wants more aggressive drafting, drop to `occurrences >= 2` or include `low` confidence; if it wants less noise, raise `occurrences >= 5`. The `resolved_at` filter is **not** tunable — it's a correctness invariant, not a noise dial.
 
 ## What it drafts
 
