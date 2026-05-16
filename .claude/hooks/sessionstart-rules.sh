@@ -70,6 +70,7 @@ append_block() {
 append_block "$DRIFT_OUTPUT"
 append_block "$WATCHDOG_OUTPUT"
 
-# Emit hook JSON. additionalContext is a Claude Code SessionStart field that
-# gets injected into the conversation.
-jq -n --arg p "$COMBINED" '{additionalContext: $p}'
+# Emit hook JSON. The canonical SessionStart schema wraps additionalContext
+# inside hookSpecificOutput — Claude Code silently drops a bare top-level
+# additionalContext field, so the wrapper is load-bearing.
+jq -n --arg p "$COMBINED" '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $p}}'
