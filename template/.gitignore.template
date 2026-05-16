@@ -6,3 +6,7 @@
 
 # Claude Code per-user/per-machine local config (permission allowlists, etc.)
 .claude/*.local.json
+
+# Hook runtime artifacts — per-session noise from SessionStart/SessionEnd hooks
+docs/SESSION_LOG.md
+.claude/observations/.session-ended

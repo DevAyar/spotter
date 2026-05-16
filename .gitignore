@@ -28,6 +28,9 @@ Thumbs.db
 # cruft-checker). Persistent on disk for cross-session workflow-suggester
 # consumption, but not part of source-of-truth repo state.
 .claude/observations/*.json
-.claude/.session-ended
+.claude/observations/.session-ended
 .claude/.last-watchdog-session
 .claude/.last-cruft-check
+
+# Hook runtime artifacts — per-session noise, not release narrative.
+docs/SESSION_LOG.md
