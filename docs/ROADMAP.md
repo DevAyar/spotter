@@ -40,13 +40,27 @@ The capture/reuse loop in its first shippable form. **All five primitives shippe
 - **`drift-checker`** ✓ *(shipped — Phase 4).* `.skeleton-version` marker drift between installed projects and the latest released skeleton tag. Read-only, notification-only — no auto-apply, no auto-update. Surfaced by the SessionStart hook chain; cache refreshed via `update.sh --check-remote` (the only network path).
 - **`task-watchdog`** ✓ *(shipped — Phase 5).* Retrospective observer of the prior Claude Code session. Reads `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl`, pairs `tool_use`/`tool_result` events, and emits two pattern shapes via session-observer's existing schema: long-running bash calls (≥5min default, `pattern_type: other` with descriptive notes) and recurring failures (same normalized signature ≥3 times in-session, `pattern_type: recurring_failure`). Canonical producer of `recurring_failure` observations (ownership transferred from `session-observer`). Retrospective only — real-time signals deferred until Claude Code exposes a polling hook; resource-anomaly signals bundle with v1.2.0's `token-efficiency-monitor` proactive upgrade.
 
-### v1.1.x — polish before v1.2.0
+### v1.1.x — shipped (v1.1.1 cut on 2026-05-16)
 
-Three items that sharpen v1.1.0 without expanding the meta-evolution surface:
+**Retrospective:** v1.1.x scope expanded mid-tier — the original 5-component polish framing grew to include the dogfood directive layer (Phase 9), observation resolution (Phase 12), and the hook infrastructure fix saga (Phases 14c–14f). v1.1.1 release boundary recognizes the delta. v1.1.2 returns to original polish scope.
 
-- **`cruft-checker`** — third observation producer. Surfaces dangling refs, doc-rot, stale `CHANGELOG` entries, deprecated patterns still referenced in code. Feeds `workflow-suggester` like any other observation source.
-- **`code-quality-auditor`** — Layer 3 of the 3-layer plugin verification. Reads actual source code of community plugins and evaluates fitness vs description. Integrates with the existing `integration-checker`; both fold into v2.0.
-- **Lessons-log integration as `suggested_artifact_type: lesson`.** Rather than a separate skill, lessons collapse into the captures surface — `workflow-suggester` drafts lesson captures, the user approves them, and they live alongside script/skill/agent/command captures in the same lifecycle.
+**Shipped in v1.1.1:**
+
+- **`cruft-checker`** ✓ *(shipped — Phase 7).* Third observation producer. Dogfood-only. Surfaces dangling refs, doc-rot, stale `CHANGELOG` entries, deprecated patterns still referenced in code. Feeds `workflow-suggester` like any other observation source.
+- **Dogfood directive layer** ✓ *(shipped — Phase 9).* `CLAUDE.md` + `CLAUDE_MANAGER.md` + `ROUTING.md` resolved at skeleton repo root from `template/*.template`; mirror invariant locked.
+- **Observation resolution** ✓ *(shipped — Phase 12).* `resolved_at` field added across producers; workflow-suggester filters resolved observations from capture generation.
+- **Commit-cadence-by-phase-size rubric** ✓ *(shipped — Phase 10/10c).* Three-tier sizing (small fix / medium phase / large overhaul) + every shipped phase ships a `[Unreleased]` CHANGELOG bullet by default.
+- **Permissions hardening** ✓ *(shipped — Phases 11/14/14c).* Canonical bare-tool-name allow patterns + PreToolUse hook (`pretooluse-bash-safety.sh`) replacing fragile string-pattern denies; 10 destructive Bash shapes blocked including 4 pipe-to-shell variants the deny rules couldn't catch.
+- **Hook infrastructure correctness** ✓ *(shipped — Phases 14c–14f).* `type: command` wiring added to all 5 hook entries; `sessionstart-rules.sh` schema corrected to wrapped `hookSpecificOutput` envelope; hook runtime artifacts gitignored. All five hooks (PreCompact, SessionStart rules, SessionStart cruft-check, SessionEnd, PreToolUse) now fire as designed.
+
+#### v1.1.2 — remaining polish
+
+Items carried forward (or surfaced) from the v1.1.x arc, scoped tightly so v1.2.0 stays the next major release surface:
+
+- **`code-quality-auditor`** — Layer 3 of the 3-layer plugin verification (carried from v1.1.x original scope). Reads actual source of community plugins and evaluates fitness vs description. Integrates with `integration-checker`; both fold into v2.0.
+- **Lessons-log integration as `suggested_artifact_type: lesson`** (carried from v1.1.x original scope). Rather than a separate skill, lessons collapse into the captures surface — `workflow-suggester` drafts lesson captures, the user approves them, and they live alongside script/skill/agent/command captures in the same lifecycle.
+- **Plan amendment behavior** *(new — workflow lesson from Phase 14f).* When the user amends a plan mid-plan-mode with explicit "do not rewrite," the manager should `Edit` the plan file in place rather than regenerate it from scratch. Codify in `CLAUDE_MANAGER.md` directive layer so the behavior is automatic, not prompt-dependent.
+- **cruft-checker hook-schema heuristic** *(new — heuristic from Phase 14d arc).* Extend `cruft-checker` with a heuristic that validates every `hooks[*]` entry in `settings.json` / `settings.json.template` against the canonical Anthropic Hook schema (required fields like `type: command`, valid `matcher` values, well-formed `hookSpecificOutput` wrappers when applicable). Would have caught the silently-inert hooks from v1.0 → Phase 14c-diag months earlier.
 
 ### How the loop closes the gaps (in v1.1.0)
 
