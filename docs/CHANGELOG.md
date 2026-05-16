@@ -6,7 +6,7 @@ All notable changes to claude-skeleton are documented here. Format follows [Keep
 
 ### v1.1.x
 
-*(no new bullets — v1.1.x section frozen at v1.1.1 release; v1.1.2 work tracked in ROADMAP)*
+- Added cruft-checker heuristic viii (hook-entry config-schema validation). Walks every `hooks.<EventName>[*].hooks[*]` entry in `.claude/settings.json` and `template/.claude/settings.json.template`, flags missing `type: "command"` or missing `command` field — the v1.0 → Phase 14c-diag silent-inert failure mode that took five phases (14c → 14c-diag → 14d → 14e → 14f) to surface. Paired with new `docs/HOOK_SCHEMA.md` reference doc (cites Anthropic canonical) and `infrastructure-fix` value added to `workflow-suggester`'s `suggested_artifact_type` enum (config-fix captures, distinct from `doc-fix`'s prose/markdown shape). Closes the v1.1.x hook infrastructure arc retrospectively: failures of this class get caught at the first cruft-check next time, not after operational verification. Hook script *output*-schema validation (the Phase 14e `hookSpecificOutput` wrapper) explicitly remains out of scope — a different check kind, deferred to a future heuristic if needed.
 
 ## [1.1.1] - 2026-05-16 — Hook infrastructure correctness
 
