@@ -13,14 +13,6 @@
       "WebSearch",
       "NotebookEdit",
       "Agent"
-    ],
-    "deny": [
-      "Bash(rm -rf *)",
-      "Bash(rm -rf /*)",
-      "Bash(git push --force*)",
-      "Bash(git push -f*)",
-      "Bash(git reset --hard origin/*)",
-      "Bash(chmod -R 777 *)"
     ]
   },
   "compactPrompt": "Durable rules:\n- TWO .claude/ dirs exist: ./.claude/ (working ON the meta-system) and ./template/.claude/ (gets installed INTO target projects). Never conflate.\n- Template files use .template suffix. Don't edit them as live config.\n- Non-destructive install: code that touches a target project's .claude/ must merge, never overwrite.\n- Plan before structural changes. This project is the foundation other projects inherit.\n- Verify file existence before recommending a path or command.",
@@ -31,6 +23,16 @@
         "hooks": [
           {
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/precompact-backup.sh\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pretooluse-bash-safety.sh\""
           }
         ]
       }
