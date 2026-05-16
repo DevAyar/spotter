@@ -36,6 +36,8 @@ Observation JSON files at `.claude/observations/<pattern_id>.json` conforming to
 
 `source: "task-watchdog"` on every observation. Re-observation rules from the schema apply: same `pattern_id` across sessions → bumps `occurrences`, updates `last_seen`, appends to `evidence` (capped at the 20 most recent entries).
 
+`resolved_at` is always written: `null` on new emission and on re-emission (regression-reset). task-watchdog does NOT actively set `resolved_at` to a timestamp on existing observations — its scope is one prior session per scan, so absence in a scan is not meaningful evidence of permanent resolution. Per the schema's "Resolution lifecycle" section, task-watchdog's observations from older sessions stay `null` indefinitely. Intentional asymmetry with `cruft-checker`, which can run a full resolve pass because its scope covers the entire skeleton repo on every scan.
+
 ## Idempotency contract
 
 Re-running `task-watchdog.sh` against the same prior session **must produce zero new files and zero re-bumped counters**.
@@ -61,7 +63,7 @@ These are the contract — task-watchdog enforces them:
 - **No resource-anomaly signals.** Memory, token, CPU — these bundle with v1.2.0's `token-efficiency-monitor` proactive upgrade.
 - **No subagent transcript analysis.** Events with `isSidechain: true` are filtered out for v1.1.0. Subagent timing is a separate observation surface for v1.2+.
 - **No cross-session aggregation.** Processes only the IMMEDIATELY PRIOR session per run. `workflow-suggester` is the layer that aggregates patterns across observations.
-- **No new schema fields.** Strictly within session-observer's existing 8-field schema. v1.2.0's `long_running_command` pattern_type may be added later; for now, `other`+notes carries the signal.
+- **No new schema fields.** Strictly within session-observer's existing 9-field schema (extended with `resolved_at` in Phase 12 — task-watchdog uses the field but doesn't own it). v1.2.0's `long_running_command` pattern_type may be added later; for now, `other`+notes carries the signal.
 - **No notification path.** Writes observations; doesn't emit user-facing notices. Workflow-suggester (next dispatch) draws captures from the observation pile.
 - **No automatic remediation.** Detection is automatic; action flows through workflow-suggester → captures → user approves → builder ships.
 

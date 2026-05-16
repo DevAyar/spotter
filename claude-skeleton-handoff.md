@@ -21,7 +21,7 @@ Orchestration layer cut: directive layer (CLAUDE_MANAGER.md.template), 9 baselin
 
 ### Phase 1 — `f39b0e3` → `92f0c61` — session-observer foundation
 
-Observation primitive at `template/.claude/agents/05_meta/session-observer.md` + 8-field schema + `template/.claude/observations/` storage + SessionEnd hook script. Multi-source-extensible from day one — `source` and `pattern_type` enums designed for future producers (`task-watchdog`, `cruft-checker`). Observation only — no suggesting, drafting, or auto-action.
+Observation primitive at `template/.claude/agents/05_meta/session-observer.md` + 9-field schema + `template/.claude/observations/` storage + SessionEnd hook script. Multi-source-extensible from day one — `source` and `pattern_type` enums designed for future producers (`task-watchdog`, `cruft-checker`). Observation only — no suggesting, drafting, or auto-action.
 
 ### Phase 1b — `5d6ff53` + `b6439be` — dogfood mirror + hooks asymmetry fix
 
@@ -146,7 +146,7 @@ Two rules surfaced during the sprint that should persist across sessions:
 
 ## What's next
 
-**v1.1.x opens with cruft-checker.** Third observation producer against session-observer's existing schema. Pattern is well-established now — task-watchdog set the precedent for retrospective producers writing to `.claude/observations/` using the existing 8-field schema. cruft-checker scope: dangling refs, doc-rot, stale CHANGELOG entries, deprecated patterns referenced after deprecation. Apply the **pre-build scoping rule** (5 questions from ROADMAP) before drafting the phase brief — locks interpretations before the plan-mode pass:
+**v1.1.x opens with cruft-checker.** Third observation producer against session-observer's existing schema. Pattern is well-established now — task-watchdog set the precedent for retrospective producers writing to `.claude/observations/` using the existing 9-field schema. cruft-checker scope: dangling refs, doc-rot, stale CHANGELOG entries, deprecated patterns referenced after deprecation. Apply the **pre-build scoping rule** (5 questions from ROADMAP) before drafting the phase brief — locks interpretations before the plan-mode pass:
 
 1. What's the input surface (the docs / code / refs to scan)?
 2. What's the signal threshold (when does cruft-checker emit)?

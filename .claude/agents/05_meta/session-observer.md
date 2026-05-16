@@ -41,11 +41,12 @@ Confidence heuristic (v1.1.0 default): ≥5 occurrences with a consistent signat
 
 ## What it outputs
 
-For each detected pattern, one JSON file at `.claude/observations/<pattern_id>.json` conforming to [`session-observer.schema.md`](session-observer.schema.md). Fields: `pattern_id`, `source`, `pattern_type`, `occurrences`, `first_seen`, `last_seen`, `evidence`, `confidence`.
+For each detected pattern, one JSON file at `.claude/observations/<pattern_id>.json` conforming to [`session-observer.schema.md`](session-observer.schema.md). Fields: `pattern_id`, `source`, `pattern_type`, `occurrences`, `first_seen`, `last_seen`, `resolved_at`, `evidence`, `confidence`.
 
-- **New pattern.** Creates a new file. `source: "session-observer"`, `first_seen` = `last_seen` = window start.
-- **Re-observed pattern.** Reads the existing file, increments `occurrences`, updates `last_seen`, appends new evidence entries (capped at the most recent 20 to bound file size), leaves `first_seen` and `pattern_id` unchanged. `source` stays whatever the original producer wrote — re-observation doesn't change provenance.
-- **After the run.** Removes `.claude/observations/.session-ended` if it was the trigger. Reports to the manager a one-paragraph summary: "Wrote N new observation files, updated M existing ones."
+- **New pattern.** Creates a new file. `source: "session-observer"`, `first_seen` = `last_seen` = window start, `resolved_at: null`.
+- **Re-observed pattern.** Reads the existing file, increments `occurrences`, updates `last_seen`, appends new evidence entries (capped at the most recent 20 to bound file size), sets `resolved_at: null` (regression-reset if it was previously marked resolved), leaves `first_seen` and `pattern_id` unchanged. `source` stays whatever the original producer wrote — re-observation doesn't change provenance.
+- **Untouched in-scope observation.** After the detection pass, walks `.claude/observations/` and finds existing observations with `source: "session-observer"` whose `pattern_id` was NOT touched by this scan. For each, if `resolved_at` is currently `null`, sets `resolved_at` to scan-end time. Already-resolved observations stay frozen at their original resolution timestamp. See "Resolution lifecycle" in the schema doc.
+- **After the run.** Removes `.claude/observations/.session-ended` if it was the trigger. Reports to the manager a one-paragraph summary: "Wrote N new observation files, updated M existing ones, resolved R observations."
 
 ## What it does NOT do
 

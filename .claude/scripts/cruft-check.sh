@@ -2,7 +2,7 @@
 # cruft-check: dogfood-only auditor of the skeleton repo's own docs/refs.
 # Implements 7 heuristics (i, ii, iii, iv, v, vii, ix, x) and emits
 # observations to .claude/observations/ using session-observer's
-# 8-field schema. Third producer against that schema. Invoked by the
+# 9-field schema. Third producer against that schema. Invoked by the
 # SessionStart hook chain (with --hook + 24h cooldown) or manually
 # (no flag, ignores cooldown). NEVER auto-fixes. NEVER hits the network.
 # NEVER writes outside .claude/observations/ + .claude/.last-cruft-check.
@@ -55,6 +55,11 @@ from glob import glob
 obs_dir = sys.argv[1]
 evidence_cap = int(sys.argv[2])
 
+# Module-level set of pattern_ids emitted this run. Populated by emit() and
+# consumed by resolve_untouched() to mark cruft-checker observations whose
+# underlying pattern is no longer detected this scan.
+emitted_ids = set()
+
 def now_iso():
     return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
@@ -71,6 +76,7 @@ def emit(signature, notes, summary=None):
     if len(notes) > 120:
         notes = notes[:119] + '…'
     pid = pattern_id(signature)
+    emitted_ids.add(pid)
     path = os.path.join(obs_dir, pid + '.json')
     ts = now_iso()
     new_evidence = {'timestamp': ts, 'kind': 'doc_cruft', 'summary': summary}
@@ -111,6 +117,7 @@ def emit(signature, notes, summary=None):
         'occurrences': occurrences,
         'first_seen': first_seen,
         'last_seen': ts,
+        'resolved_at': None,
         'evidence': evidence,
         'confidence': confidence,
         'notes': prior_notes,
@@ -120,6 +127,33 @@ def emit(signature, notes, summary=None):
         json.dump(out, f, indent=2, sort_keys=True)
         f.write('\n')
     os.replace(tmp, path)
+
+def resolve_untouched():
+    """For each existing cruft-checker observation whose pattern_id was NOT
+    touched by this scan's emit() calls, set resolved_at to now if currently
+    null. Already-resolved observations stay frozen at their original timestamp.
+    Per the schema's Resolution lifecycle: cruft-checker runs a full resolve
+    pass because every scan covers the entire skeleton repo."""
+    ts = now_iso()
+    for obs_path in glob(os.path.join(obs_dir, '*.json')):
+        pid_from_name = os.path.basename(obs_path).replace('.json', '')
+        if pid_from_name in emitted_ids:
+            continue
+        try:
+            with open(obs_path, encoding='utf-8') as f:
+                data = json.load(f)
+        except Exception:
+            continue
+        if data.get('source') != 'cruft-checker':
+            continue
+        if data.get('resolved_at'):
+            continue
+        data['resolved_at'] = ts
+        tmp = obs_path + f'.tmp.{os.getpid()}'
+        with open(tmp, 'w', encoding='utf-8', newline='\n') as f:
+            json.dump(data, f, indent=2, sort_keys=True)
+            f.write('\n')
+        os.replace(tmp, obs_path)
 
 # ---- file discovery ----
 EXCLUDE_DIRS = {'.git', '.claude/observations', '.claude/captures', '.claude/scripts/drafts', 'node_modules'}
@@ -479,6 +513,9 @@ def check_version_refs():
             emit(sig, notes)
 
 check_version_refs()
+
+# ---- resolution pass ----
+resolve_untouched()
 
 PYIMPL
 PYIMPL_RC=$?

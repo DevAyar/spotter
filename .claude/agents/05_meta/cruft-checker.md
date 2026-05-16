@@ -1,6 +1,6 @@
 ---
 name: cruft-checker
-description: Dogfood-only retrospective auditor of the skeleton repo's own docs/refs. Scans for seven cruft classes (broken markdown links, missing anchors, VERSION/CHANGELOG/tag mismatches, stale README counts, non-existent phase refs, stale schema-field-count claims, cross-doc version drift) and emits observations to .claude/observations/ using session-observer's 8-field schema. Third producer against that schema after session-observer and task-watchdog. Auto-fires from SessionStart hook with a 24h cooldown; manual dispatch ignores the cooldown. Read-only — NEVER auto-fixes, NEVER hits the network, NEVER writes outside .claude/observations/ and .claude/.last-cruft-check. v1.1.x first component; pairs with workflow-suggester's new `doc-fix` artifact_type.
+description: Dogfood-only retrospective auditor of the skeleton repo's own docs/refs. Scans for seven cruft classes (broken markdown links, missing anchors, VERSION/CHANGELOG/tag mismatches, stale README counts, non-existent phase refs, stale schema-field-count claims, cross-doc version drift) and emits observations to .claude/observations/ using session-observer's 9-field schema. Third producer against that schema after session-observer and task-watchdog. Auto-fires from SessionStart hook with a 24h cooldown; manual dispatch ignores the cooldown. Read-only — NEVER auto-fixes, NEVER hits the network, NEVER writes outside .claude/observations/ and .claude/.last-cruft-check. v1.1.x first component; pairs with workflow-suggester's new `doc-fix` artifact_type.
 tools: Read, Bash, Glob, Grep, Write
 ---
 
@@ -61,6 +61,8 @@ Observation files at `.claude/observations/<pattern_id>.json` conforming to [`se
 
 Re-observation rules from the schema apply unchanged — same pattern_id across sessions merges into the existing file (occurrences bumps, last_seen updates, evidence appends capped at 20).
 
+`resolved_at` semantics: cruft-checker writes `resolved_at: null` on every emission and re-emission (regression-reset when a previously-resolved observation re-detects). After the detection pass completes, cruft-checker walks `.claude/observations/`, filters to entries with `source: "cruft-checker"`, and for each entry whose `pattern_id` was NOT touched by this scan sets `resolved_at` to scan time (if currently `null`). This is the **full resolve pass** described in the schema's "Resolution lifecycle" — every scan covers the entire skeleton repo, so absence in a scan is meaningful evidence the cruft is gone. Already-resolved observations stay frozen at their original resolution timestamp.
+
 ## Idempotency
 
 Two layers:
@@ -97,7 +99,7 @@ A future `doc-fix-builder` (v1.2+ candidate, not committed) could automate step 
 - **No deprecation-pattern detection** (heuristic 6) — deferred to follow-up phase.
 - **No subagent transcript analysis** — task-watchdog's territory.
 - **No auto-promotion of doc-fix captures** — manual workflow in v1.1.x.
-- **No schema extensions beyond `doc-fix` on `suggested_artifact_type`** — observation schema is unchanged; `pattern_type: other` with notes carries every signal.
+- **No additional pattern_type values.** cruft-checker uses the existing `other` enum value with notes to carry every detection signal. `resolved_at` (Phase 12 schema extension, owned by session-observer's schema doc) carries the resolution signal — same field used by all producers. `suggested_artifact_type: doc-fix` (v1.1.x addition) is on the capture schema, not the observation schema.
 
 ## Mechanism reference
 

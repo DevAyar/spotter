@@ -18,6 +18,7 @@ Lock the schema; extend the enums. New producers register a `source` value, new 
 | `occurrences` | integer (≥ 2) | yes | Count of times this pattern was observed across the producer's inspection windows. Monotonic — updates on re-observation. Minimum 2 (a single sighting isn't a pattern). |
 | `first_seen` | string (ISO-8601 UTC) | yes | When `pattern_id` was first observed. Set once on creation. Format: `YYYY-MM-DDTHH:MM:SSZ`. |
 | `last_seen` | string (ISO-8601 UTC) | yes | When `pattern_id` was most recently observed. Updates on each re-observation. |
+| `resolved_at` | string (ISO-8601 UTC) or `null` | yes | Set by the producer when its scan no longer detects the underlying pattern. `null` = active (detected on most recent scan, or never re-scanned since first emission). Non-null timestamp = producer confirmed the pattern is gone as of that time. Reset to `null` on re-detection (regression). Consumers like `workflow-suggester` skip non-null entries when generating new captures. See "Resolution lifecycle" below. |
 | `evidence` | array of event objects | yes | Concrete instances the pattern was extracted from. Each event: `{ timestamp, kind, summary, tool_name?, args_redacted? }`. See "Evidence" below. Capped at the 20 most recent entries to bound file size. |
 | `confidence` | string enum | yes | `low` \| `med` \| `high`. Default heuristic: ≥5 occurrences → `high`; 3–4 → `med`; 2 → `low`. Producers can override when they have direct evidence (e.g. `task-watchdog` matching an exact stack trace at 2 occurrences → `high`). |
 
@@ -47,6 +48,21 @@ Each entry in the `evidence` array has these fields:
 - Strip query strings on URLs (replace `?...` with `?…`).
 - When in doubt, redact. The schema cap of 120 chars per `summary` and `args_redacted` is also a guardrail — if the field would exceed 120 chars after redaction, truncate to 120 with a trailing `…`.
 
+## Resolution lifecycle
+
+The `resolved_at` field is producer-driven, not user-driven. Each producer that owns observation files runs a resolve pass alongside its detection pass:
+
+- **Detection produces** `resolved_at: null` — every new emission, and every re-emission of an existing observation, writes `null` (which acts as a regression-reset if the observation was previously marked resolved).
+- **Absence produces** a timestamp — at the end of a scan, for each existing observation owned by this producer that the scan did NOT touch, set `resolved_at` to the current time (only if it's currently `null`; already-resolved observations stay frozen at their original resolution timestamp).
+
+The mechanism is asymmetric by producer scope:
+
+- `cruft-checker` runs a **full resolve pass** — every scan covers the entire scope, so absence in a scan is meaningful evidence the cruft is gone.
+- `task-watchdog` is **session-bounded** — each scan covers one prior session, so absence in a scan is not meaningful evidence the pattern is permanently gone. task-watchdog writes `resolved_at: null` on emissions but does NOT actively set timestamps. Older observations stay `null` indefinitely; this is intentional.
+- `session-observer` runs a **scoped resolve pass** — resolves observations whose pattern doesn't appear in the current scan window, with the same regression-reset on re-detection.
+
+Resolved observations stay on disk as audit trail — consumers filter them, nothing deletes them. v2.0's `manager-optimizer` is the eventual pruning surface.
+
 ## Example
 
 ```json
@@ -57,6 +73,7 @@ Each entry in the `evidence` array has these fields:
   "occurrences": 5,
   "first_seen": "2026-05-08T10:14:22Z",
   "last_seen": "2026-05-15T16:42:08Z",
+  "resolved_at": null,
   "evidence": [
     {
       "timestamp": "2026-05-08T10:14:22Z",

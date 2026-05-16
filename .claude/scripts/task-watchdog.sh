@@ -336,6 +336,7 @@ def write_observation(pid, ptype, signature, events, notes=None):
         'occurrences': occurrences,
         'first_seen': first_seen,
         'last_seen': last_seen,
+        'resolved_at': None,
         'evidence': combined,
         'confidence': confidence,
     }
