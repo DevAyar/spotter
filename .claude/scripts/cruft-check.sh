@@ -420,6 +420,58 @@ def check_schema_claims():
 
 check_schema_claims()
 
+# ---- Heuristic viii: hook entry config schema ----
+# Validates settings.json hook entries against the canonical Anthropic hook
+# schema (docs/HOOK_SCHEMA.md). Catches missing `type: "command"` and missing
+# `command` field on inner hook objects — the Phase 14c-diag silent-inert
+# failure mode. Skipped silently if a settings file is missing or
+# unparseable (JSON syntax errors aren't this heuristic's responsibility).
+def check_hook_entries():
+    settings_paths = [
+        '.claude/settings.json',
+        'template/.claude/settings.json.template',
+    ]
+    for path in settings_paths:
+        text = read_file(path)
+        if text is None:
+            continue
+        try:
+            data = json.loads(text)
+        except (ValueError, json.JSONDecodeError):
+            continue
+        hooks_root = data.get('hooks') if isinstance(data, dict) else None
+        if not isinstance(hooks_root, dict):
+            continue
+        for event_name, entries in hooks_root.items():
+            if not isinstance(entries, list):
+                continue
+            for entry_idx, entry in enumerate(entries):
+                if not isinstance(entry, dict):
+                    continue
+                inner_hooks = entry.get('hooks')
+                if not isinstance(inner_hooks, list):
+                    sig = f'hook-schema:{path}:{event_name}:{entry_idx}:no-hooks-array'
+                    notes = f'viii: {path} hooks.{event_name}[{entry_idx}] missing "hooks" array'
+                    emit(sig, notes)
+                    continue
+                for hook_idx, inner in enumerate(inner_hooks):
+                    if not isinstance(inner, dict):
+                        continue
+                    type_val = inner.get('type')
+                    if type_val != 'command':
+                        sig = f'hook-schema:{path}:{event_name}:{entry_idx}:hooks[{hook_idx}]:type'
+                        if type_val is None:
+                            notes = f'viii: {path} hooks.{event_name}[{entry_idx}].hooks[{hook_idx}] missing "type" (expected "command")'
+                        else:
+                            notes = f'viii: {path} hooks.{event_name}[{entry_idx}].hooks[{hook_idx}] type="{type_val}" (expected "command")'
+                        emit(sig, notes)
+                    if not inner.get('command'):
+                        sig = f'hook-schema:{path}:{event_name}:{entry_idx}:hooks[{hook_idx}]:command'
+                        notes = f'viii: {path} hooks.{event_name}[{entry_idx}].hooks[{hook_idx}] missing "command" field'
+                        emit(sig, notes)
+
+check_hook_entries()
+
 # ---- Heuristic ix: tag ↔ VERSION ↔ CHANGELOG at HEAD ----
 try:
     result = subprocess.run(
