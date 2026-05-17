@@ -344,6 +344,85 @@ scenario_replace_with_yes_piped() {
   echo "PASS replace-with-yes-piped"
 }
 
+# ---- Phase 30c FP exemption scenario ----
+
+# Helpers for the FP-exemption scenario. Each helper pipes a synthetic
+# PreToolUse JSON to the named hook and asserts the output JSON contains
+# the expected permissionDecision. Python is used ONLY to JSON-encode the
+# test command (safer than shell-string concat with arbitrary special
+# chars); the hook itself remains Python-free per Phase 30c constraint.
+fp_assert_bash() {
+  local expected="$1" desc="$2" cmd="$3"
+  local payload
+  payload=$(python -c '
+import json, sys
+print(json.dumps({"tool_name": "Bash", "tool_input": {"command": sys.argv[1]}}))
+' "$cmd")
+  local out
+  out=$(printf '%s' "$payload" | CLAUDE_PROJECT_DIR="$TEST_DIR" \
+    bash "$TEST_DIR/.claude/hooks/pretooluse-bash-safety.sh" 2>&1)
+  if ! printf '%s' "$out" | grep -q "\"permissionDecision\":\"$expected\""; then
+    echo "ERROR ($desc): expected $expected; got:" >&2
+    printf '%s\n' "$out" >&2
+    exit 1
+  fi
+  echo "  OK ($desc): $expected"
+}
+
+fp_assert_ps() {
+  local expected="$1" desc="$2" cmd="$3"
+  local payload
+  payload=$(python -c '
+import json, sys
+print(json.dumps({"tool_name": "PowerShell", "tool_input": {"command": sys.argv[1]}}))
+' "$cmd")
+  local out
+  out=$(printf '%s' "$payload" | CLAUDE_PROJECT_DIR="$TEST_DIR" \
+    bash "$TEST_DIR/.claude/hooks/pretooluse-powershell-safety.sh" 2>&1)
+  if ! printf '%s' "$out" | grep -q "\"permissionDecision\":\"$expected\""; then
+    echo "ERROR ($desc): expected $expected; got:" >&2
+    printf '%s\n' "$out" >&2
+    exit 1
+  fi
+  echo "  OK ($desc): $expected"
+}
+
+scenario_hook_fp_exemption_git_commit_message() {
+  echo ">> hook-fp-exemption-git-commit-message: parser exempts -m bodies + heredocs; counter-tests still deny"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+
+  # Bash variant (uses pretooluse-bash-safety.sh)
+  fp_assert_bash allow "bash test 1: -m body with rm -rf" \
+    'git commit -m "removed rm -rf from script"'
+  fp_assert_bash allow "bash test 2: -m body with rsync --delete" \
+    'git commit -m "rsync --delete /"'
+  fp_assert_bash deny "bash test 3 (counter): bare rm -rf /" \
+    'rm -rf /'
+  fp_assert_bash deny "bash test 4 (counter): git commit then chained rm -rf" \
+    'git commit -m "foo"; rm -rf /'
+  fp_assert_bash allow "bash test 5: heredoc with rm -rf inside body" \
+    "$(printf 'cat > x <<EOF\nrm -rf /\nEOF\n')"
+  fp_assert_bash allow "bash test 6: Phase 30b realistic msg shape" \
+    'git commit -m "fix(scripts): added rsync --delete + dd of=/dev/sd* + shred|srm patterns"'
+
+  # PowerShell variant (uses pretooluse-powershell-safety.sh)
+  fp_assert_ps allow "ps test 7: -m body with rm -rf" \
+    'git commit -m "removed rm -rf from script"'
+  fp_assert_ps allow "ps test 8: -m body with rsync --delete" \
+    'git commit -m "rsync --delete /"'
+  fp_assert_ps deny "ps test 9 (counter): bare Remove-Item -Recurse -Force" \
+    'Remove-Item -Recurse -Force C:\temp'
+  fp_assert_ps deny "ps test 10 (counter): git commit then chained Remove-Item" \
+    'git commit -m "foo"; Remove-Item -Recurse -Force C:\temp'
+  fp_assert_ps allow "ps test 11: here-string with destructive inside body" \
+    "$(printf '$x = @"\nRemove-Item -Recurse -Force C:\\temp\n"@\n')"
+
+  echo "PASS hook-fp-exemption-git-commit-message (11/11 cases)"
+}
+
 # ---- dispatch ----
 case "${1:-}" in
   fresh-install)                scenario_fresh_install ;;
@@ -352,10 +431,11 @@ case "${1:-}" in
   local-mod-detect)             scenario_local_mod_detect ;;
   local-mod-preserve)           scenario_local_mod_preserve ;;
   backfill-migrate)             scenario_backfill_migrate ;;
-  check-remote-cached)          scenario_check_remote_cached ;;
-  hook-fail-closed-bash-safety) scenario_hook_fail_closed_bash_safety ;;
-  cruft-check-fixture)          scenario_cruft_check_fixture ;;
-  replace-with-yes-piped)       scenario_replace_with_yes_piped ;;
+  check-remote-cached)              scenario_check_remote_cached ;;
+  hook-fail-closed-bash-safety)     scenario_hook_fail_closed_bash_safety ;;
+  cruft-check-fixture)              scenario_cruft_check_fixture ;;
+  replace-with-yes-piped)           scenario_replace_with_yes_piped ;;
+  hook-fp-exemption-git-commit-message) scenario_hook_fp_exemption_git_commit_message ;;
   all)
     scenario_fresh_install
     scenario_fresh_refuse
@@ -367,6 +447,7 @@ case "${1:-}" in
     scenario_hook_fail_closed_bash_safety
     scenario_cruft_check_fixture
     scenario_replace_with_yes_piped
+    scenario_hook_fp_exemption_git_commit_message
     echo "ALL SCENARIOS PASSED"
     ;;
   ""|-h|--help)
@@ -384,6 +465,7 @@ Scenarios:
   hook-fail-closed-bash-safety Missing lib → PreToolUse hook emits deny JSON (Phase 30b H5).
   cruft-check-fixture          Broken markdown link → cruft-check.sh heuristic-i observation (Phase 30b H5).
   replace-with-yes-piped       printf 'YES' | install.sh --mode=replace overwrites locally-modified file (Phase 30b H7).
+  hook-fp-exemption-git-commit-message  Parser exempts -m bodies + heredoc/here-string payloads; counter-tests verify outside-region patterns still deny (Phase 30c).
   all                          Run every scenario in sequence.
 EOF
     [ -z "${1:-}" ] && exit 0 || exit 0

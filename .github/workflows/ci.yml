@@ -78,3 +78,7 @@ jobs:
       - name: Scenario - replace-with-yes-piped
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh replace-with-yes-piped
+
+      - name: Scenario - hook-fp-exemption-git-commit-message
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh hook-fp-exemption-git-commit-message
