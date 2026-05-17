@@ -97,7 +97,7 @@ scenario_fresh_install() {
   bash "$SKELETON_DIR/scripts/install.sh" \
     --source "$SKELETON_DIR" --target "$TEST_DIR" \
     --mode=fresh --claude-only
-  verify_marker 40
+  verify_marker 41
   echo "PASS fresh-install"
 }
 
@@ -219,7 +219,7 @@ LEGACY
     cat "$TEST_DIR/.claude/.skeleton-version" >&2
     exit 1
   fi
-  verify_marker 40
+  verify_marker 41
   echo "PASS backfill-migrate"
 }
 
