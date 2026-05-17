@@ -53,14 +53,18 @@ The capture/reuse loop in its first shippable form. **All five primitives shippe
 - **Permissions hardening** ✓ *(shipped — Phases 11/14/14c).* Canonical bare-tool-name allow patterns + PreToolUse hook (`pretooluse-bash-safety.sh`) replacing fragile string-pattern denies; 10 destructive Bash shapes blocked including 4 pipe-to-shell variants the deny rules couldn't catch.
 - **Hook infrastructure correctness** ✓ *(shipped — Phases 14c–14f).* `type: command` wiring added to all 5 hook entries; `sessionstart-rules.sh` schema corrected to wrapped `hookSpecificOutput` envelope; hook runtime artifacts gitignored. All five hooks (PreCompact, SessionStart rules, SessionStart cruft-check, SessionEnd, PreToolUse) now fire as designed.
 
-#### v1.1.2 — remaining polish
+#### v1.1.2 — shipped (cut on 2026-05-16)
 
-Items carried forward (or surfaced) from the v1.1.x arc, scoped tightly so v1.2.0 stays the next major release surface:
+Three items landed; one deferred. Completes the captures-surface enum expansion for v1.1.x; closes the hook-schema failure mode retrospectively.
 
-- **`code-quality-auditor`** — Layer 3 of the 3-layer plugin verification (carried from v1.1.x original scope). Reads actual source of community plugins and evaluates fitness vs description. Integrates with `integration-checker`; both fold into v2.0.
-- **Lessons-log integration as `suggested_artifact_type: lesson`** (carried from v1.1.x original scope). Rather than a separate skill, lessons collapse into the captures surface — `workflow-suggester` drafts lesson captures, the user approves them, and they live alongside script/skill/agent/command captures in the same lifecycle.
-- **Plan amendment behavior** *(new — workflow lesson from Phase 14f).* When the user amends a plan mid-plan-mode with explicit "do not rewrite," the manager should `Edit` the plan file in place rather than regenerate it from scratch. Codify in `CLAUDE_MANAGER.md` directive layer so the behavior is automatic, not prompt-dependent.
-- **cruft-checker hook-schema heuristic** *(new — heuristic from Phase 14d arc).* Extend `cruft-checker` with a heuristic that validates every `hooks[*]` entry in `settings.json` / `settings.json.template` against the canonical Anthropic Hook schema (required fields like `type: command`, valid `matcher` values, well-formed `hookSpecificOutput` wrappers when applicable). Would have caught the silently-inert hooks from v1.0 → Phase 14c-diag months earlier.
+- **cruft-checker heuristic viii** ✓ *(shipped — Phase 16).* Validates `hooks[*]` entries in `.claude/settings.json` and `template/.claude/settings.json.template` against the canonical Anthropic hook schema. Catches missing `type: "command"` / `command` fields — the 14c→14f silent-inert failure mode. Paired with new `docs/HOOK_SCHEMA.md` reference doc.
+- **Plan amendment behavior** ✓ *(shipped — Phase 17).* New `### Plan amendment behavior` H3 under `## Strategic judgment patterns` in `CLAUDE_MANAGER.md`. Codifies: apply user-amendment input as a delta to the existing plan file; do not regenerate from scratch. Canonical precedent for the v1.1.x lesson-codification flow that Phase 18 then formalized.
+- **Lessons-log integration as `suggested_artifact_type: lesson`** ✓ *(shipped — Phase 18, surface only).* Added `lesson` to `workflow-suggester`'s enum + routing for `"lesson: "` prefix observations + a Lesson codification flow paragraph. No producer heuristics ship (autonomous detection deferred until grounding data exists — same discipline as task-watchdog's deferred resource-anomaly signals); no X-builder ships (lessons codify manually into the directive surface that architecturally fits — Phase 17 precedent).
+- **`code-quality-auditor` deferred.** Originally scoped as Layer 3 of plugin verification (reads actual source, evaluates fitness vs description). Home stays open between v1.1.3 standalone and a direct v2.0 fold — the architectural question (useful standalone, or only inside v2.0's plugin-recommendation stack?) gets answered at v2.0 design open.
+
+#### v1.1.3 — open queue
+
+- **cruft-checker heuristic-x scope tuning.** The v1.1.2 pre-cut sweep surfaced ~55 heuristic-x FPs flagging legitimate historical `vN.N.N` annotations (agent docs describing what shipped at v1.1.0, README "Status" sentences anchoring on the prior release, CLAUDE_MANAGER historical version notes, schema-doc version stamps). Extend `EXEMPT_VFILES` to cover agent docs / CLAUDE_MANAGER / captures README / schema docs; or introduce an inline `<!-- cruft-check:exempt-historical -->` marker convention; or both. Drop the FP volume without losing the catch on actual stale forward refs.
 
 ### How the loop closes the gaps (in v1.1.0)
 

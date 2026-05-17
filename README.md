@@ -4,7 +4,7 @@
 
 > A battle-tested orchestration skeleton for Claude Code projects.
 
-**Status:** v1.1.1 — hook infrastructure correctness on top of the v1.1.0 capture/reuse loop. Used in production on Trainer-View (Flutter + Firebase) and Echoes-Of-Gill (Godot). See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next.
+**Status:** v1.1.2 — captures-surface enum completion + retrospective close of the hook-schema failure mode, on top of v1.1.1's hook infrastructure correctness and v1.1.0's capture/reuse loop. Used in production on Trainer-View (Flutter + Firebase) and Echoes-Of-Gill (Godot). See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next.
 
 ## What it is
 
@@ -38,7 +38,7 @@ Quick summary:
 - Non-destructive install — the target project's existing structure always wins.
 - "Not every task is an AI task" — scripts for mechanical work.
 
-## What ships at v1.1.1
+## What ships at v1.1.2
 
 - **Orchestration discipline** — directive layer in `template/CLAUDE_MANAGER.md.template` (strategic judgment patterns, dispatch mechanics, plugin marketplace composition, three-commit cadence, recursive ownership L0/L1/L2).
 - **Capture/reuse loop (v1.1.0)** — five-component pipeline that turns recurring patterns into reusable artefacts, user-approval-gated at every stage:
@@ -51,7 +51,7 @@ Quick summary:
 - **Install / update infrastructure** — `install.sh` (three modes), `update.sh` (six-way classification using per-file SHA-256 hashes with backfill for legacy markers, plus `--check-remote` for drift-cache refresh), atomic JSON `.skeleton-version` marker.
 - **CI** — three-platform matrix (Ubuntu, Windows, macOS) running six install/update scenarios on every push and PR.
 
-For phase-by-phase history see [`docs/CHANGELOG.md`](docs/CHANGELOG.md). For what's coming next — v1.1.2 polish, v1.2+ `manager-optimizer`, v2.0 plugin recommendation system — see [`docs/ROADMAP.md`](docs/ROADMAP.md).
+For phase-by-phase history see [`docs/CHANGELOG.md`](docs/CHANGELOG.md). For what's coming next — v1.1.3 heuristic-x tuning, v1.2+ `manager-optimizer`, v2.0 plugin recommendation system — see [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Documentation
 

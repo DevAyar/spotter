@@ -4,6 +4,12 @@ All notable changes to claude-skeleton are documented here. Format follows [Keep
 
 ## [Unreleased]
 
+*(v1.1.2 cut on 2026-05-16. v1.1.3 queue includes heuristic-x scope tuning; `code-quality-auditor` deferred with home TBD between v1.1.3 standalone and v2.0 fold — see ROADMAP.)*
+
+## [1.1.2] - 2026-05-16 — Captures-surface enum completion + hook-schema validation
+
+v1.1.2 completes the captures-surface `suggested_artifact_type` enum expansion for v1.1.x — `script`, `skill`, `agent`, `command`, `manual_action`, `unclear` baseline plus v1.1.x's `doc-fix`, `infrastructure-fix`, and `lesson`. Phase 16 closes the hook-schema failure mode that took the 14c→14f arc five phases to surface — now caught at first cruft-check. Phase 17 codifies plan-amendment behavior as a `CLAUDE_MANAGER.md` directive subsection, demonstrating the lesson-codification flow that Phase 18 then formalizes as a first-class capture type.
+
 ### v1.1.x
 
 - Added `lesson` to `workflow-suggester`'s `suggested_artifact_type` enum (v1.1.2 surface-only landing — completes the captures-surface enum expansion for v1.1.x: `script`, `skill`, `agent`, `command`, `manual_action`, `unclear` baseline plus v1.1.x's `doc-fix`, `infrastructure-fix`, and `lesson`). Routing extended: notes starting `"lesson: "` route to `suggested_artifact_type: lesson`; user-authored captures may set the field directly. **No producer heuristics ship in this phase** — autonomous detection of lesson-shaped observations is deferred until grounding data exists, same discipline as task-watchdog's deferred resource-anomaly signals. **No X-builder ships** — lessons codify manually via small-fix commit into the directive surface that architecturally fits (`CLAUDE_MANAGER.md`, `docs/ROADMAP.md`, session-handoff doc, etc.); Phase 17's plan-amendment-behavior codification into a new `CLAUDE_MANAGER.md` H3 is the canonical precedent. Capture frontmatter's `shipped_to:` field records the codified location.
