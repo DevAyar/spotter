@@ -1,5 +1,17 @@
 # claude-skeleton — the story
 
+## Mission
+
+**Help others reach their goal with the least friction and the most architectural integrity.**
+
+Both halves matter equally. Friction reduction without architectural integrity is vibe coding — fast and brittle. Architectural integrity without friction reduction is academic discipline — sound and unused. The skeleton holds both.
+
+Practically, this means:
+
+- **Least friction:** the skeleton stays current with the ecosystem on behalf of the user (discovery → vetting → recommendation pipeline; v1.5 tier). The skeleton handles plugin churn so users don't have to.
+- **Most architectural integrity:** plan-mode discipline + three-commit cadence + approval-gated autonomy + capture/reuse loop + audit triad preserve correctness through every change.
+- **Composition over reinvention:** when the ecosystem ships what the skeleton would build, the skeleton composes. Building from scratch requires empirical evidence the ecosystem doesn't serve the need.
+
 ## What this is
 
 claude-skeleton is an orchestration skeleton for Claude Code projects. Install it into a target project and you inherit a working manager-and-helpers setup — agents, skills, scripts, slash commands, hooks — already tuned, non-destructive, with safe automated updates. Current version: **v1.1.4**. The capture/reuse loop is live (five components closing autonomy Gap #2), built on top of v1.0's install / update / CI foundation with the three-platform matrix green on every push and PR. Used in production today on two real projects with very different stacks: Trainer-View (Flutter + Firebase) and Echoes-Of-Gill (Godot). The audience is small — me and a few peers — and that's the audience this doc is written for.

@@ -2,6 +2,8 @@
 
 The sequencing doc for claude-skeleton. v1.0 → v2.0+. Living — updated as slices land. For backward-looking history see [`CHANGELOG.md`](CHANGELOG.md).
 
+See [`../CLAUDE_MANAGER.md`](../CLAUDE_MANAGER.md) for orchestration mechanics, strategic judgment patterns, plugin discipline rules, and the three-commit cadence rubric. See [`STORY.md`](STORY.md) for project mission and identity.
+
 ## v1.0 — shipped (retrospective recap)
 
 Cut at [5630caa] on 2026-05-14. The orchestration layer is in production daily use across **Trainer-View** (Flutter + Firebase) and **Echoes-Of-Gill** (Godot), with **Fitness-Website** as the third target on deck.
@@ -181,6 +183,10 @@ The skeleton's own auditor. ONLY in the dogfood `.claude/`, **not** in `template
 
 New `schedule` field on goals. Goals with a schedule live under `.claude/goals/scheduled/`. A session-start hook surfaces due items so they don't drop. The mechanism that drives `infrastructure-auditor` and `roadmap-auditor` cadence.
 
+### Gating
+
+v1.2.0 opens when v1.1.x has been running on Trainer-View / Echoes-Of-Gill for ≥2 weeks of active use. **Precise framing:** v1.1.x has been single-install (skeleton dogfood) for its entire lifetime; the "production daily use" claim from the v1.0 retrospective applies to v1.0 baseline only. v1.1.x production miles begin when `update.sh` runs against TV/EoG. Dogfood data informs but does not satisfy the bake gate.
+
 ## Locked architectural principles
 
 Decisions that hold across all v1.2+ work. Captured here so future slices don't relitigate them.
@@ -244,6 +250,30 @@ Destructive-pattern arrays live in `.claude/lib/destructive-bash-patterns.sh` an
 New destructive patterns get added in ONE place — the lib file — and propagate to all enforcement surfaces automatically. **When future audit surfaces emerge** (e.g. CI-time plugin scan, project-tuner-helper safety review, an `artifact-fit-analyzer` security pass), they source the same lib rather than duplicating patterns. The Phase 24 refactor was the canonical move from inline-array-per-script to shared-lib; the rule locks the architecture going forward.
 
 The same single-source-of-truth principle does NOT apply to the hook-schema validation logic — that's currently duplicated between `cruft-check.sh` heuristic viii and `plugin-quality-check.sh` heuristic ii because both scripts use inline Python heredocs and sharing across heredoc scopes would mean introducing a separate Python lib file (diverging from the established self-contained-script pattern). Duplication is acceptable when the canonical reference is small and the underlying spec (Anthropic hook schema) is stable. Revisit if the hook-schema validation grows significantly.
+
+### Ever-evolving being
+
+The skeleton ships a baseline; `project-tuner-helper` shapes it per-project; `workflow-suggester` catches new patterns. Not "install and forget" — the skeleton evolves with its installations. The capture/reuse loop, observation infrastructure, and meta-agents in `05_meta/` all exist to support this evolution. **How it applies:** every new component asks "does this enable ongoing evolution, or freeze a snapshot?" The skeleton refuses snapshot-locking.
+
+### Approval-gated autonomy
+
+Thinking is autonomous; action is approved. The skeleton can suggest captures, surface plugin recommendations, detect drift, draft scripts — all autonomously. None of those become installed/applied artifacts without explicit user approval. Plan-mode discipline, capture-lifecycle states (`draft → approved → shipped`), and X-builder draft mechanics all enforce this line. **How it applies:** new mechanisms maintain the line by default; "auto-apply" is a deliberate carve-out (e.g. `--auto-apply` in `update.sh` accepts only TEMPLATE_UPDATED + NEW, never LOCALLY_MODIFIED or ORPHAN — the autonomy is bounded).
+
+### Define-everything-upfront
+
+Brief specs lock interpretations before code; plan-mode surfaces them. The pre-build scoping rule (5 questions before any v1.1+ component prompt) forces upfront definition. Narrow-scope-by-design phases ratify it. **How it applies:** ambiguous briefs get the honing conversation BEFORE prompt drafting, not during execution. Plan-mode catches scope drift before commits.
+
+### Narrow-scope-by-design
+
+Each phase locks scope at brief time; "out of scope" sections in plans are load-bearing. The three-commit cadence prevents scope creep into single commits. The Phase 10 commit-cadence-by-phase-size rubric formalizes this. **How it applies:** when a phase surfaces work outside its locked scope (Phase 30b's emergent hook-CWD fix), the work either folds thematically OR queues for a separate phase — it doesn't expand the current phase silently.
+
+### Composition not competition
+
+The skeleton composes with the `/plugin` marketplace + named community libraries. It is NOT a multi-LLM framework, NOT a directory of every plugin, NOT an autonomous AI agent. v2.0 plugin recommendation surface realizes this principle by name; v1.5 ecosystem integration tier prepares the orchestration brain to dispatch ecosystem plugins. **How it applies:** when the ecosystem ships what the skeleton would build (e.g. Anthropic's `feature-dev` replacing `/spec`; `superpowers` TDD as net-new value), the skeleton composes. Building from scratch requires empirical evidence the ecosystem doesn't already serve the need.
+
+### Compose-with-available-surfaces, defer-on-unavailable
+
+Don't ship retrospective signals or mechanisms that require Claude Code instrumentation surfaces that don't exist yet. Phase 5 (task-watchdog 2-signal scope vs 5-signal candidate) and Phase 18 (lesson-detection deferral) set the precedent: when a brief proposes a signal whose detection requires unavailable instrumentation, defer to the version where the relevant investigation lands (typically v1.2.0 for token data, future for real-time hooks) — explicitly note the deferral in the brief's locked decisions. **How it applies:** new components check "does this require CC surface X that exists today?" before locking scope. Unavailable-surface dependencies cause scope cut, not feature shipping with conditional code paths.
 
 ## v2.0 — plugin ecosystem layer
 
