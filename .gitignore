@@ -31,6 +31,7 @@ Thumbs.db
 .claude/observations/.session-ended
 .claude/.last-watchdog-session
 .claude/.last-cruft-check
+.claude/.last-plugin-quality-check
 
 # Hook runtime artifacts — per-session noise, not release narrative.
 docs/SESSION_LOG.md

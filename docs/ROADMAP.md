@@ -74,15 +74,16 @@ Two items landed. Operational-friction relief — no new component scope, no sch
 - `code-quality-auditor` home decision resolved in v1.1.4 (Phase 24) — narrow-scope landing as a standalone v1.1.x component; Layer 3 semantic fitness-vs-description checks stay deferred to v2.0. See v1.1.4 below.
 - bash-safety commit-message FP exemption — kept in handoff loose-ends as a low-priority maintenance item. Manifests when a commit message contains literal destructive-pattern tokens as prose; current workaround is rewording. Not promoted to ROADMAP scope.
 
-#### v1.1.4 — open queue (plugin-verification surface)
+#### v1.1.4 — shipped (cut on 2026-05-17)
 
-- **`code-quality-auditor`** ✓ *(shipped — Phase 24).* First plugin-verification component. Reads installed plugin source under `~/.claude/plugins/cache/` and emits observations against the existing schema for three narrow heuristics — (i) manifest-declared component path missing or empty, (ii) `hooks/` present but `hooks.json` malformed (reuses Phase 16 viii hook-schema validation), (iii) destructive shell patterns in plugin scripts against unguarded paths (reuses Phase 14c / Phase 21 destructive-pattern sets via shared `.claude/lib/` extraction). Routes via `workflow-suggester` as `suggested_artifact_type: manual_action`. Composes with `cruft-checker` + `drift-checker` as the **project-level audit triad**. Ships in `template/` (target projects also install plugins). Semantic Layer 3 fitness-vs-description checks remain deferred to v2.0 alongside `integration-checker`.
+One concrete component landed. Plugin-verification surface now open. Composes with `cruft-checker` + `drift-checker` as the **project-level audit triad** firing at SessionStart. Phase 24 also piggybacked a destructive-pattern shared-lib extraction so real-time blocking (PreToolUse hooks) and retrospective audit (`plugin-quality-check.sh`) operate against a single source of truth.
+
+- **`code-quality-auditor`** ✓ *(shipped — Phase 24).* First plugin-verification component. Reads installed plugin source under `~/.claude/plugins/cache/` and emits observations against the existing schema for three narrow heuristics — (i) manifest-declared component path missing or empty, (ii) `hooks/` present but `hooks.json` malformed (reuses Phase 16 viii hook-schema validation), (iii) destructive shell patterns in plugin scripts against unguarded paths (reuses Phase 14c / Phase 21 destructive-pattern sets via shared `.claude/lib/` extraction). Routes via `workflow-suggester` as `suggested_artifact_type: manual_action`. Composes with `cruft-checker` + `drift-checker` as the project-level audit triad. Ships in `template/` (target projects also install plugins). Semantic Layer 3 fitness-vs-description checks remain deferred to v2.0 alongside `integration-checker`.
 - **Destructive-pattern shared lib extraction** ✓ *(shipped — Phase 24 piggyback).* Moved the `DESTRUCTIVE_BASH_PATTERNS` / `DESTRUCTIVE_POWERSHELL_PATTERNS` arrays from inline declarations in `pretooluse-bash-safety.sh` / `pretooluse-powershell-safety.sh` into shared `.claude/lib/destructive-{bash,powershell}-patterns.sh` files. Both PreToolUse hooks AND the new `plugin-quality-check.sh` heuristic iii source the libs — single source of truth across real-time blocking and retrospective audit.
 
 **Rolled forward:**
 
-- bash-safety commit-message FP exemption — still queued (low-priority maintenance, no change since v1.1.3).
-- v1.1.4 release cut — release-cut phase to land [Unreleased] CHANGELOG bullet as `[1.1.4]`, bump VERSION, tag, GitHub Release. Pre-cut cruft-sweep mandatory per Phase 6 / 19 / 22 precedent.
+- bash-safety commit-message FP exemption — still queued (low-priority maintenance, no change since v1.1.3). Phase 24 hit the FP twice during synthetic-plugin planting; both worked around via Write tool — additional data point but not yet warranting prioritization.
 
 ### How the loop closes the gaps (in v1.1.0) <!-- cruft-check:exempt-historical -->
 

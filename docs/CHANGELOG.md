@@ -4,7 +4,11 @@ All notable changes to claude-skeleton are documented here. Format follows [Keep
 
 ## [Unreleased]
 
-*(v1.1.3 cut on 2026-05-17. v1.1.4 work landed; see below. Release-cut phase pending. bash-safety commit-message FP exemption queued in handoff loose-ends as a low-priority maintenance item.)*
+*(v1.1.4 cut on 2026-05-17. No items queued for v1.1.5. bash-safety commit-message FP exemption remains in handoff loose-ends as a low-priority maintenance item.)*
+
+## [1.1.4] - 2026-05-17 — Plugin-verification surface open
+
+v1.1.4 opens the plugin-verification surface with `code-quality-auditor` (Phase 24) — first concrete plugin-audit component, composing with `cruft-checker` + `drift-checker` as the **project-level audit triad** that fires at SessionStart. Three narrow heuristics ship: manifest-honesty (i + ii) and security-hygiene (iii — destructive shell patterns against unguarded paths). Semantic "fitness vs description" checks (Layer 3 originally scoped) remain deferred to v2.0 alongside `integration-checker` (Layer 1+2). The phase piggybacked a destructive-pattern shared-lib extraction — the Phase 14c / Phase 21 PreToolUse hooks now source their pattern arrays from `.claude/lib/`, so real-time blocking and retrospective audit operate against a single source of truth.
 
 ### v1.1.4
 

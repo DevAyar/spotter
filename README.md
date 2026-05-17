@@ -5,7 +5,7 @@
 > A battle-tested orchestration skeleton for Claude Code projects.
 
 <!-- cruft-check:exempt-historical -->
-**Status:** v1.1.3 — operational-friction relief: heuristic-x FP storm closed, PowerShell tool-ID gap closed, on top of v1.1.2's captures-surface enum completion, v1.1.1's hook infrastructure correctness, and v1.1.0's capture/reuse loop. Used in production on Trainer-View (Flutter + Firebase) and Echoes-Of-Gill (Godot). See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next.
+**Status:** v1.1.4 — plugin-verification surface open: `code-quality-auditor` lands as the first plugin-audit component, composing with `cruft-checker` + `drift-checker` as the project-level audit triad. On top of v1.1.3's operational-friction relief, v1.1.2's captures-surface enum completion, v1.1.1's hook infrastructure correctness, and v1.1.0's capture/reuse loop. Used in production on Trainer-View (Flutter + Firebase) and Echoes-Of-Gill (Godot). See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next.
 
 ## What it is
 
@@ -39,7 +39,7 @@ Quick summary:
 - Non-destructive install — the target project's existing structure always wins.
 - "Not every task is an AI task" — scripts for mechanical work.
 
-## What ships at v1.1.3
+## What ships at v1.1.4
 
 - **Orchestration discipline** — directive layer in `template/CLAUDE_MANAGER.md.template` (strategic judgment patterns, dispatch mechanics, plugin marketplace composition, three-commit cadence, recursive ownership L0/L1/L2).
 <!-- cruft-check:exempt-historical -->
@@ -49,6 +49,7 @@ Quick summary:
   - `script-builder` — drafts bash scripts under `.claude/scripts/drafts/` from approved captures.
   - `drift-checker` — surfaces version drift between the installed skeleton and the latest released tag at session start (read-only, no network at session start; `update.sh --check-remote` refreshes the cache).
   - `task-watchdog` — retrospective scan of the prior session's tool-call transcript for long-running bash calls and recurring failures.
+<!-- cruft-check:exempt-historical -->
 - **Baseline tooling** — 15 agents (9 baseline + 5 capture/reuse loop + 1 plugin-verification), 6 skills, 5 scripts (`commit.sh`, `deploy.sh`, `drift-check.sh`, `task-watchdog.sh`, `plugin-quality-check.sh`), 4 slash commands (`/commit`, `/audit`, `/deploy`, `/smoke-test`), 5 hooks across 4 event types (`SessionStart`, `PreCompact`, `SessionEnd`, `PreToolUse` — `PreToolUse` has separate bash + PowerShell safety hooks as of v1.1.3).
 - **Install / update infrastructure** — `install.sh` (three modes), `update.sh` (six-way classification using per-file SHA-256 hashes with backfill for legacy markers, plus `--check-remote` for drift-cache refresh), atomic JSON `.skeleton-version` marker.
 - **CI** — three-platform matrix (Ubuntu, Windows, macOS) running six install/update scenarios on every push and PR.
