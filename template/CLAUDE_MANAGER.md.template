@@ -4,6 +4,8 @@ You are the **manager** for this project. The manager owns the conversation, dec
 
 This file is the directive layer. It's the first thing you read at session start. Most of it ships as-is across installs — the few project-specific extension points are marked inline.
 
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for sequencing, locked architectural principles, and version-tier scoping. See [`docs/STORY.md`](docs/STORY.md) for project mission.
+
 <!-- TEMPLATE CONTENT — most sections below ship verbatim. -->
 <!-- TEMPLATE STUB markers identify per-project fill points. -->
 
@@ -57,6 +59,10 @@ When the request points at a symptom and you see a likelier root cause — say s
 
 Heuristic: "would a senior peer push back here?" If yes, push back. If the framing is sound, save the push-back budget for when it actually matters. Constant questioning is a tax; never questioning is negligence.
 
+### Empirical audit before trusting brief diagnoses
+
+When a phase brief includes a hypothesis about existing code/behavior, verify empirically in plan mode BEFORE implementing the fix. **Why:** Phase 21 caught a bad initial diagnosis — the brief claimed bash-safety returned ask-shape on unmatched non-destructive patterns; direct invocation showed it already returned allow per Phase 14's locked design. The "tightening" instruction would have been a no-op edit to working code. **How to apply:** before implementing any "fix existing behavior X" instruction, run the actual code path and capture its real output. Surface findings in plan mode and confirm whether the brief still applies before proceeding. Counter-pattern to avoid: editing toward the brief's assumed state without verifying current state matches.
+
 ### Plan amendment behavior
 
 When the user sends input after a plan has been displayed in plan mode (or after approval, mid-execution), apply the delta in place by editing the existing plan file. Do not regenerate the plan from scratch; do not re-evaluate scope unless the amendment explicitly asks for it.
@@ -92,6 +98,10 @@ v1.1+ will land `integration-checker` as a proper agent that runs this checklist
 Any `find` / `grep -r` / `wc` / `ls -R` at project scope triggers the `bash-safety` skill's checklist: noise-path excludes (`.git`, `.godot`, `node_modules`, `build`, `dist`, `__pycache__`, etc.), a `timeout`, a `-maxdepth` where knowable, and — for any `&` background — a paired `wait`, `kill`, or `disown` with internal timeout. Never naked `&`. See `.claude/skills/bash-safety/SKILL.md`.
 
 Why a separate skill: a hung scan in the task panel costs minutes per occurrence and is silent. The skill is the discipline.
+
+### Hook path resolution discipline
+
+Hook scripts that source libs, read config files, or write to project paths MUST resolve those paths via `${CLAUDE_PROJECT_DIR:-.}` not relative paths. **Why:** relative paths assume invocation CWD = skeleton root, which is not guaranteed. Phase 30b surfaced this: when harness CWD drifted to `/tmp` during testing, both PreToolUse hooks fail-closed on every Bash command because `LIB=".claude/lib/destructive-bash-patterns.sh"` resolved to `/tmp/.claude/lib/...` (non-existent). The hook should be CWD-independent. **How to apply:** new hooks use `${CLAUDE_PROJECT_DIR:-.}/.claude/<path>` pattern from the start. Existing hooks (`precompact-backup.sh`, `sessionend-observe.sh`, `sessionstart-rules.sh`) audit-checked against this rule during future maintenance phases. The `:-.` fallback handles cases where `CLAUDE_PROJECT_DIR` is unset (manual dispatch from skeleton root).
 
 ### Model selection
 
@@ -218,6 +228,10 @@ Decision tree: ask "does this introduce new mechanism or only edit existing pros
 When a dispatch prompt sets an explicit override (e.g. `COMMITS: single commit, no smoke test`), the prompt wins over this default rubric.
 
 Every shipped phase ships a `[Unreleased]` CHANGELOG bullet, regardless of size. Small fixes get short bullets; medium/large phases get summary bullets. The bullet is part of the phase's commit set (either in the final commit for small fixes, or in Commit C for three-commit cadence). Omitting the CHANGELOG bullet requires an explicit override in the dispatch prompt — default behavior is always to include it.
+
+### Co-Authored-By trailer convention
+
+Every claude-skeleton commit — phase mechanism, integration, doc-maintenance, release cut — lands with `Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>` as the final trailer. **Why:** the directive layer + skeleton design are co-authored work with Claude as collaborator; the attribution is consistent with how the meta-system is described in `STORY.md` and `docs/ROADMAP.md` (ADHD-driven design as constraint-forced discipline that generalises via LLM collaboration). **How it applies:** every commit on the skeleton carries the trailer. Locked across v1.1.x; persists through v1.2.0 and beyond unless explicitly revisited.
 
 ## Plugin marketplace composition
 
