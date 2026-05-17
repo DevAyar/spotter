@@ -98,6 +98,47 @@ A concrete walk-through, no `/goals` dependency:
 
 Each lifecycle stage closes one of the four autonomy gaps in part; together they close the meta-gap that v1.1+ targets — *the system improves itself with the user always in the approval seat*.
 
+## v1.1.5+ pre-pinball queue
+
+Buildable-without-data work for the window between v1.1.4 ship and pinball-game start. TV / EoG stay on v1.0 until pinball wraps; update.sh against them happens at context-switch time. Data-gated v1.2.0 components (`manager-optimizer`, `artifact-fit-analyzer`, etc.) stay deferred until real observation data flows.
+
+### Locked decisions
+
+- **Install `claude-mem`.** Persistent-memory plugin for Claude Code (`thedotmack/claude-mem`, 46K+ GitHub stars). Captures session activity, compresses with AI, injects context into future sessions. Highest-leverage ecosystem integration. Install via `npx claude-mem install`.
+- **Audit before integration.** Two-stage audit (chat-side strategist audit, then CC-side reconciliation audit with small handoff) lands before any ecosystem integration. Audit informs which plugins/skills compose vs conflict.
+- **Update TV / EoG deferred to post-pinball.** They produce no observation data while idle; update.sh interactive prompts deserve context-switch attention.
+
+### Buildable in this window (data-independent)
+
+In priority order:
+
+1. `/goals` expanded — research → clarify → spec pipeline. Highest pinball leverage. SEE naming-collision note below before building.
+2. bash-safety FP exemption — `git commit -m` parser only first (heredoc as separate phase if friction continues). Two empirical FP hits across Phase 21 + 24.
+3. `roadmap-auditor` (skeleton-only doc auditor). Static analysis, no data dependency.
+4. Scheduled-goals support (`schedule` field on `/goals` + SessionStart surfacing). Mechanism foundation.
+5. `infrastructure-auditor` partial (dispatches cruft + drift + code-quality on schedule; `artifact-fit-analyzer` slot deferred until data exists).
+6. `token-efficiency-monitor` investigation (doc-read into Claude Code's token-data exposure; writeup decides whether upgrade is possible).
+
+### Backlog — pending audit-informed decisions
+
+- **`/goal` (Anthropic) vs `/goals` (skeleton) naming collision.** Anthropic ships `/goal` (singular) as a built-in Claude Code v2.1.139+ command that sets a completion condition and continues turns autonomously until met (autonomous execution primitive). The skeleton ships `/goals` (plural) as a baseline command for research → clarify → spec elicitation (intake primitive). They are complementary, not overlapping — natural composition is `/goals` produces spec → user approves → `/goal` runs until spec satisfied. But the names differ by one letter, which will confuse anyone using both. Three options for audit decision: (a) rename skeleton's `/goals` to `/spec` or `/intake` or `/plan`; (b) keep `/goals`, document composition with `/goal` explicitly in CLAUDE_MANAGER; (c) defer — no rename, document only if it becomes a real-world friction.
+- **`/superpowers` plugin** (`obra/superpowers-marketplace`). Mature plugin with significant philosophical overlap with the skeleton (brainstorming = `/goals` shape; TDD enforcement; plan-execution-with-review). Compose-vs-compete question is the v2.0 plugin recommendation surface playing out for real. Audit decides whether to install + integrate as a manager-dispatched composition target, or defer to v2.0.
+- **First-install plugin suggestion flow (net-new design).** When the skeleton is installed in a project, the system should suggest relevant plugins/skills/commands based on project context. Implies a `project-tuner-helper` upgrade or new component. Net-new design surface; not currently in v1.2.0 or v2.0 scope. Audit identifies placement (v1.2.0 fold, v2.0 fold, or separate phase tier).
+- **Other plugins from the `/plugin` marketplace.** No specific candidates locked. Audit identifies what would compose well with the existing baseline.
+- **Additional skills beyond the 6 baseline.** Audit identifies gaps.
+- **The 6 community libraries named in CLAUDE_MANAGER.md.template's plugin marketplace composition section.** Currently referenced but not installed. Audit clarifies integration intent — are they composition targets the manager dispatches, or just reference material in the directive layer?
+
+### Deferred — needs data flow
+
+- `manager-optimizer` observer-only — could ship now but watches one install (skeleton dogfood) with no other producers active. Defer until TV / EoG / pinball are running v1.1.5+.
+- All other v1.2.0 components (`artifact-fit-analyzer`, `meta-session-observer` + `template-promoter`, `token-efficiency-monitor` upgraded, loop pruning).
+
+### Roadmap notes — surfaced during v1.1.4 retrospective
+
+- **Multi-session-cumulative friction detection (v1.2.0+ candidate).** Real gap: the bash-safety FP hit twice across Phase 21 + 24 (different sessions, different days), but no observer caught it autonomously. `task-watchdog` is prior-single-session. `session-observer` is in-session. `meta-session-observer` is cross-install. Cross-session-cumulative middle ground has no producer. Worth designing a producer that watches user-side workarounds across session boundaries.
+- **Mental-model-vs-roadmap drift is a real surface.** Strategic chat work surfaced that user mental model has been carrying integration assumptions (e.g. `/superpowers` as already-agreed) not reflected in locked docs. Audit must explicitly check for this drift as part of its scope — what other strategic decisions are held informally that should be in ROADMAP / handoff / CLAUDE_MANAGER?
+- **Roadmap velocity question.** User's architectural framing of skeleton-as-plugin-curator is the v2.0 vision but treated as more imminent than current roadmap reflects. Audit assesses whether some v2.0 surface should pull forward.
+
 ## v1.2.0 — meta-evolution release
 
 Where the system grows hands. Opens with `manager-optimizer` (the Level-3 meta-meta framing preserved from earlier roadmap cuts), then expands to nine components that turn the v1.1.0 primitives into a self-tuning surface.
