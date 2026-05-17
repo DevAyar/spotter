@@ -4,6 +4,7 @@
     "defaultMode": "plan",
     "allow": [
       "Bash",
+      "PowerShell",
       "Edit",
       "Write",
       "Read",
@@ -35,6 +36,15 @@
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pretooluse-bash-safety.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pretooluse-powershell-safety.sh\""
           }
         ]
       }
