@@ -24,4 +24,10 @@ readonly -a DESTRUCTIVE_POWERSHELL_PATTERNS=(
   '(^|[[:space:]])git[[:space:]]+push[[:space:]]+--force([[:space:]]|$)'
   '(^|[[:space:]])git[[:space:]]+push[[:space:]]+-f([[:space:]]|$)'
   '(^|[[:space:]])git[[:space:]]+reset[[:space:]]+--hard[[:space:]]+origin/'
+  # Phase 30b additions (audit H6 — pattern-completeness gaps surfaced by CC-side audit):
+  '(^|[[:space:]])stop-computer[[:space:]]+.*-force'
+  '(^|[[:space:]])restart-computer[[:space:]]+.*-force'
+  '(^|[[:space:]])set-acl[[:space:]]+.*(c:\\windows|c:\\program)'
+  '(^|[[:space:]])compress-archive[[:space:]]+.*-force.*-destinationpath[[:space:]]+.*(c:\\users|c:\\)'
+  '(^|[[:space:]])wmic[[:space:]]+(diskdrive|os|process)[[:space:]]+.*(delete|format|terminate)'
 )

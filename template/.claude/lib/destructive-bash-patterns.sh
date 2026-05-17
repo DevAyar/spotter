@@ -20,4 +20,11 @@ readonly -a DESTRUCTIVE_BASH_PATTERNS=(
   '(^|[[:space:]])git[[:space:]]+reset[[:space:]]+--hard[[:space:]]+origin/'
   '(^|[[:space:]])chmod[[:space:]]+-R[[:space:]]+777([[:space:]]|$)'
   '(curl|wget)[[:space:]]+[^|]*\|[[:space:]]*(bash|sh)([[:space:]]|$)'
+  # Phase 30b additions (audit H6 — pattern-completeness gaps surfaced by CC-side audit):
+  '(^|[[:space:]])rsync[[:space:]]+(-[a-zA-Z]+[[:space:]]+)*--delete[[:space:]]+/'
+  '(^|[[:space:]])dd[[:space:]]+.*of=/dev/sd[a-z]+'
+  '(^|[[:space:]])mkfs\.[a-z]+[[:space:]]+/dev/[a-z]+'
+  '(^|[[:space:]])truncate[[:space:]]+-s[[:space:]]+0[[:space:]]+/etc/'
+  '(^|[[:space:]])find[[:space:]]+/[[:space:]]+.*-delete'
+  '(^|[[:space:]])(shred|srm)[[:space:]]+/'
 )

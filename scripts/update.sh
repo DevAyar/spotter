@@ -10,7 +10,7 @@ TARGET_PATH=""
 AUTO_APPLY=false
 DRY_RUN=false
 CHECK_REMOTE=false
-SKELETON_REPO_URL="https://github.com/DevAyar/claude-skeleton.git"
+SKELETON_REPO_URL="${SKELETON_REPO_URL:-https://github.com/DevAyar/claude-skeleton.git}"
 TMP_CLONE_DIR=""
 
 # Rollback tracking
@@ -465,12 +465,46 @@ classify() {
   done
 }
 
+# Portable timeout for `git ls-remote`: prefers GNU `timeout` when available,
+# falls back to a background-+-watchdog loop on systems without coreutils
+# (macOS without `timeout` installed). Returns exit 124 on timeout (matches
+# GNU timeout convention). Output captured via tmp file because backgrounded
+# commands can't write to a caller's variable directly.
+fetch_with_timeout() {
+  local secs="$1" url="$2"
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$secs" git ls-remote --tags "$url" 2>/dev/null
+    return $?
+  fi
+  local tmpfile
+  tmpfile=$(mktemp 2>/dev/null) || return 1
+  git ls-remote --tags "$url" >"$tmpfile" 2>/dev/null &
+  local pid=$! i=0
+  while [ "$i" -lt "$secs" ]; do
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 1
+    i=$((i + 1))
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null
+    wait "$pid" 2>/dev/null
+    rm -f "$tmpfile"
+    return 124
+  fi
+  wait "$pid"
+  local rc=$?
+  cat "$tmpfile"
+  rm -f "$tmpfile"
+  return $rc
+}
+
 # ---- --check-remote: refresh drift cache ----
 # Fetches the highest semver tag from the skeleton repo and writes it
 # to .claude/.skeleton-version under cached_skeleton_head (+
 # cached_skeleton_head_fetched_at). The ONLY network path in the
-# drift-check chain. Bounded by a 10s timeout; failure leaves the
-# marker untouched.
+# drift-check chain. Bounded by a 10s timeout (via fetch_with_timeout —
+# portable across GNU timeout / macOS sans coreutils); failure leaves
+# the marker untouched.
 check_remote() {
   local marker="$TARGET_PATH/.claude/.skeleton-version"
   [ -f "$marker" ] || die "target has no .claude/.skeleton-version — not a claude-skeleton install. Run install.sh first."
@@ -480,8 +514,8 @@ check_remote() {
 
   info "fetching tags from $SKELETON_REPO_URL …"
   local refs_output
-  if ! refs_output=$(timeout 10 git ls-remote --tags "$SKELETON_REPO_URL" 2>/dev/null); then
-    die "failed to fetch tags from $SKELETON_REPO_URL (timeout or network error). Marker unchanged."
+  if ! refs_output=$(fetch_with_timeout 10 "$SKELETON_REPO_URL"); then
+    die "failed to fetch tags from $SKELETON_REPO_URL (timeout, network error, or missing 'timeout' command on macOS — install coreutils). Marker unchanged."
   fi
 
   local latest_tag

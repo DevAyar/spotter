@@ -24,7 +24,11 @@ readonly DENY_REASON="BLOCKED by ${HOOK_NAME} hook: command matches destructive 
 # Destructive-shape patterns live in a shared library so that this hook
 # and plugin-quality-check.sh (Phase 24 / heuristic iii) operate against
 # the same set — single source of truth. Lib sources DESTRUCTIVE_BASH_PATTERNS.
-readonly LIB=".claude/lib/destructive-bash-patterns.sh"
+# Path resolved via CLAUDE_PROJECT_DIR (set by Claude Code harness) for
+# CWD-independence; falls back to relative path for manual invocation from
+# project root. Phase 30b robustness fix — relative-only path fail-closed
+# spuriously when harness CWD drifted from project root.
+readonly LIB="${CLAUDE_PROJECT_DIR:-.}/.claude/lib/destructive-bash-patterns.sh"
 if [ ! -f "$LIB" ]; then
   # Fail-closed: missing lib means we can't safely vet commands.
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s (destructive-pattern lib missing at %s — fail-closed)"}}\n' \

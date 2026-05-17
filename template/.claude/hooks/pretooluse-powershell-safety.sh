@@ -30,7 +30,11 @@ readonly DENY_REASON="BLOCKED by ${HOOK_NAME} hook: command matches destructive 
 # DESTRUCTIVE_POWERSHELL_PATTERNS. Patterns are case-insensitive — consumers
 # (this hook, plugin-quality-check) enable `shopt -s nocasematch` around the
 # match loop.
-readonly LIB=".claude/lib/destructive-powershell-patterns.sh"
+# Path resolved via CLAUDE_PROJECT_DIR (set by Claude Code harness) for
+# CWD-independence; falls back to relative path for manual invocation from
+# project root. Phase 30b robustness fix — relative-only path fail-closed
+# spuriously when harness CWD drifted from project root.
+readonly LIB="${CLAUDE_PROJECT_DIR:-.}/.claude/lib/destructive-powershell-patterns.sh"
 if [ ! -f "$LIB" ]; then
   # Fail-closed: missing lib means we can't safely vet commands.
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s (destructive-pattern lib missing at %s — fail-closed)"}}\n' \
