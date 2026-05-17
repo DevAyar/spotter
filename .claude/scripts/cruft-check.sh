@@ -513,6 +513,7 @@ EXEMPT_VFILES = {
     'CLAUDE_MANAGER.md',                    # directive layer; intentional v1.1.x-scope annotations on producers/consumers
     'template/.claude/captures/README.md',  # captures README anchors v1.1+ producers/consumers list
     'docs/AUDIT-v1.1.4-cc-side.md',         # Phase 30 CC-side audit; comprehensive review references all historical versions
+    'docs/AUDIT-v1.1.4-marker-refresh-dryrun.md',  # Phase 32a dry-run inventory; references v0.4 fossil + multiple historical versions
 }
 # Directory-prefix exemption: files under these dirs are full-exempt. Agent and schema
 # docs anchor version annotations historically by design (e.g. "v1.1+ Phase N component").
