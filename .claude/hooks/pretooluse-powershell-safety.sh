@@ -24,30 +24,21 @@ set -uo pipefail
 readonly HOOK_NAME="pretooluse-powershell-safety"
 readonly DENY_REASON="BLOCKED by ${HOOK_NAME} hook: command matches destructive pattern. If you genuinely need this, run it manually outside Claude Code."
 
-# Destructive-shape regexes applied to the full command string.
-# Case-insensitive — enabled around the match loop via shopt -s nocasematch.
-# Anchors use (^|[[:space:]]) ... ([[:space:]]|$) for portability across
-# POSIX ERE implementations.
-readonly -a DESTRUCTIVE_PATTERNS=(
-  # Remove-Item with both -Recurse-like and -Force-like flags, either order.
-  # Covers full names (-Recurse, -Force) and short forms (-r, -f). Aliases:
-  # Remove-Item, ri, rm, del, erase (rm in PowerShell aliases Remove-Item;
-  # distinct semantics from POSIX rm).
-  '(^|[[:space:]])(remove-item|ri|rm|del|erase)([[:space:]]).*(-r(ecurse)?)([[:space:]]|:).*(-f(orce)?)([[:space:]]|$)'
-  '(^|[[:space:]])(remove-item|ri|rm|del|erase)([[:space:]]).*(-f(orce)?)([[:space:]]|:).*(-r(ecurse)?)([[:space:]]|$)'
-  # Disk-level destructive operations.
-  '(^|[[:space:]])(format-volume|clear-disk)([[:space:]]|$)'
-  # ExecutionPolicy bypass — Unrestricted/Bypass disable PowerShell's safety net.
-  'set-executionpolicy[[:space:]]+(unrestricted|bypass)'
-  # Pipe-to-IEX — PowerShell's pipe-to-shell shape. Catches the iwr|iex and
-  # Invoke-WebRequest|Invoke-Expression patterns that mirror bash's curl|bash.
-  '(invoke-webrequest|iwr|curl|wget)[[:space:]]+[^|]*\|[[:space:]]*(invoke-expression|iex)([[:space:]]|$)'
-  # Git destructive — same command syntax as bash; covered here for the
-  # PowerShell-tool invocation path.
-  '(^|[[:space:]])git[[:space:]]+push[[:space:]]+--force([[:space:]]|$)'
-  '(^|[[:space:]])git[[:space:]]+push[[:space:]]+-f([[:space:]]|$)'
-  '(^|[[:space:]])git[[:space:]]+reset[[:space:]]+--hard[[:space:]]+origin/'
-)
+# Destructive-shape patterns live in a shared library so that this hook
+# and plugin-quality-check.sh (Phase 24 / heuristic iii) operate against
+# the same set — single source of truth. Lib sources
+# DESTRUCTIVE_POWERSHELL_PATTERNS. Patterns are case-insensitive — consumers
+# (this hook, plugin-quality-check) enable `shopt -s nocasematch` around the
+# match loop.
+readonly LIB=".claude/lib/destructive-powershell-patterns.sh"
+if [ ! -f "$LIB" ]; then
+  # Fail-closed: missing lib means we can't safely vet commands.
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s (destructive-pattern lib missing at %s — fail-closed)"}}\n' \
+    "$DENY_REASON" "$LIB"
+  exit 0
+fi
+# shellcheck disable=SC1090,SC1091
+source "$LIB"
 
 emit_allow() {
   jq -cn '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "allow"}}'
@@ -91,7 +82,7 @@ fi
 
 # PowerShell language is case-insensitive — enable nocasematch for pattern matching.
 shopt -s nocasematch
-for pattern in "${DESTRUCTIVE_PATTERNS[@]}"; do
+for pattern in "${DESTRUCTIVE_POWERSHELL_PATTERNS[@]}"; do
   if [[ "$COMMAND" =~ $pattern ]]; then
     shopt -u nocasematch
     emit_deny "$DENY_REASON"

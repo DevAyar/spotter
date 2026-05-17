@@ -21,17 +21,18 @@ set -uo pipefail
 readonly HOOK_NAME="pretooluse-bash-safety"
 readonly DENY_REASON="BLOCKED by ${HOOK_NAME} hook: command matches destructive pattern. If you genuinely need this, run it manually outside Claude Code."
 
-# Destructive-shape regexes applied to the full command string. Portable
-# (^|[[:space:]]) ... ([[:space:]]|$) anchors — POSIX ERE doesn't standardize
-# \b across implementations.
-readonly -a DESTRUCTIVE_PATTERNS=(
-  '(^|[[:space:]])rm[[:space:]]+-rf([[:space:]]|$)'
-  '(^|[[:space:]])git[[:space:]]+push[[:space:]]+--force([[:space:]]|$)'
-  '(^|[[:space:]])git[[:space:]]+push[[:space:]]+-f([[:space:]]|$)'
-  '(^|[[:space:]])git[[:space:]]+reset[[:space:]]+--hard[[:space:]]+origin/'
-  '(^|[[:space:]])chmod[[:space:]]+-R[[:space:]]+777([[:space:]]|$)'
-  '(curl|wget)[[:space:]]+[^|]*\|[[:space:]]*(bash|sh)([[:space:]]|$)'
-)
+# Destructive-shape patterns live in a shared library so that this hook
+# and plugin-quality-check.sh (Phase 24 / heuristic iii) operate against
+# the same set — single source of truth. Lib sources DESTRUCTIVE_BASH_PATTERNS.
+readonly LIB=".claude/lib/destructive-bash-patterns.sh"
+if [ ! -f "$LIB" ]; then
+  # Fail-closed: missing lib means we can't safely vet commands.
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s (destructive-pattern lib missing at %s — fail-closed)"}}\n' \
+    "$DENY_REASON" "$LIB"
+  exit 0
+fi
+# shellcheck disable=SC1090,SC1091
+source "$LIB"
 
 emit_allow() {
   jq -cn '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "allow"}}'
@@ -73,7 +74,7 @@ if [ -z "$COMMAND" ]; then
   emit_deny "${DENY_REASON} (Bash invocation with empty command — fail-closed)"
 fi
 
-for pattern in "${DESTRUCTIVE_PATTERNS[@]}"; do
+for pattern in "${DESTRUCTIVE_BASH_PATTERNS[@]}"; do
   if [[ "$COMMAND" =~ $pattern ]]; then
     emit_deny "$DENY_REASON"
   fi
