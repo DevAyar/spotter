@@ -62,3 +62,19 @@ jobs:
       - name: Scenario - backfill-migrate
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh backfill-migrate
+
+      - name: Scenario - check-remote-cached
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh check-remote-cached
+
+      - name: Scenario - hook-fail-closed-bash-safety
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh hook-fail-closed-bash-safety
+
+      - name: Scenario - cruft-check-fixture
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh cruft-check-fixture
+
+      - name: Scenario - replace-with-yes-piped
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh replace-with-yes-piped

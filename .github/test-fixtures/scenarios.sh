@@ -223,14 +223,139 @@ LEGACY
   echo "PASS backfill-migrate"
 }
 
+# ---- Phase 30b scenarios (audit findings H5 + H7) ----
+
+scenario_check_remote_cached() {
+  echo ">> check-remote-cached: --check-remote populates cached_skeleton_head from mock remote"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  # Set up a mock skeleton repo with semver tags. SKELETON_REPO_URL is overridable
+  # via env (Phase 30b H4 fix) so we can point update.sh at a local bare repo.
+  local mock_work="$TEST_DIR/mock-skeleton"
+  local mock_bare="$TEST_DIR/mock-skeleton.git"
+  git init -q --bare "$mock_bare"
+  git init -q "$mock_work"
+  (
+    cd "$mock_work"
+    git config user.email "ci@test.local"
+    git config user.name "CI Test"
+    printf 'mock\n' > README.md
+    git add README.md
+    git commit -q -m "init"
+    git tag v0.5.0
+    git tag v0.9.5
+    git tag v1.0.0
+    git remote add origin "$mock_bare"
+    git push -q origin HEAD --tags
+  )
+  # Run --check-remote with env override.
+  SKELETON_REPO_URL="$mock_bare" bash "$SKELETON_DIR/scripts/update.sh" \
+    --target "$TEST_DIR" --check-remote > "$TEST_DIR/check-remote.out" 2>&1
+  # Verify marker was updated with highest semver.
+  python -c "
+import json, sys
+with open(sys.argv[1]) as f:
+    d = json.load(f)
+got = d.get('cached_skeleton_head')
+if got != '1.0.0':
+    sys.exit(f'ERROR: expected cached_skeleton_head=1.0.0, got {got!r}')
+if not d.get('cached_skeleton_head_fetched_at'):
+    sys.exit('ERROR: cached_skeleton_head_fetched_at not set')
+print(f'  cached_skeleton_head: {got}')
+print(f'  cached_skeleton_head_fetched_at: {d[\"cached_skeleton_head_fetched_at\"]}')
+" "$TEST_DIR/.claude/.skeleton-version"
+  echo "PASS check-remote-cached"
+}
+
+scenario_hook_fail_closed_bash_safety() {
+  echo ">> hook-fail-closed-bash-safety: missing lib → deny JSON"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  # Move the lib aside to simulate missing.
+  local lib="$TEST_DIR/.claude/lib/destructive-bash-patterns.sh"
+  [ -f "$lib" ] || { echo "ERROR: lib not at $lib after install"; exit 1; }
+  mv "$lib" "$lib.bak"
+  # Construct a benign PreToolUse JSON input — even benign commands should fail-closed
+  # to deny when the lib is missing (defense-in-depth).
+  local input='{"tool_name":"Bash","tool_input":{"command":"echo hi"}}'
+  local output
+  output=$(CLAUDE_PROJECT_DIR="$TEST_DIR" printf '%s' "$input" | \
+    CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$TEST_DIR/.claude/hooks/pretooluse-bash-safety.sh" 2>&1)
+  assert_contains "$output" '"permissionDecision":"deny"'
+  assert_contains "$output" "destructive-pattern lib missing"
+  # Restore the lib for the trap cleanup tidiness.
+  mv "$lib.bak" "$lib"
+  echo "PASS hook-fail-closed-bash-safety"
+}
+
+scenario_cruft_check_fixture() {
+  echo ">> cruft-check-fixture: broken markdown link → heuristic-i observation"
+  # Custom TEST_DIR setup — clone skeleton via --depth 1 for isolation.
+  TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-cc)
+  git clone -q --depth 1 "file://$SKELETON_DIR" "$TEST_DIR/skel"
+  (
+    cd "$TEST_DIR/skel"
+    # Add a markdown file with an unambiguously broken link.
+    printf '# Test\n[broken](does-not-exist.md)\n' > BROKEN_LINK_TEST.md
+    # Run cruft-check.sh (no --hook → bypass cooldown). Captures stderr.
+    bash .claude/scripts/cruft-check.sh > /dev/null 2>&1
+    # Look for an observation file with the heuristic-i notes prefix.
+    local found
+    found=$(grep -l 'i: BROKEN_LINK_TEST.md' .claude/observations/*.json 2>/dev/null || true)
+    if [ -z "$found" ]; then
+      echo "ERROR: cruft-check.sh did not emit heuristic-i observation for broken link" >&2
+      ls -la .claude/observations/ >&2 2>/dev/null || true
+      exit 1
+    fi
+    echo "  found: $found"
+  )
+  echo "PASS cruft-check-fixture"
+}
+
+scenario_replace_with_yes_piped() {
+  echo ">> replace-with-yes-piped: --mode=replace overwrites with YES piped to stdin"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local target_file="$TEST_DIR/.claude/agents/01_research/research-helper.md"
+  # Modify the file so we have something to overwrite.
+  printf '\n# CI replace-mod\n' >> "$target_file"
+  local hash_modified
+  hash_modified=$(sha256_of "$target_file")
+  # Pipe YES into install.sh --mode=replace. --force is required for replace mode.
+  printf 'YES\n' | bash "$SKELETON_DIR/scripts/install.sh" \
+                     --source "$SKELETON_DIR" --target "$TEST_DIR" \
+                     --mode=replace --force --claude-only \
+                     > "$TEST_DIR/install-replace.out" 2>&1
+  local hash_after hash_template
+  hash_after=$(sha256_of "$target_file")
+  hash_template=$(sha256_of "$SKELETON_DIR/template/.claude/agents/01_research/research-helper.md")
+  if [ "$hash_after" = "$hash_modified" ]; then
+    echo "ERROR: replace mode did not overwrite the locally-modified file" >&2
+    cat "$TEST_DIR/install-replace.out" >&2
+    exit 1
+  fi
+  assert_eq "$hash_after" "$hash_template"
+  echo "PASS replace-with-yes-piped"
+}
+
 # ---- dispatch ----
 case "${1:-}" in
-  fresh-install)       scenario_fresh_install ;;
-  fresh-refuse)        scenario_fresh_refuse ;;
-  merge-add)           scenario_merge_add ;;
-  local-mod-detect)    scenario_local_mod_detect ;;
-  local-mod-preserve)  scenario_local_mod_preserve ;;
-  backfill-migrate)    scenario_backfill_migrate ;;
+  fresh-install)                scenario_fresh_install ;;
+  fresh-refuse)                 scenario_fresh_refuse ;;
+  merge-add)                    scenario_merge_add ;;
+  local-mod-detect)             scenario_local_mod_detect ;;
+  local-mod-preserve)           scenario_local_mod_preserve ;;
+  backfill-migrate)             scenario_backfill_migrate ;;
+  check-remote-cached)          scenario_check_remote_cached ;;
+  hook-fail-closed-bash-safety) scenario_hook_fail_closed_bash_safety ;;
+  cruft-check-fixture)          scenario_cruft_check_fixture ;;
+  replace-with-yes-piped)       scenario_replace_with_yes_piped ;;
   all)
     scenario_fresh_install
     scenario_fresh_refuse
@@ -238,6 +363,10 @@ case "${1:-}" in
     scenario_local_mod_detect
     scenario_local_mod_preserve
     scenario_backfill_migrate
+    scenario_check_remote_cached
+    scenario_hook_fail_closed_bash_safety
+    scenario_cruft_check_fixture
+    scenario_replace_with_yes_piped
     echo "ALL SCENARIOS PASSED"
     ;;
   ""|-h|--help)
@@ -245,13 +374,17 @@ case "${1:-}" in
 Usage: bash scenarios.sh <scenario>
 
 Scenarios:
-  fresh-install       Clean target → install --mode=fresh; verify JSON marker.
-  fresh-refuse        Populated target → --mode=fresh exits non-zero; marker unchanged.
-  merge-add           Delete a file → --mode=merge re-adds only that file.
-  local-mod-detect    Modify a file → update.sh --dry-run reports LOCALLY_MODIFIED.
-  local-mod-preserve  Modify a file → update.sh with [K]eep leaves it intact.
-  backfill-migrate    Legacy shell marker → update.sh migrates to JSON.
-  all                 Run every scenario in sequence.
+  fresh-install                Clean target → install --mode=fresh; verify JSON marker.
+  fresh-refuse                 Populated target → --mode=fresh exits non-zero; marker unchanged.
+  merge-add                    Delete a file → --mode=merge re-adds only that file.
+  local-mod-detect             Modify a file → update.sh --dry-run reports LOCALLY_MODIFIED.
+  local-mod-preserve           Modify a file → update.sh with [K]eep leaves it intact.
+  backfill-migrate             Legacy shell marker → update.sh migrates to JSON.
+  check-remote-cached          --check-remote against mock bare repo populates cached_skeleton_head (Phase 30b H5).
+  hook-fail-closed-bash-safety Missing lib → PreToolUse hook emits deny JSON (Phase 30b H5).
+  cruft-check-fixture          Broken markdown link → cruft-check.sh heuristic-i observation (Phase 30b H5).
+  replace-with-yes-piped       printf 'YES' | install.sh --mode=replace overwrites locally-modified file (Phase 30b H7).
+  all                          Run every scenario in sequence.
 EOF
     [ -z "${1:-}" ] && exit 0 || exit 0
     ;;
