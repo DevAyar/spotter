@@ -53,7 +53,9 @@ Each file conforms to [`workflow-suggester.schema.md`](workflow-suggester.schema
 
 Target length per capture: 30–50 lines. Compact, scannable, designed for human review.
 
-**suggested_artifact_type routing for cruft-checker observations**: cruft-checker notes carry a heuristic prefix (`"i: ..."`, `"iv: ..."`, `"viii: ..."`, etc.). Observations with notes starting `"viii: "` route to `suggested_artifact_type: infrastructure-fix` (hook-entry config-schema violations — a small manual config edit). All other cruft-checker observations route to `doc-fix` (markdown/prose drift). Both types are resolved manually by the user; neither has an X-builder in v1.1.x.
+**suggested_artifact_type routing for cruft-checker observations**: cruft-checker notes carry a heuristic prefix (`"i: ..."`, `"iv: ..."`, `"viii: ..."`, etc.). Observations with notes starting `"viii: "` route to `suggested_artifact_type: infrastructure-fix` (hook-entry config-schema violations — a small manual config edit). Observations with notes starting `"lesson: "` route to `suggested_artifact_type: lesson` — same routing also applies when the user authors a capture directly with `suggested_artifact_type: lesson`, bypassing the prefix route. All other cruft-checker observations route to `doc-fix` (markdown/prose drift). All three types are resolved manually by the user; none has an X-builder in v1.1.x.
+
+**Lesson codification flow.** Lessons differ from scripts in that they have no X-builder. On approval, the user codifies the lesson into the directive surface that architecturally fits — `CLAUDE_MANAGER.md` for manager-behavior rules, `docs/ROADMAP.md` for architectural principles, the session-handoff doc for sprint rules, etc. — as a small-fix commit (Phase 17, which codified plan-amendment behavior into a new `CLAUDE_MANAGER.md` H3, is the canonical precedent). The capture frontmatter's `shipped_to:` field points at the codified location.
 
 After drafting all warranted captures, the agent reports to the manager a short summary:
 
