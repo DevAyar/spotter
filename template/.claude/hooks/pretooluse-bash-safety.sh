@@ -49,6 +49,66 @@ emit_deny() {
   exit 0
 }
 
+# Phase 30c: parser-aware FP exemption for git commit -m message bodies +
+# bash heredoc payloads. Destructive-pattern strings inside those exempted
+# regions no longer trigger deny. Patterns OUTSIDE exempted regions still
+# match (counter-tests verify chained-command, post-heredoc deny preserved).
+# Shell-portable: bash regex + sed only — no Python, no extra jq.
+
+# redact_git_commit_messages: replace -m / --message argument bodies with a
+# placeholder so destructive-pattern strings in commit messages don't trigger
+# deny. Only fires when command begins with `git commit` — chained commands
+# after the message ARE preserved (so `git commit -m "rm -rf foo"; rm -rf /`
+# still denies on the second cmd). Handles 4 quote/equals forms; the `-mfoo`
+# immediate form is intentionally NOT handled (uncommon; safer to under-exempt).
+redact_git_commit_messages() {
+  local cmd="$1"
+  if [[ ! "$cmd" =~ ^[[:space:]]*git[[:space:]]+commit([[:space:]]|$) ]]; then
+    printf '%s' "$cmd"
+    return
+  fi
+  printf '%s' "$cmd" | sed -E \
+    -e 's/(-m|--message)="[^"]*"/\1="X"/g' \
+    -e "s/(-m|--message)='[^']*'/\1='X'/g" \
+    -e 's/(-m|--message)[[:space:]]+"[^"]*"/\1 "X"/g' \
+    -e "s/(-m|--message)[[:space:]]+'[^']*'/\1 'X'/g"
+}
+
+# strip_bash_heredocs: walk command line-by-line; when a heredoc opener
+# (<<MARKER, <<-MARKER, <<'MARKER', <<"MARKER") is detected, replace
+# subsequent lines with HEREDOC_BODY until matching terminator. Destructive
+# patterns OUTSIDE heredoc bodies (before opener, after closer) remain
+# intact. Detection regex requires identifier start (letter/underscore)
+# — won't accidentally match `<<` in arithmetic / shift contexts.
+strip_bash_heredocs() {
+  local input="$1"
+  local out="" line in_heredoc="" first=1
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [ -n "$in_heredoc" ]; then
+      local trimmed
+      trimmed=$(printf '%s' "$line" | sed 's/^[[:space:]]*//')
+      if [ "$trimmed" = "$in_heredoc" ] || [ "$line" = "$in_heredoc" ]; then
+        [ $first -eq 0 ] && out+=$'\n'
+        out+="$line"
+        first=0
+        in_heredoc=""
+      else
+        [ $first -eq 0 ] && out+=$'\n'
+        out+="HEREDOC_BODY"
+        first=0
+      fi
+    else
+      [ $first -eq 0 ] && out+=$'\n'
+      out+="$line"
+      first=0
+      if [[ "$line" =~ \<\<-?[[:space:]]*[\'\"]?([A-Za-z_][A-Za-z0-9_]*)[\'\"]? ]]; then
+        in_heredoc="${BASH_REMATCH[1]}"
+      fi
+    fi
+  done <<< "$input"
+  printf '%s' "$out"
+}
+
 # jq is required to safely build the response JSON. If missing, hand-build
 # a minimal deny payload — the hook fails closed, blocking Bash entirely
 # until jq is installed. Surfaces the misconfiguration loudly in the reason.
@@ -78,8 +138,15 @@ if [ -z "$COMMAND" ]; then
   emit_deny "${DENY_REASON} (Bash invocation with empty command — fail-closed)"
 fi
 
+# Redact exempted content (Phase 30c FP closure):
+#   - git commit -m / --message argument bodies
+#   - bash heredoc payloads
+# Destructive patterns OUTSIDE redacted regions still match.
+REDACTED_COMMAND=$(redact_git_commit_messages "$COMMAND")
+REDACTED_COMMAND=$(strip_bash_heredocs "$REDACTED_COMMAND")
+
 for pattern in "${DESTRUCTIVE_BASH_PATTERNS[@]}"; do
-  if [[ "$COMMAND" =~ $pattern ]]; then
+  if [[ "$REDACTED_COMMAND" =~ $pattern ]]; then
     emit_deny "$DENY_REASON"
   fi
 done

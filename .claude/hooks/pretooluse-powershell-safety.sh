@@ -55,6 +55,66 @@ emit_deny() {
   exit 0
 }
 
+# Phase 30c: parser-aware FP exemption for git commit -m message bodies +
+# PowerShell here-string payloads. Destructive-pattern strings inside those
+# exempted regions no longer trigger deny. Patterns OUTSIDE exempted regions
+# still match (counter-tests verify chained-command, post-here-string deny).
+# Shell-portable: bash regex + sed only — no Python, no extra jq.
+
+# redact_git_commit_messages: replace -m / --message argument bodies with a
+# placeholder so destructive-pattern strings in commit messages don't trigger
+# deny. PowerShell `git commit -m "..."` syntax is identical to bash. Only
+# fires when command begins with `git commit` — chained commands after the
+# message ARE preserved (so `git commit -m "rm -rf foo"; Remove-Item -Recurse
+# -Force C:\` still denies on the second cmd). Handles 4 quote/equals forms.
+redact_git_commit_messages() {
+  local cmd="$1"
+  if [[ ! "$cmd" =~ ^[[:space:]]*git[[:space:]]+commit([[:space:]]|$) ]]; then
+    printf '%s' "$cmd"
+    return
+  fi
+  printf '%s' "$cmd" | sed -E \
+    -e 's/(-m|--message)="[^"]*"/\1="X"/g' \
+    -e "s/(-m|--message)='[^']*'/\1='X'/g" \
+    -e 's/(-m|--message)[[:space:]]+"[^"]*"/\1 "X"/g' \
+    -e "s/(-m|--message)[[:space:]]+'[^']*'/\1 'X'/g"
+}
+
+# strip_ps_herestrings: walk command line-by-line; when a PowerShell
+# here-string opener (`@"` or `@'` at end of line, after some text) is
+# detected, replace subsequent lines with HERESTRING_BODY until the matching
+# closer (`"@` or `'@` at start of line, possibly with trailing text).
+# Destructive patterns OUTSIDE here-string bodies remain intact.
+strip_ps_herestrings() {
+  local input="$1"
+  local out="" line in_hs="" first=1
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [ -n "$in_hs" ]; then
+      local trimmed
+      trimmed=$(printf '%s' "$line" | sed 's/^[[:space:]]*//')
+      if [ "$in_hs" = "double" ] && [[ "$trimmed" =~ ^\"@ ]]; then
+        [ $first -eq 0 ] && out+=$'\n'
+        out+="$line"; first=0; in_hs=""
+      elif [ "$in_hs" = "single" ] && [[ "$trimmed" =~ ^\'@ ]]; then
+        [ $first -eq 0 ] && out+=$'\n'
+        out+="$line"; first=0; in_hs=""
+      else
+        [ $first -eq 0 ] && out+=$'\n'
+        out+="HERESTRING_BODY"; first=0
+      fi
+    else
+      [ $first -eq 0 ] && out+=$'\n'
+      out+="$line"; first=0
+      if [[ "$line" =~ @\"[[:space:]]*$ ]]; then
+        in_hs="double"
+      elif [[ "$line" =~ @\'[[:space:]]*$ ]]; then
+        in_hs="single"
+      fi
+    fi
+  done <<< "$input"
+  printf '%s' "$out"
+}
+
 # jq is required to safely build the response JSON. If missing, hand-build
 # a minimal deny payload — the hook fails closed, blocking PowerShell entirely
 # until jq is installed. Surfaces the misconfiguration loudly in the reason.
@@ -84,10 +144,17 @@ if [ -z "$COMMAND" ]; then
   emit_deny "${DENY_REASON} (PowerShell invocation with empty command — fail-closed)"
 fi
 
+# Redact exempted content (Phase 30c FP closure):
+#   - git commit -m / --message argument bodies
+#   - PowerShell here-string payloads (@"..."@ and @'...'@)
+# Destructive patterns OUTSIDE redacted regions still match.
+REDACTED_COMMAND=$(redact_git_commit_messages "$COMMAND")
+REDACTED_COMMAND=$(strip_ps_herestrings "$REDACTED_COMMAND")
+
 # PowerShell language is case-insensitive — enable nocasematch for pattern matching.
 shopt -s nocasematch
 for pattern in "${DESTRUCTIVE_POWERSHELL_PATTERNS[@]}"; do
-  if [[ "$COMMAND" =~ $pattern ]]; then
+  if [[ "$REDACTED_COMMAND" =~ $pattern ]]; then
     shopt -u nocasematch
     emit_deny "$DENY_REASON"
   fi
