@@ -4,7 +4,11 @@ All notable changes to claude-skeleton are documented here. Format follows [Keep
 
 ## [Unreleased]
 
-*(v1.1.2 cut on 2026-05-16. v1.1.3 queue includes heuristic-x scope tuning; `code-quality-auditor` deferred with home TBD between v1.1.3 standalone and v2.0 fold — see ROADMAP.)*
+*(v1.1.2 cut on 2026-05-16. v1.1.3 queue: `code-quality-auditor` deferred with home TBD between v1.1.3 standalone and v2.0 fold — see ROADMAP. Heuristic-x scope tuning landed; see below.)*
+
+### v1.1.x
+
+- cruft-checker heuristic-x scope tuning — extended `EXEMPT_VFILES` and added `EXEMPT_VDIRS` to cover `.claude/agents/05_meta/` + `template/.claude/agents/05_meta/` (agent and schema docs), `CLAUDE_MANAGER.md`, and `template/.claude/captures/README.md`; added `<!-- cruft-check:exempt-historical -->` inline marker convention (same-line OR preceding-line, marker on its own line exempts the immediately following line) and applied it to README / `claude-skeleton-handoff.md` / `docs/ROADMAP.md` stragglers outside V-heading regions. Drops ~55 FPs against legitimate historical version annotations without losing catch on real stale forward refs. Markdown-comment style only this phase; other comment shapes deferred. cruft-checker agent doc updated: heuristic-list count corrected (seven → nine), heuristic 8 / viii moved off the deferred line (now reflects v1.1.2 ship), new "Inline exemption marker" section documents the convention with usage examples. Dogfood-only — no template mirror, per the locked principle.
 
 ## [1.1.2] - 2026-05-16 — Captures-surface enum completion + hook-schema validation
 

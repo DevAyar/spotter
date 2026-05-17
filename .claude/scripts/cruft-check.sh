@@ -498,11 +498,24 @@ VERSION_RE = re.compile(r'\bv?(\d+)\.(\d+)\.(\d+)\b')
 EXEMPT_VFILES = {
     'docs/CHANGELOG.md',
     'docs/SESSION_LOG.md',
-    'docs/INSTALLATION.md',   # historical migration paths (0.7.x→0.8.0 backfill, etc.)
-    'docs/ARCHITECTURE.md',   # historical version annotations on schema sections
-    'docs/STORY.md',          # narrative doc; legitimately references historical versions
+    'docs/INSTALLATION.md',                 # historical migration paths (0.7.x→0.8.0 backfill, etc.)
+    'docs/ARCHITECTURE.md',                 # historical version annotations on schema sections
+    'docs/STORY.md',                        # narrative doc; legitimately references historical versions
+    'CLAUDE_MANAGER.md',                    # directive layer; intentional v1.1.x-scope annotations on producers/consumers
+    'template/.claude/captures/README.md',  # captures README anchors v1.1+ producers/consumers list
 }
+# Directory-prefix exemption: files under these dirs are full-exempt. Agent and schema
+# docs anchor version annotations historically by design (e.g. "v1.1+ Phase N component").
+EXEMPT_VDIRS = (
+    '.claude/agents/05_meta/',
+    'template/.claude/agents/05_meta/',
+)
 EXEMPT_VREGION_FILES = {'docs/ROADMAP.md', 'claude-skeleton-handoff.md'}
+# Inline exemption marker: <!-- cruft-check:exempt-historical -->.
+# - On its own line (no other content): exempts the IMMEDIATELY FOLLOWING line.
+# - Same-line with other content: exempts THAT line.
+# Markdown-comment style only; other comment styles deferred to a follow-up phase.
+EXEMPT_MARKER_RE = re.compile(r'<!--\s*cruft-check:exempt-historical\s*-->')
 
 def find_exempt_regions(md_text):
     """Return list of (start, end) char offsets covering sections under v-prefixed
@@ -547,6 +560,23 @@ def in_region(offset, regions):
             return True
     return False
 
+def find_exempt_lines(md_text):
+    """1-indexed line numbers exempt from heuristic-x via inline markers.
+    Marker on its own line: exempts the IMMEDIATELY FOLLOWING line.
+    Marker inline with other content: exempts THAT line.
+    """
+    exempt = set()
+    lines = md_text.splitlines()
+    for i, line in enumerate(lines):
+        if not EXEMPT_MARKER_RE.search(line):
+            continue
+        rest = EXEMPT_MARKER_RE.sub('', line).strip()
+        if rest:
+            exempt.add(i + 1)
+        elif i + 1 < len(lines):
+            exempt.add(i + 2)
+    return exempt
+
 def version_tuple(s):
     parts = s.split('.')
     return tuple(int(p) for p in parts)
@@ -559,11 +589,14 @@ def check_version_refs():
     for md_file in walk_md_files():
         if md_file in EXEMPT_VFILES:
             continue
+        if md_file.startswith(EXEMPT_VDIRS):
+            continue
         text = read_file(md_file)
         if text is None: continue
         regions = []
         if md_file in EXEMPT_VREGION_FILES:
             regions = find_exempt_regions(text)
+        exempt_lines = find_exempt_lines(text)
         scanned = strip_code(text)
         for m in VERSION_RE.finditer(scanned):
             matched_v = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
@@ -573,6 +606,8 @@ def check_version_refs():
             if in_region(m.start(), regions):
                 continue
             line_no = text.count('\n', 0, m.start()) + 1
+            if line_no in exempt_lines:
+                continue
             matched_text = m.group(0)
             sig = f'version-ref:{md_file}:{line_no}:{matched_text}'
             notes = f'x: {md_file}:{line_no} stale version "{matched_text}" (VERSION={version})'

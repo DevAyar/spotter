@@ -4,6 +4,7 @@
 
 > A battle-tested orchestration skeleton for Claude Code projects.
 
+<!-- cruft-check:exempt-historical -->
 **Status:** v1.1.2 — captures-surface enum completion + retrospective close of the hook-schema failure mode, on top of v1.1.1's hook infrastructure correctness and v1.1.0's capture/reuse loop. Used in production on Trainer-View (Flutter + Firebase) and Echoes-Of-Gill (Godot). See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next.
 
 ## What it is
@@ -41,6 +42,7 @@ Quick summary:
 ## What ships at v1.1.2
 
 - **Orchestration discipline** — directive layer in `template/CLAUDE_MANAGER.md.template` (strategic judgment patterns, dispatch mechanics, plugin marketplace composition, three-commit cadence, recursive ownership L0/L1/L2).
+<!-- cruft-check:exempt-historical -->
 - **Capture/reuse loop (v1.1.0)** — five-component pipeline that turns recurring patterns into reusable artefacts, user-approval-gated at every stage:
   - `session-observer` — emits structured observations from `SESSION_LOG.md` at session end.
   - `workflow-suggester` — drafts capture markdown from observations into `.claude/captures/`.

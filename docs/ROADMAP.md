@@ -25,8 +25,8 @@ The loop still maps to the four named gaps in the system, but the resolutions ha
 
 | # | Gap | Closes when |
 |---|---|---|
-| 1 | **Auto-dispatch by intent** — the manager has to be told to dispatch a helper; it can't infer from request shape. | Deferred to v1.2+ post-`manager-optimizer`, once real dispatch data exists. Manual dispatch via `CLAUDE_MANAGER.md.template` patterns continues to work in v1.1.0. See [Cuts](#cuts--rationale-for-whats-not-in-the-queue). |
-| 2 | **System-proposes-own-evolution** — the meta-system can suggest captures in the abstract but doesn't draft them. | **Closed in v1.1.0** by `workflow-suggester` (rewritten to draft concrete capture files) and the first downstream X-builder `script-builder` (drafts bash scripts from approved captures). |
+| 1 | **Auto-dispatch by intent** — the manager has to be told to dispatch a helper; it can't infer from request shape. | Deferred to v1.2+ post-`manager-optimizer`, once real dispatch data exists. Manual dispatch via `CLAUDE_MANAGER.md.template` patterns continues to work in v1.1.0. See [Cuts](#cuts--rationale-for-whats-not-in-the-queue). <!-- cruft-check:exempt-historical --> |
+| 2 | **System-proposes-own-evolution** — the meta-system can suggest captures in the abstract but doesn't draft them. | **Closed in v1.1.0** by `workflow-suggester` (rewritten to draft concrete capture files) and the first downstream X-builder `script-builder` (drafts bash scripts from approved captures). <!-- cruft-check:exempt-historical --> |
 | 3 | **Clarifying-questions layer** — the manager either guesses the intent or asks one-off questions; no structured intake before non-trivial work. | **Closes in v1.2.0** via `/goals` expanded — research → targeted clarify → spec pipeline that X-builders consume natively. Merges with the clarifying-questions layer. |
 | 4 | **Proactive token optimization** — `token-efficiency-monitor` reports after a subtask blows its envelope; warning lands too late. | **Closes in v1.2.0** via `token-efficiency-monitor` upgraded from observational to proactive (flags before dispatch when planned scope smells over-budget). Needs design pass on Claude Code's token-data exposure to agents. |
 
@@ -66,7 +66,7 @@ Three items landed; one deferred. Completes the captures-surface enum expansion 
 
 - **cruft-checker heuristic-x scope tuning.** The v1.1.2 pre-cut sweep surfaced ~55 heuristic-x FPs flagging legitimate historical `vN.N.N` annotations (agent docs describing what shipped at v1.1.0, README "Status" sentences anchoring on the prior release, CLAUDE_MANAGER historical version notes, schema-doc version stamps). Extend `EXEMPT_VFILES` to cover agent docs / CLAUDE_MANAGER / captures README / schema docs; or introduce an inline `<!-- cruft-check:exempt-historical -->` marker convention; or both. Drop the FP volume without losing the catch on actual stale forward refs.
 
-### How the loop closes the gaps (in v1.1.0)
+### How the loop closes the gaps (in v1.1.0) <!-- cruft-check:exempt-historical -->
 
 A concrete walk-through, no `/goals` dependency:
 
@@ -185,6 +185,7 @@ Cut from the v1.1+ X-builder sequence. Markdown writing is cheap — no automati
 
 ### Gap #1 — auto-dispatch by intent
 
+<!-- cruft-check:exempt-historical -->
 Deferred to v1.2+ post-`manager-optimizer`, once real dispatch data exists. Trying to close Gap #1 in v1.1.0 would mean inferring intent from request shape without empirical grounding — exactly the "optimize against vibes" trap that pushed `manager-optimizer` itself to v1.2+. Manual dispatch via `CLAUDE_MANAGER.md.template` patterns continues to work in v1.1.0; the gap is a known seam, not a blocker.
 
 ### Plugin recommendation as a standalone v2.0 phase
@@ -219,6 +220,7 @@ v2.0:
   Plugin recommendation surface ──> folds integration-checker + code-quality-auditor + catalog
 ```
 
+<!-- cruft-check:exempt-historical -->
 `/goals` expanded ships in v1.2.0 and unlocks the meta-evolution tier. v1.1.0 work parallelizes within the loop (task-watchdog and drift-checker can land independently). v1.1.x → v1.2.0 → v2.0 is a hard sequence — each tier consumes signal that only exists once the prior tier has been in production for some weeks.
 
 ## Closing — scope discipline

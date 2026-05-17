@@ -1,14 +1,18 @@
 # claude-skeleton — session handoff
 
+<!-- cruft-check:exempt-historical -->
 Current as of **2026-05-15** — through **v1.1.0 release** (commit `4bff438`, tag `v1.1.0`).
 
 This doc is the chat-session continuity surface. Read top-down at the start of a fresh session to onboard the manager onto current state, locked principles, and the next phase to draft a prompt for. Not a release artefact — lives outside the changelog.
 
 ## TL;DR
 
+<!-- cruft-check:exempt-historical -->
 - **v1.1.0 shipped 2026-05-15.** The capture/reuse loop is in production: five components — `session-observer`, `workflow-suggester`, `script-builder`, `drift-checker`, `task-watchdog` — closing autonomy **Gap #2** (system-proposes-own-evolution). Pipeline: observations → captures → drafts → promoted artefacts, with user-approval gates at every stage.
+<!-- cruft-check:exempt-historical -->
 - **GitHub Release** published with the `[1.1.0]` CHANGELOG section as notes: <https://github.com/DevAyar/claude-skeleton/releases/tag/v1.1.0>.
 - **v1.1.x polish is next.** cruft-checker opens the tier (third observation producer; pattern well-established after task-watchdog). Then code-quality-auditor, then lessons-log integration. Standard three-commit cadence.
+<!-- cruft-check:exempt-historical -->
 - **v1.2.0 meta-evolution tier** follows v1.1.x. Nine components, opens with `manager-optimizer` (Level-3 meta-meta). Empirical reason for the gate: v1.1.0 needs production miles before the manager-optimizer has real dispatch data to optimize against.
 - **v2.0 plugin recommendation** later still — folds `integration-checker` + `code-quality-auditor` + curated catalog. Verbatim principle: *"Don't be a directory; be a quality filter."*
 - **CI green** across Ubuntu / macOS / Windows for every commit in this sprint. **Dogfood-mirror invariant** held throughout — every `template/` change byte-identical in skeleton's own `.claude/`.
@@ -45,6 +49,7 @@ Surgical fix to `workflow-suggester.schema.md`'s generic body convention (lines 
 
 ### Pre-Phase-4 — `dcb72bc` — ROADMAP.md restructure
 
+<!-- cruft-check:exempt-historical -->
 Strategic chat-side audit between Phase 3 and Phase 4. Captured shifts in canonical sequencing: tight v1.1.0 scope (5 components), v1.1.x polish tier, expanded v1.2.0 (9 components), v2.0 fold, v3.0+ multi-LLM as sibling project, two architectural principles locked (multi-project graduation, two audit surfaces), explicit Cuts section. Doc-only commit, no behaviour change.
 
 ### Phase 4 — `ec01c2a` → `c50a8f1` — drift-checker
@@ -133,6 +138,7 @@ Shared mechanics (cruft detection, doc-rot catches), different scope. Both sched
 
 Two rules surfaced during the sprint that should persist across sessions:
 
+<!-- cruft-check:exempt-historical -->
 - **Sweep known doc-rot at release cuts; don't defer to cruft-checker.** Release cuts must ship the truth. Shipping known-stale docs with a release tag is exactly the rot pattern the skeleton is built to prevent. **Why:** the v1.0 cut shipped a stale README ("v0.9.0") that survived nine months until Phase 6 caught it — that's the failure mode. **How to apply:** at release-cut phases, fold any flagged doc-rot fixes into Commit A so the tagged commit captures the corrected state. Surgical fixes only; don't expand into a broader audit (that's `cruft-checker`'s job). Phase 6 set the precedent.
 - **Don't ship retrospective signals that need a Claude Code surface that doesn't exist yet.** **Why:** Phase 5's task-watchdog originally had 5 candidate signals; two of them (no-progress, approval-waiting) needed real-time hook surfaces CC doesn't expose, and a third (resource anomalies) needed token-data exposure that's not in any current hook. Shipping those as conditional deliverables would have pushed scoping decisions into the CC tab. **How to apply:** when a brief proposes a signal whose detection requires unavailable instrumentation, defer it to the version where the relevant investigation lands (typically v1.2.0 for token data, future for real-time hooks) and explicitly note the deferral in the brief's locked decisions. Phase 5 set the precedent for task-watchdog's 2-signal scope.
 
@@ -141,7 +147,9 @@ Two rules surfaced during the sprint that should persist across sessions:
 - **Node.js 20 deprecation in CI** — GitHub Actions deprecation timeline cites June 2026 for full removal. CI uses `actions/checkout@v4` + `actions/setup-python@v5` which still rely on Node 20 internals. Watch for action version bumps before then; the matrix may need a refresh.
 - **`uninstall.sh` deferred.** No production demand yet — both current targets (Trainer-View, Echoes-Of-Gill) have stable installs. Will ship when there's real signal (e.g. a user trying to roll back the skeleton). Locked invariants when it lands: read `.skeleton-version`'s `files` map, prompt before deleting any locally-modified file (same `LOCALLY_MODIFIED` discipline `update.sh` uses).
 - **`defaultMode` mismatch.** Template ships `"defaultMode": "default"` in `settings.json.template`; skeleton's dogfood `.claude/settings.json` uses `"defaultMode": "plan"`. Intentional — dogfood-as-meta-system needs plan-mode discipline; target projects don't necessarily. Don't conflate.
+<!-- cruft-check:exempt-historical -->
 - **Existing installs ready for `update.sh`.** Trainer-View and Echoes-Of-Gill are on v1.0 baseline. v1.1.0 is the natural moment to run `bash <skeleton>/scripts/update.sh` against their `.claude/` — six-way classification handles the deltas (4 new template files: session-observer, drift-checker, task-watchdog agents + the three new scripts and hook). Update is non-destructive; local modifications stay.
+<!-- cruft-check:exempt-historical -->
 - **task-watchdog deferred signals.** Three signals out of v1.1.0 scope, ordered by gating: (1) **no-progress** — same tool call returning identical output ≥N times consecutively; needs real-time hook surface CC doesn't expose. (2) **approval-waiting** — tool prompt sitting unanswered for >N minutes; same hook-surface gap. (3) **resource anomalies** — token / memory / CPU spikes; bundles with v1.2.0 `token-efficiency-monitor` proactive upgrade (same Gap #4 investigation into Claude Code's token-data exposure to agents).
 
 ## What's next
@@ -156,6 +164,7 @@ Two rules surfaced during the sprint that should persist across sessions:
 
 After cruft-checker: **code-quality-auditor** (Layer 3 of plugin verification — reads actual source, evaluates fitness vs description; integrates with existing `integration-checker`; folds into v2.0). Then **lessons-log integration** as `suggested_artifact_type: lesson` (no separate skill — collapses into the captures surface).
 
+<!-- cruft-check:exempt-historical -->
 After that, v1.1.x is done and **v1.2.0 meta-evolution tier opens** with `manager-optimizer`. v1.1.0 needs production miles between now and then so the manager-optimizer has real dispatch data to optimize against. Don't rush the gate.
 
 **Standard three-commit cadence throughout.** Brief → plan → A (mechanism) → B (integration + dogfood mirror) → C (CHANGELOG bullet) → push. Bump `scenarios.sh verify_marker` atomically with file additions in Commit A (Phase 1 lesson).

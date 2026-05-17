@@ -10,7 +10,7 @@ A read-only L2 observer at `.claude/agents/05_meta/`. The **first v1.1.x compone
 
 cruft-checker is **dogfood-only**: it lives in skeleton's own `.claude/`, NOT in `template/.claude/`. Per the locked **two distinct audit surfaces** principle: skeleton-level audit (this) stays in dogfood; project-level audit ships in v1.2.0's `infrastructure-auditor` under `template/`. The two are intentionally separate.
 
-The mechanic is [`.claude/scripts/cruft-check.sh`](../../scripts/cruft-check.sh) — a 5-section bash wrapper around an inline Python helper that implements all seven heuristics. The agent shell is the dispatchable surface; the script is the contract.
+The mechanic is [`.claude/scripts/cruft-check.sh`](../../scripts/cruft-check.sh) — a 5-section bash wrapper around an inline Python helper that implements all nine heuristics. The agent shell is the dispatchable surface; the script is the contract.
 
 ## When to use
 
@@ -45,9 +45,30 @@ No reads outside the project root. No network. No writes outside `.claude/observ
 | **vii** | Stale schema field-count claim | A doc claims `<schema>` has an `N`-field schema but the actual schema file has a different count. Exempt: `docs/CHANGELOG.md` (historical entries document field counts as they were at ship time, same logic as heuristic x's CHANGELOG exemption). |
 | **viii** | Hook entry config schema | `.claude/settings.json` and `template/.claude/settings.json.template` `hooks[*]` entries missing required `type: "command"` or `command` field per [`docs/HOOK_SCHEMA.md`](../../../docs/HOOK_SCHEMA.md). Catches the Phase 14c-diag silent-inert failure mode. |
 | **ix** | Tag ↔ VERSION ↔ CHANGELOG at HEAD | When HEAD is tagged: tag (minus `v` prefix), `VERSION`, and top dated `CHANGELOG` header must all match. Skipped when HEAD is untagged. |
-| **x** | Cross-doc stale version reference | A `vX.Y.Z` reference in a non-exempt file/region points at a version older than current `VERSION`. Exempt: all of `docs/CHANGELOG.md`; any section under a `## v[0-9]+\.[0-9]+` heading OR a `### Phase N — ... vX.Y.Z`-style Phase-recap heading in `docs/ROADMAP.md` and `claude-skeleton-handoff.md`. Forward references (≥ current) are not flagged. |
+| **x** | Cross-doc stale version reference | A `vX.Y.Z` reference in a non-exempt file/region/line points at a version older than current `VERSION`. Forward refs (≥ current) are not flagged. Exempt: (a) full-file — `docs/CHANGELOG.md`, `docs/SESSION_LOG.md`, `docs/INSTALLATION.md`, `docs/ARCHITECTURE.md`, `docs/STORY.md`, `CLAUDE_MANAGER.md`, `template/.claude/captures/README.md`; (b) full-directory — `.claude/agents/05_meta/**/*.md` and `template/.claude/agents/05_meta/**/*.md` (agent + schema docs are historical anchors by design); (c) region — sections under a `## v[0-9]+\.[0-9]+` heading OR a `### Phase N — ... vX.Y.Z`-style Phase-recap heading in `docs/ROADMAP.md` / `claude-skeleton-handoff.md`; (d) inline — any line carrying or immediately preceded by a `<!-- cruft-check:exempt-historical -->` marker (see [Inline exemption marker](#inline-exemption-marker)). |
 
-Heuristic 6 (deprecation-pattern references) and heuristic 8 are explicitly **deferred** to a follow-up phase. The numbering preserves room for them.
+Heuristic 6 / vi (deprecation-pattern references) is explicitly **deferred** to a follow-up phase. The numbering preserves room for it. Heuristic 8 / viii shipped in v1.1.2 (Phase 16) — the table row above reflects current scope.
+
+## Inline exemption marker
+
+For one-off historical version references in otherwise non-exempt files, use `<!-- cruft-check:exempt-historical -->`. Heuristic x respects this marker; other heuristics ignore it. Two placement shapes:
+
+- **Same-line** — marker appended to the line carrying the historical reference. Use for short refs in headings or table cells where a preceding-line marker would clutter the markdown:
+
+    ```markdown
+    ### How the loop closes the gaps (in v1.1.0) <!-- cruft-check:exempt-historical -->
+    ```
+
+- **Preceding-line** — marker on its own line directly above the line carrying the historical reference. Use for prose paragraphs and multi-sentence bullet items where the marker reads better as a comment block above the content:
+
+    ```markdown
+    <!-- cruft-check:exempt-historical -->
+    - **v1.1.0 shipped 2026-05-15.** The capture/reuse loop is in production: ...
+    ```
+
+Historical-annotation lines (e.g. "shipped in v1.1.0", "what v1.1.x covers") no longer require contortion to avoid heuristic-x flags — wrap them with the marker and the FP suppresses cleanly. Existing region exemption in `docs/ROADMAP.md` / `claude-skeleton-handoff.md` (V-heading-anchored level-2 / level-3 sections) continues to work; the inline marker supplements it for stragglers that fall outside those regions. Full-file and full-directory exemption (see the heuristic-x exempt clause above) cover docs where versions appear historically throughout — agent and schema docs, the directive layer, the captures README.
+
+Markdown-comment style only this phase. Other comment styles (HTML block comments spanning multiple lines, indent-based prose comments, etc.) deferred to a follow-up.
 
 ## What it produces
 
