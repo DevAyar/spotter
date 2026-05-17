@@ -62,9 +62,17 @@ Three items landed; one deferred. Completes the captures-surface enum expansion 
 - **Lessons-log integration as `suggested_artifact_type: lesson`** ✓ *(shipped — Phase 18, surface only).* Added `lesson` to `workflow-suggester`'s enum + routing for `"lesson: "` prefix observations + a Lesson codification flow paragraph. No producer heuristics ship (autonomous detection deferred until grounding data exists — same discipline as task-watchdog's deferred resource-anomaly signals); no X-builder ships (lessons codify manually into the directive surface that architecturally fits — Phase 17 precedent).
 - **`code-quality-auditor` deferred.** Originally scoped as Layer 3 of plugin verification (reads actual source, evaluates fitness vs description). Home stays open between v1.1.3 standalone and a direct v2.0 fold — the architectural question (useful standalone, or only inside v2.0's plugin-recommendation stack?) gets answered at v2.0 design open.
 
-#### v1.1.3 — open queue
+#### v1.1.3 — shipped (cut on 2026-05-17)
 
-- **cruft-checker heuristic-x scope tuning.** The v1.1.2 pre-cut sweep surfaced ~55 heuristic-x FPs flagging legitimate historical `vN.N.N` annotations (agent docs describing what shipped at v1.1.0, README "Status" sentences anchoring on the prior release, CLAUDE_MANAGER historical version notes, schema-doc version stamps). Extend `EXEMPT_VFILES` to cover agent docs / CLAUDE_MANAGER / captures README / schema docs; or introduce an inline `<!-- cruft-check:exempt-historical -->` marker convention; or both. Drop the FP volume without losing the catch on actual stale forward refs.
+Two items landed. Operational-friction relief — no new component scope, no schema changes; both items are tightening on existing primitives. Closes the v1.1.x polish arc that started post-v1.1.0 (capture/reuse loop) and ran through v1.1.1 (hook infrastructure correctness) and v1.1.2 (captures-surface enum completion + lesson codification flow).
+
+- **cruft-checker heuristic-x scope tuning** ✓ *(shipped — Phase 20).* Extended `EXEMPT_VFILES` and added `EXEMPT_VDIRS` to cover `.claude/agents/05_meta/` + `template/.claude/agents/05_meta/` (agent and schema docs), `CLAUDE_MANAGER.md`, `template/.claude/captures/README.md`; added `<!-- cruft-check:exempt-historical -->` inline marker convention (same-line OR preceding-line) and applied it to README / handoff / ROADMAP stragglers. Drops ~55 FPs against legitimate historical version annotations without losing the catch on actual stale forward refs.
+- **Bare-tool allows broadening + PowerShell safety parity** ✓ *(shipped — Phase 21).* Added `PowerShell` to bare `permissions.allow` (covers the Windows tool-ID gap; PowerShell is a separate `tool_name` from Bash). New `pretooluse-powershell-safety.sh` hook mirrors `pretooluse-bash-safety.sh` shape with PowerShell-specific destructive patterns (Remove-Item recursive+force + aliases, Format-Volume / Clear-Disk, Set-ExecutionPolicy Unrestricted / Bypass, iwr|iex pipe-to-shell, force-push / hard-reset-to-origin). Same locked default-allow design. Drops recurring "Always allow" prompts on routine PowerShell work without loosening the destructive deny surface.
+
+**Rolled forward:**
+
+- `code-quality-auditor` home still TBD — architectural question (standalone v1.1.x or v2.0 fold) resolves at v2.0 design open.
+- bash-safety commit-message FP exemption — kept in handoff loose-ends as a low-priority maintenance item. Manifests when a commit message contains literal `rm -rf` / `git push --force` / `git reset --hard origin/` tokens as prose; current workaround is rewording. Not promoted to ROADMAP scope.
 
 ### How the loop closes the gaps (in v1.1.0) <!-- cruft-check:exempt-historical -->
 
