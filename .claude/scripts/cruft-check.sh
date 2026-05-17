@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # cruft-check: dogfood-only auditor of the skeleton repo's own docs/refs.
-# Implements 7 heuristics (i, ii, iii, iv, v, vii, ix, x) and emits
-# observations to .claude/observations/ using session-observer's
+# Implements 9 heuristics (i, ii, iii, iv, v, vii, viii, ix, x; vi deferred)
+# and emits observations to .claude/observations/ using session-observer's
 # 9-field schema. Third producer against that schema. Invoked by the
 # SessionStart hook chain (with --hook + 24h cooldown) or manually
 # (no flag, ignores cooldown). NEVER auto-fixes. NEVER hits the network.
@@ -103,6 +103,9 @@ def emit(signature, notes, summary=None):
         source = 'cruft-checker'
         prior_notes = notes
 
+    # cruft-checker confidence override: med-floor because every cruft sighting is
+    # deterministic-detected; schema default's `low` tier doesn't apply (per
+    # session-observer.schema.md producer override clause + occurrences=1 carve-out).
     if occurrences >= 5:
         confidence = 'high'
     elif occurrences >= 3:
@@ -319,7 +322,13 @@ if m:
 
 # ---- Heuristic v: phase references ----
 PHASE_RE = re.compile(r'\bPhase\s+(\d+[a-z]*)\b')
-EXEMPT_PHASE_FILES = {'docs/CHANGELOG.md', 'docs/SESSION_LOG.md', 'claude-skeleton-handoff.md'}
+EXEMPT_PHASE_FILES = {
+    'docs/CHANGELOG.md',
+    'docs/SESSION_LOG.md',
+    'claude-skeleton-handoff.md',
+    'docs/AUDIT-v1.1.4-state.md',    # Phase 29 state-dump references phases (incl. future Phase 30+) by design
+    'docs/AUDIT-v1.1.4-cc-side.md',  # Phase 30 CC-side audit references audit-emergent phase queue (30b, 31-46+) by design
+}
 
 # Broaden valid_phases beyond CHANGELOG: include handoff doc + git commit messages.
 handoff_text = read_file('claude-skeleton-handoff.md') or ''
