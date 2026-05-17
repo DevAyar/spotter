@@ -49,7 +49,7 @@ Quick summary:
   - `script-builder` — drafts bash scripts under `.claude/scripts/drafts/` from approved captures.
   - `drift-checker` — surfaces version drift between the installed skeleton and the latest released tag at session start (read-only, no network at session start; `update.sh --check-remote` refreshes the cache).
   - `task-watchdog` — retrospective scan of the prior session's tool-call transcript for long-running bash calls and recurring failures.
-- **Baseline tooling** — 14 agents (9 baseline + 5 capture/reuse loop), 6 skills, 4 scripts (`commit.sh`, `deploy.sh`, `drift-check.sh`, `task-watchdog.sh`), 4 slash commands (`/commit`, `/audit`, `/deploy`, `/smoke-test`), 5 hooks across 4 event types (`SessionStart`, `PreCompact`, `SessionEnd`, `PreToolUse` — `PreToolUse` has separate bash + PowerShell safety hooks as of v1.1.3).
+- **Baseline tooling** — 15 agents (9 baseline + 5 capture/reuse loop + 1 plugin-verification), 6 skills, 5 scripts (`commit.sh`, `deploy.sh`, `drift-check.sh`, `task-watchdog.sh`, `plugin-quality-check.sh`), 4 slash commands (`/commit`, `/audit`, `/deploy`, `/smoke-test`), 5 hooks across 4 event types (`SessionStart`, `PreCompact`, `SessionEnd`, `PreToolUse` — `PreToolUse` has separate bash + PowerShell safety hooks as of v1.1.3).
 - **Install / update infrastructure** — `install.sh` (three modes), `update.sh` (six-way classification using per-file SHA-256 hashes with backfill for legacy markers, plus `--check-remote` for drift-cache refresh), atomic JSON `.skeleton-version` marker.
 - **CI** — three-platform matrix (Ubuntu, Windows, macOS) running six install/update scenarios on every push and PR.
 

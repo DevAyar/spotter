@@ -71,8 +71,18 @@ Two items landed. Operational-friction relief — no new component scope, no sch
 
 **Rolled forward:**
 
-- `code-quality-auditor` home still TBD — architectural question (standalone v1.1.x or v2.0 fold) resolves at v2.0 design open.
-- bash-safety commit-message FP exemption — kept in handoff loose-ends as a low-priority maintenance item. Manifests when a commit message contains literal `rm -rf` / `git push --force` / `git reset --hard origin/` tokens as prose; current workaround is rewording. Not promoted to ROADMAP scope.
+- `code-quality-auditor` home decision resolved in v1.1.4 (Phase 24) — narrow-scope landing as a standalone v1.1.x component; Layer 3 semantic fitness-vs-description checks stay deferred to v2.0. See v1.1.4 below.
+- bash-safety commit-message FP exemption — kept in handoff loose-ends as a low-priority maintenance item. Manifests when a commit message contains literal destructive-pattern tokens as prose; current workaround is rewording. Not promoted to ROADMAP scope.
+
+#### v1.1.4 — open queue (plugin-verification surface)
+
+- **`code-quality-auditor`** ✓ *(shipped — Phase 24).* First plugin-verification component. Reads installed plugin source under `~/.claude/plugins/cache/` and emits observations against the existing schema for three narrow heuristics — (i) manifest-declared component path missing or empty, (ii) `hooks/` present but `hooks.json` malformed (reuses Phase 16 viii hook-schema validation), (iii) destructive shell patterns in plugin scripts against unguarded paths (reuses Phase 14c / Phase 21 destructive-pattern sets via shared `.claude/lib/` extraction). Routes via `workflow-suggester` as `suggested_artifact_type: manual_action`. Composes with `cruft-checker` + `drift-checker` as the **project-level audit triad**. Ships in `template/` (target projects also install plugins). Semantic Layer 3 fitness-vs-description checks remain deferred to v2.0 alongside `integration-checker`.
+- **Destructive-pattern shared lib extraction** ✓ *(shipped — Phase 24 piggyback).* Moved the `DESTRUCTIVE_BASH_PATTERNS` / `DESTRUCTIVE_POWERSHELL_PATTERNS` arrays from inline declarations in `pretooluse-bash-safety.sh` / `pretooluse-powershell-safety.sh` into shared `.claude/lib/destructive-{bash,powershell}-patterns.sh` files. Both PreToolUse hooks AND the new `plugin-quality-check.sh` heuristic iii source the libs — single source of truth across real-time blocking and retrospective audit.
+
+**Rolled forward:**
+
+- bash-safety commit-message FP exemption — still queued (low-priority maintenance, no change since v1.1.3).
+- v1.1.4 release cut — release-cut phase to land [Unreleased] CHANGELOG bullet as `[1.1.4]`, bump VERSION, tag, GitHub Release. Pre-cut cruft-sweep mandatory per Phase 6 / 19 / 22 precedent.
 
 ### How the loop closes the gaps (in v1.1.0) <!-- cruft-check:exempt-historical -->
 
@@ -159,8 +169,8 @@ A curated discipline for matching pain points and project context to specific ma
 
 v2.0 folds three pieces that previously had separate phase numbers:
 
-- **`integration-checker`** — Layer 1+2 of plugin verification (manifest sanity, surface area).
-- **`code-quality-auditor`** — Layer 3 (reads actual source, evaluates fitness vs description). Lands in v1.1.x; folds into the plugin surface here.
+- **`integration-checker`** — Layer 1+2 of plugin verification (manifest sanity, surface area). Planned for v2.0; not yet shipped. v1.1.4's `code-quality-auditor` picked up the manifest-honesty slice (heuristics i + ii) as standalone scope; the remainder of Layer 1+2 folds in here.
+- **`code-quality-auditor`** — Layer 3 (reads actual source, evaluates semantic fitness vs description). Layer 3 lands in v2.0. **Narrow-scope manifest honesty + security hygiene heuristics already shipped in v1.1.4** (Phase 24): 3 heuristics covering manifest path missing/empty (i), hooks.json schema violation (ii), destructive shell patterns against unguarded paths (iii). Semantic fitness-vs-description checks remain deferred to v2.0.
 - **Curated catalog** — only if community-curation value materializes. The standalone-phase framing is gone; a static catalog without a quality filter is just a directory.
 
 The foundation is already in v1.0: `CLAUDE_MANAGER.md.template`'s plugin marketplace composition section names the seven ecosystem sources the manager draws from. v2.0 turns that section from "here is the ecosystem we compose with" into "for the shape of *this* project, here are the three plugins that pair best — and here are five that don't, with reasons."
@@ -198,7 +208,7 @@ Deferred to v1.2+ post-`manager-optimizer`, once real dispatch data exists. Tryi
 
 ### Plugin recommendation as a standalone v2.0 phase
 
-Folded into `integration-checker` + `code-quality-auditor`. The earlier framing imagined a standalone catalog phase; that framing was a partial picture of the same thing. A curated catalog without quality verification is a directory (which the principle above rules out); quality verification without a catalog is just `integration-checker`. The two only justify a v2.0 phase together.
+Folded into `integration-checker` (planned for v2.0) + `code-quality-auditor` (narrow scope shipped v1.1.4; Layer 3 semantic checks planned for v2.0). The earlier framing imagined a standalone catalog phase; that framing was a partial picture of the same thing. A curated catalog without quality verification is a directory (which the principle above rules out); quality verification without a catalog is just `integration-checker`. The two only justify a v2.0 phase together.
 
 ## Dependency graph (updated)
 
@@ -211,7 +221,9 @@ v1.1.0 loop (3 shipped, 2 queued):
 
 v1.1.x polish:
   cruft-checker (third observation producer) ──> workflow-suggester
-  code-quality-auditor ──> integration-checker (both fold into v2.0)
+  code-quality-auditor (v1.1.4 narrow scope: 3 heuristics) ──> workflow-suggester
+                                              └─> v2.0 Layer 3 fold (semantic)
+  integration-checker (planned for v2.0) ──> Layer 1+2 fold
   lessons → suggested_artifact_type: lesson (no separate skill)
 
 v1.2.0 meta-evolution:

@@ -4,7 +4,15 @@ All notable changes to claude-skeleton are documented here. Format follows [Keep
 
 ## [Unreleased]
 
-*(v1.1.3 cut on 2026-05-17. v1.1.4 queue: `code-quality-auditor` home still TBD between standalone and v2.0 fold; bash-safety commit-message FP exemption queued in handoff loose-ends as a low-priority maintenance item — see ROADMAP and handoff for full state.)*
+*(v1.1.3 cut on 2026-05-17. v1.1.4 work landed; see below. Release-cut phase pending. bash-safety commit-message FP exemption queued in handoff loose-ends as a low-priority maintenance item.)*
+
+### v1.1.4
+
+- `code-quality-auditor` ✓ *(shipped — Phase 24)* — first concrete plugin-verification component. Ships 3 narrow heuristics: (i) manifest-declared component path missing or empty, (ii) `hooks/` present but `hooks.json` malformed or empty (reuses Phase 16 viii hook-schema validation), (iii) destructive shell patterns in plugin scripts against unguarded paths (reuses bash-safety + powershell-safety pattern sets via shared `.claude/lib/` extraction). Routes via `workflow-suggester` as `suggested_artifact_type: manual_action`; capture filename convention deviates to `.claude/captures/plugin-quality-<plugin>-<heuristic>.md` (idempotency preserved via frontmatter `source_pattern_id`). Composes with `cruft-checker` + `drift-checker` as the **project-level audit triad**. Ships in `template/` (target projects also install plugins). 24h cooldown via `.claude/.last-plugin-quality-check`; `--plugin-dir` flag for testing. Semantic "fitness vs description" checks deferred to v2.0 alongside `integration-checker` (Layer 1+2).
+- Destructive-pattern shared lib extraction — moved `DESTRUCTIVE_BASH_PATTERNS` / `DESTRUCTIVE_POWERSHELL_PATTERNS` from inline declarations in the two PreToolUse safety hooks (Phase 14c / Phase 21) into shared `.claude/lib/destructive-{bash,powershell}-patterns.sh`. Both hooks AND the new `plugin-quality-check.sh` heuristic iii source the libs — single source of truth across real-time blocking and retrospective audit. Hooks fail-closed if lib missing. Phase 21 hooks' behavior unchanged post-refactor (verified by regression-testing same inputs).
+- Schema extensions: `session-observer.schema.md` `source` enum gains `cruft-checker` (v1.1.x backfill — was implicitly active but undocumented in the enum) and `code-quality-auditor` (v1.1.4); `pattern_type` enum gains `plugin_quality`. `workflow-suggester.schema.md` documents the new routing rule and filename-convention deviation. No new `suggested_artifact_type` enum value — reuses the existing baseline `manual_action`.
+- Settings.json: SessionStart hook chain extended with `plugin-quality-check.sh --hook` entry (3rd in dogfood after `sessionstart-rules.sh` + `cruft-check.sh --hook`; 2nd in template after rules). Mirror invariant honored — intentional drift list unchanged (defaultMode, dogfood-only cruft-check hook, compactPrompt placeholder).
+- CI scenarios.sh `verify_marker 41` → `45` for 4 new template files (agent doc + script + 2 lib files).
 
 ## [1.1.3] - 2026-05-17 — Operational-friction relief
 
