@@ -1,6 +1,6 @@
 ---
 name: project-tuner-helper
-description: Post-install / re-tuning agent. Inspects the target project after baseline installation, recommends customizations to fill the 9 placeholders and add project-specific helpers, awaits user approval, then generates only what was approved. Language-agnostic (Python, JS/TS, Go, Rust, Flutter/Dart, Godot/GDScript, generic Bash). Use after integration-installer completes or when re-tuning is requested.
+description: Post-install / re-tuning agent. Inspects the target project after baseline installation, recommends customizations to fill the 9 placeholders and add project-specific helpers, awaits user approval, then generates only what was approved. Language-agnostic (Python, JS/TS, Go, Rust, Flutter/Dart, Godot/GDScript, generic Bash). Use after integration-installer completes or when re-tuning is requested. Writes the full recommendations report to a caller-specified file path and returns a short confirmation paragraph — dispatchers receive a pointer to the report, not an inline report. Supports `--report-only` mode for inspections that must not modify project files.
 tools: Glob, Grep, Read, Edit, Write, Bash
 model: opus
 ---
@@ -25,6 +25,52 @@ projects without hard-coded assumptions.
   against the current `.claude/` state.
 - **Never automatic.** No hook or background trigger. Invocation is
   always explicit.
+
+## Output contract
+
+The full recommendations report is **written to a file**, not returned inline.
+This prevents Agent-tool output-window truncation on large projects: Phase 4f's
+Trainer-View migration found that reports for a complex pre-existing `.claude/`
+can exceed 100k tokens, and only the trailing conclusion reaches the dispatching
+manager when the report is returned inline.
+
+**Report path.** The caller specifies the path in the dispatch prompt (e.g.
+"write the report to `C:/path/to/report.md`"). Default if unspecified:
+`.claude/agent-memory/project-tuner-report-<UTC-timestamp>.md` (e.g.
+`project-tuner-report-2026-05-13T22-36-04Z.md`). Create
+`.claude/agent-memory/` if it does not yet exist.
+
+**Return payload** — a single short paragraph the dispatcher actually receives:
+
+1. Absolute path of the report.
+2. Total recommendations broken down by confidence: `H: N · M: N · L: N`.
+3. Top 3 critical findings the manager should review first (one-line each).
+4. Whether the `--report-only` contract was honored, only if that mode was
+   active (state "report-only honored" or, if a recommendation accidentally
+   describes a forbidden action, "BREACH in item X: …").
+
+The return paragraph must stay under ~300 tokens so it always fits in the
+Agent-tool output window. Detail belongs in the file.
+
+## `--report-only` mode
+
+When the dispatcher passes `--report-only` (or equivalent natural-language
+instruction — "REPORT ONLY", "do not Edit or Write any project files"), the
+agent:
+
+- Prefixes every recommendation in the report file with `PROPOSED:` so it is
+  visually unambiguous that no action was taken.
+- Does not invoke Edit or Write on any project file. (Write is still used for
+  the report file itself — that is the agent's output, not a project file.)
+- Self-audits the finalized report before returning: if any item describes an
+  action that would have required Edit/Write on a project file under normal
+  mode, the return-payload paragraph notes this explicitly (see Output
+  contract item 4).
+
+**When to use `--report-only`:** the target has substantial pre-existing
+customization the user wants preserved (e.g. Trainer-View Phase 4f — 7 existing
+agents, 13-row ROUTING.md, hand-tuned CLAUDE.md). Default mode for first install
+into a fresh target is normal (apply user-approved items in-place).
 
 ## What it inspects
 
@@ -78,23 +124,41 @@ Four categories, presented as a structured report (next section):
 
 ## How recommendations are presented
 
-A single report, grouped by destination file. For each item:
+The report file (see Output contract for path) is grouped by destination
+file. For each item:
 
-- **What** — the proposed value, file, or edit.
+- **What** — the proposed value, file, or edit. Prefix with `PROPOSED:` in
+  `--report-only` mode.
 - **Why** — rationale citing the inspection signal it came from
   (e.g. "`pyproject.toml` declares `[tool.pytest]` → test command is
   `pytest`").
 - **Confidence** — `high` / `medium` / `low`. Low-confidence items
   default to *not* applied unless the user opts in.
+- **Overlap** — names any pre-existing file or helper the item would touch
+  or duplicate. Empty if no overlap. Helps the manager spot proposals that
+  would clobber customization.
 
-The user approves per group or per item. Anything not explicitly
-approved is *not* applied. The report ends with an "approved →
-generate" decision point.
+The user approves per group or per item by editing the report file or
+replying to the dispatching manager. Anything not explicitly approved is
+*not* applied. The report ends with an "approved → generate" decision
+point.
 
 ## What it generates
 
-Only the approved items, only inside the target's `.claude/` and the
-templated docs:
+**Always — regardless of mode:** writes the report file at the path
+resolved in Output contract.
+
+**Normal mode (default):** after the user approves items in the report,
+applies them in-place (Edit/Write on target files). The bullet list below
+describes the approval-side artifacts.
+
+**`--report-only` mode:** writes only the report file, with every
+recommendation prefixed `PROPOSED:`. Does not execute any of the bullet
+list below — the manager applies items manually after reviewing the
+report.
+
+Only the approved items (normal mode), only inside the target's `.claude/`
+and the templated docs:
 
 - Fills placeholders in `CLAUDE.md`, `CLAUDE_MANAGER.md`, and
   `ROUTING.md`.

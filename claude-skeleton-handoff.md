@@ -1,7 +1,7 @@
 # claude-skeleton — session handoff
 
 <!-- cruft-check:exempt-historical -->
-Current as of **2026-05-17** — through **v1.1.4 release** (commit `2a0caf6`, tag `v1.1.4`).
+Current as of **2026-05-17** — through **Phase 30c audit closure + Phase 31 codification** (post-v1.1.4 release `2a0caf6` / tag `v1.1.4`).
 
 This doc is the chat-session continuity surface. Read top-down at the start of a fresh session to onboard the manager onto current state, locked principles, and the next phase to draft a prompt for. Not a release artefact — lives outside the changelog.
 
@@ -13,11 +13,23 @@ This doc is the chat-session continuity surface. Read top-down at the start of a
 - **Phase 24 destructive-pattern shared-lib refactor.** Bash-safety + powershell-safety hooks (Phase 14c / Phase 21) now source pattern arrays from `.claude/lib/destructive-{bash,powershell}-patterns.sh` — **single source of truth** across real-time blocking AND retrospective audit. Adding a new destructive pattern propagates to all enforcement surfaces.
 - **First real-world plugin scan: zero findings** against `42crunch-api-security-testing@1.0.1` (the one real installed plugin in `~/.claude/plugins/cache/`). All three heuristics clean. Phase 24's synthetic-plugin verification already proved each heuristic catches its target case; Phase 25's pre-cut sweep was the first real-world pass.
 - **GitHub Release** published with the `[1.1.4]` CHANGELOG section as notes: <https://github.com/DevAyar/claude-skeleton/releases/tag/v1.1.4>.
-- **Items rolled forward.** (a) `integration-checker` (Layer 1+2) + semantic "fitness vs description" checks (Layer 3) + curated catalog — all fold into v2.0. (b) bash-safety commit-message FP exemption — now **confirmed recurring** across Phase 21 + 24 (worked around both times). Still low-priority maintenance; could earn its own small-fix phase if prioritized.
+- **Items rolled forward.** `integration-checker` (Layer 1+2) + semantic "fitness vs description" checks (Layer 3) + curated catalog — all fold into v2.0.
+- **Audit closure cascade landed (Phase 30 / 30b / 30c).** CC-side audit surfaced 10 findings; 7 mechanical fixes landed in 30b + 30c; 1 emergent hook CWD-independence fix bundled in 30b. Audit-as-skeleton-primitive workflow validated empirically. State-dump §17 bash-safety FP loose-end CLOSED in 30c (parser-aware redaction of `git commit -m` bodies + bash heredoc + PowerShell here-string payloads; counter-tests preserve deny outside exempted regions).
+- **Phase 31 codification underway.** Bulk extraction of principles + sprint rules + mission statement into canonical surfaces (ROADMAP § Locked architectural principles now 12 principles; CLAUDE_MANAGER carries empirical-audit + hook-path-discipline + Co-Authored-By-trailer rules; STORY.md has Mission section). Handoff simplified to sprint state + active loose-ends; principles + sprint-rules sections dropped (now in canonical homes — see Where things live below).
 <!-- cruft-check:exempt-historical -->
 - **v1.2.0 meta-evolution tier** opens next. Nine components, opens with `manager-optimizer` (Level-3 meta-meta). Gated on **v1.1.4 production miles** — plugin-verification surface just opened, audit triad needs operational data. Recommend deferring until v1.1.4 bakes ≥2 weeks on Trainer-View / Echoes-Of-Gill (cadence reset after the v1.1.3 → v1.1.4 ship sequence).
 - **v2.0 plugin recommendation** later still — folds `integration-checker` + `code-quality-auditor` Layer 3 semantics + curated catalog. Verbatim principle: *"Don't be a directory; be a quality filter."*
 - **CI green** across Ubuntu / macOS / Windows for every commit in the sprint. **Dogfood-mirror invariant** held throughout — every `template/` change byte-identical in skeleton's own `.claude/` except documented intentional drift (defaultMode plan vs default; dogfood-only cruft-check SessionStart hook; `compactPrompt` placeholder vs resolved).
+
+## Where things live
+
+- **Locked architectural principles** → `docs/ROADMAP.md` § Locked architectural principles
+- **Strategic judgment patterns + orchestration rules** → `CLAUDE_MANAGER.md` § Strategic judgment patterns
+- **Project mission** → `docs/STORY.md` § Mission
+- **Active sprint state** (Phase recaps, what just shipped, what's queued) → this doc § Sprint state — what shipped
+- **Active loose ends** (current decisions pending, recurring friction not yet fixed) → this doc § Loose ends / queued items
+
+This handoff is the chat-session continuity surface — transient sprint state, not durable spec. Durable spec lives in the canonical surfaces above.
 
 ## Sprint state — what shipped
 
@@ -167,7 +179,6 @@ Plugin-verification surface open. One concrete component, one piggyback refactor
 - `integration-checker` (Layer 1+2 plugin verification) — planned for v2.0.
 - Semantic "fitness vs description" checks — Layer 3 originally scoped for `code-quality-auditor`, now deferred to v2.0 alongside `integration-checker`.
 - Curated plugin catalog — v2.0 fold.
-- bash-safety commit-message FP exemption — low-priority maintenance, **confirmed recurring** across Phase 21 + 24.
 
 **No v1.1.5 placeholder yet** — left open until real items queue.
 
@@ -205,92 +216,6 @@ Re-targeting the skeleton for Claude + DeepSeek + others would change the projec
 <!-- cruft-check:exempt-historical -->
 - **Captures-as-lessons-library (Model A) cut in v1.1.2.** A persistent library of captures under `.claude/captures/` that includes lessons as a queryable reference category. Cut at Phase 18. Rationale: captures are draft-then-ship work-items with `draft → approved → shipped` (or `rejected`) lifecycle, not durable reference. A library accumulates stale captures and re-purposes the captures surface in a way that conflicts with X-builder consumption. Lessons codify into the directive layer (Model C); captures stay as ephemeral work-tracking.
 
-## Locked architectural principles
-
-### Multi-project graduation threshold
-
-A pattern graduates from one project's `.claude/` into `template/` (i.e. ships to every install) when it crosses a hard four-part threshold:
-
-- **≥66% of installed projects** show the same pattern (broad adoption, not narrow taste).
-- **Minimum 3 projects** in the sample (one or two installs is anecdote).
-- **≥4 weeks stable** — no edits or reverts in any contributing project during the window.
-- **Zero negative observations** in the same window — no project has flagged the pattern as broken, noisy, or contraindicated.
-
-v1.2+ mechanism: `meta-session-observer` watches cross-install signal → `workflow-suggester` drafts a graduation capture (`suggested_artifact_type: graduation`) → user approves → `template-promoter` moves the artefact, updates `install.sh` manifests, regenerates baseline hashes, updates CI scenarios. Threshold + mechanism together prevent the skeleton from inheriting any one project's idiosyncrasies.
-
-### Two distinct audit surfaces
-
-The skeleton runs audits at two scopes; mixing them muddies discipline.
-
-- **Project-level (`infrastructure-auditor` in `template/`).** Audits a single project's `.claude/`. Installed everywhere. Dispatches `cruft-checker` + `drift-checker` + `code-quality-auditor` + `artifact-fit-analyzer`. Findings local to the project.
-- **Skeleton-level (`roadmap-auditor` in dogfood only).** Audits the skeleton's own roadmap, schemas, cross-phase contracts. Lives ONLY in dogfood `.claude/`, never `template/`. Findings are about the skeleton itself — drift between roadmap claims and codebase reality.
-
-Shared mechanics (cruft detection, doc-rot catches, plugin-quality checks), different scope. Both scheduled via `/goals` expanded `schedule` field.
-
-### Captures-surface enum stability
-
-<!-- cruft-check:exempt-historical -->
-Locked as of v1.1.2 (Phase 18 closure). The `suggested_artifact_type` enum on `workflow-suggester.schema.md` has nine stable values:
-
-<!-- cruft-check:exempt-historical -->
-- **Baseline (6):** `script`, `skill`, `agent`, `command`, `manual_action`, `unclear`. Established in v1.1.0 Phase 2 (workflow-suggester rewrite).
-- **v1.1.x additions (3):** `doc-fix` (Phase 7, paired with cruft-checker doc-rot observations); `infrastructure-fix` (Phase 16, paired with cruft-checker heuristic viii config-schema observations); `lesson` (Phase 18, surface-only — no producer heuristics, no X-builder, manual codification per Model C).
-
-v1.1.4 reused the existing `manual_action` baseline value as the routing target for `pattern_type: plugin_quality` observations emitted by `code-quality-auditor` (Phase 24) — no new enum value added. Future additions follow the **prefix-routing convention** established in Phase 16 + 18: observation notes starting `"<value>: "` route to `suggested_artifact_type: <value>`. Authors who hand-author captures may set the field directly. Adding a new enum value requires (a) edit the enum list in `workflow-suggester.schema.md`, (b) extend the routing block in `workflow-suggester.md`, (c) optionally add a producer heuristic if autonomous detection earns scope. Defer producer + X-builder until grounding data exists (same discipline as task-watchdog's deferred resource-anomaly signals; Phase 18 set the precedent).
-
-### Model C lesson codification
-
-<!-- cruft-check:exempt-historical -->
-Locked as of v1.1.2 (Phase 17 set canonical precedent; Phase 18 ratified). Lessons codify directly into the directive surface that architecturally fits — `CLAUDE_MANAGER.md` for strategic-judgment patterns, `docs/ROADMAP.md` for sequencing constraints, `claude-skeleton-handoff.md` for sprint-state continuity, or whichever artefact carries the rule's natural authority.
-
-**NOT a separate lessons-log document.** The two alternatives were considered and cut (see Cuts):
-
-- **Model A (captures-as-library):** lessons live as a queryable library under `.claude/captures/`. Cut — captures are draft-then-ship work-items, not durable reference. Library accumulates stale captures.
-- **Model B (parallel lessons-log doc):** lessons live in a dedicated `LESSONS.md` doc with their own schema. Cut — duplicates content with the directive layer; readers consult two docs for one rule; drift between `LESSONS.md` and the directive layer becomes a real maintenance cost.
-
-Model C wins because every lesson eventually shapes a directive — codifying directly into the directive is the single-source-of-truth move. Phase 17 was the canonical first execution (plan-amendment behavior codified into `CLAUDE_MANAGER.md` H3); Phase 18 formalised the flow via the `lesson` capture-surface enum value (capture → manual codification → `shipped_to:` records the codified location).
-
-### Billing-pool design constraint for v1.2.0
-
-<!-- cruft-check:exempt-historical -->
-Locked as of v1.1.3 close (anticipates the Anthropic billing split on **2026-06-15**). Scheduled mechanisms in v1.2.0 — `schedule` field on `/goals`, session-start surfacing of due items, `infrastructure-auditor` and `roadmap-auditor` cadence — must fire via **SessionStart hooks**, NOT out-of-band cron + `claude -p` invocations.
-
-**Why:** Anthropic's subscription billing splits subscription-pool quota from API-pool quota on 2026-06-15. Interactive Claude Code sessions consume subscription pool; `claude -p` headless invocations from cron consume API pool. A scheduled mechanism that fires via cron + `claude -p` would silently consume API quota even when the user is otherwise inside subscription scope; users would discover the spend only on the next bill. SessionStart-hook firing keeps scheduled work inside the same subscription quota as the active session — no quota-surface surprise.
-
-**How to apply:** when designing v1.2.0's scheduled mechanisms, wire them through the SessionStart hook chain (precedent: drift-checker, cruft-check, task-watchdog, plugin-quality-check already fire there). Real-time scheduling shapes that need cron-style firing get deferred to a separate v1.2.0+ phase that explicitly designs the cross-pool quota story; don't ship them inside v1.2.0's first cut.
-
-### Single source of truth for safety patterns
-
-Locked as of v1.1.4 (Phase 24 destructive-pattern shared-lib refactor). Destructive-pattern arrays live in `.claude/lib/destructive-bash-patterns.sh` and `.claude/lib/destructive-powershell-patterns.sh`, sourced by:
-
-- **Real-time blocking surfaces:** `pretooluse-bash-safety.sh` (Phase 14c), `pretooluse-powershell-safety.sh` (Phase 21). Both PreToolUse hooks fail-closed if their lib is missing.
-- **Retrospective audit surface:** `plugin-quality-check.sh` heuristic iii (Phase 24).
-
-New destructive patterns get added in ONE place — the lib file — and propagate to all enforcement surfaces automatically. **When future audit surfaces emerge** (e.g. CI-time plugin scan, project-tuner-helper safety review, an `artifact-fit-analyzer` security pass), they source the same lib rather than duplicating patterns. The Phase 24 refactor was the canonical move from inline-array-per-script to shared-lib; the rule locks the architecture going forward.
-
-The same single-source-of-truth principle does NOT apply to the hook-schema validation logic — that's currently duplicated between `cruft-check.sh` heuristic viii and `plugin-quality-check.sh` heuristic ii because both scripts use inline Python heredocs and sharing across heredoc scopes would mean introducing a separate Python lib file (diverging from the established self-contained-script pattern). Duplication is acceptable when the canonical reference is small and the underlying spec (Anthropic hook schema) is stable. Revisit if the hook-schema validation grows significantly.
-
-### Other principles (in custom-instructions, not re-derived here)
-
-- **Ever-evolving being, not a fixed install** — the skeleton ships a baseline; `project-tuner-helper` shapes it per-project; `workflow-suggester` keeps catching new patterns.
-- **Approval-gated autonomy** — thinking is autonomous, action is approved.
-- **Define-everything-upfront** — brief specs lock interpretations before code; plan-mode is the canonical place to surface them.
-- **Narrow-scope-by-design** — each phase locks scope at brief time; "out of scope" sections in plans are load-bearing.
-- **Composition, not competition** — claude-skeleton composes with the `/plugin` marketplace and seven named community libraries; doesn't replace them.
-
-### Sprint rules locked in v1.1+
-
-Seven rules surfaced during the sprint that should persist across sessions:
-
-<!-- cruft-check:exempt-historical -->
-- **Sweep known doc-rot at release cuts; don't defer to cruft-checker.** Release cuts must ship the truth. Shipping known-stale docs with a release tag is exactly the rot pattern the skeleton is built to prevent. **Why:** the v1.0 cut shipped a stale README ("v0.9.0") that survived nine months until Phase 6 caught it — that's the failure mode. **How to apply:** at release-cut phases, fold any flagged doc-rot fixes into Commit A so the tagged commit captures the corrected state. Surgical fixes only; don't expand into a broader audit (that's `cruft-checker`'s job). Phase 6 set the precedent; Phase 25's README:52 fix is the most recent application.
-- **Don't ship retrospective signals that need a Claude Code surface that doesn't exist yet.** **Why:** Phase 5's task-watchdog originally had 5 candidate signals; two of them (no-progress, approval-waiting) needed real-time hook surfaces CC doesn't expose, and a third (resource anomalies) needed token-data exposure that's not in any current hook. Shipping those as conditional deliverables would have pushed scoping decisions into the CC tab. **How to apply:** when a brief proposes a signal whose detection requires unavailable instrumentation, defer it to the version where the relevant investigation lands (typically v1.2.0 for token data, future for real-time hooks) and explicitly note the deferral in the brief's locked decisions. Phase 5 set the precedent for task-watchdog's 2-signal scope; Phase 18's lesson-detection deferral applied the same rule.
-- **Empirical audit before trusting diagnosis.** When a phase brief includes a hypothesis about existing code/behavior, verify empirically in plan mode before implementing the fix. **Why:** Phase 21 caught a bad initial diagnosis — the brief claimed bash-safety returned ask-shape on unmatched non-destructive patterns; direct invocation showed it already returned allow per the Phase 14 locked design. The "tightening" instruction would have been a no-op edit to working code. **How to apply:** before implementing any "fix existing behavior X" instruction, run the actual code path and capture its real output. Surface findings in plan mode and confirm whether the brief still applies before proceeding.
-- **Prefix-routing mechanism for new enum values.** When adding a value to the `workflow-suggester` `suggested_artifact_type` enum (e.g. `infrastructure-fix` in Phase 16, `lesson` in Phase 18), extend the routing block to recognise observation notes prefixed `"<value>: "`. Two-edit pattern: (a) enum list in schema doc; (b) routing block in agent body. **Why:** autonomous routing requires a deterministic mapping from observation shape to capture artifact-type; prefix is the simplest mapping with zero parsing cost and zero ambiguity. **How to apply:** when proposing a new enum value, ensure the brief includes both edits; surface the prefix-routing rule in the plan to avoid re-deriving it.
-- **Pre-existing drift gets fixed during related edits.** When a phase edits a doc that has known pre-existing drift in the same edit surface, fix the drift in the same commit. **Why:** Phase 16's edit to `workflow-suggester.schema.md` to add `infrastructure-fix` also caught stale enum-list references in the same doc; Phase 18's edit to add `lesson` caught two more stale references. Carrying drift forward into a separate fix phase wastes a commit slot and risks losing the connection between the edit and the drift. **How to apply:** when editing a doc, scan the immediate surrounding context for known drift (stale counts, outdated phase refs, broken links); fold any caught drift into the same commit, but don't expand into broader audit (that's `cruft-checker`'s job).
-- **Release-cut sweep findings get dispositioned, not just fixed.** Phase 19 set the rule: at release cut, document every cruft-sweep finding's disposition (accepted FP / transient / heuristic scope limitation / real fix) in the commit message body, not just the resulting edits. **Why:** future release cuts need to know which findings are persistent FPs vs new drift; dispositioning is the audit trail. **How to apply:** in the release-cut commit body, enumerate sweep findings by heuristic and disposition. Phase 19 / Phase 22 / Phase 25 precedent.
-- **Co-Authored-By trailer convention.** Every claude-skeleton commit — phase mechanism, integration, doc-maintenance, release cut — lands with `Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>` as the final trailer. **Why:** the directive layer + skeleton design are co-authored work with Claude as collaborator; the attribution is consistent with how the meta-system is described in `STORY.md` and `docs/ROADMAP.md` (ADHD-driven design as constraint-forced discipline that generalises via LLM collaboration). **How to apply:** every commit on the skeleton carries the trailer. Locked across v1.1.x; expected to persist through v1.2.0 and beyond unless explicitly revisited.
-
 ## Loose ends / queued items
 
 - **Node.js 20 deprecation in CI** — GitHub Actions deprecation timeline cites June 2026 for full removal. CI uses `actions/checkout@v4` + `actions/setup-python@v5` which still rely on Node 20 internals. Watch for action version bumps before then; the matrix may need a refresh.
@@ -303,20 +228,17 @@ Seven rules surfaced during the sprint that should persist across sessions:
 - **handoff:136 disposition.** The `v0.9.0` historical anchor (in the prose "the v1.0 cut shipped a stale README ('v0.9.0') that survived nine months") was an indefinite-accepted heuristic-x FP through v1.1.2. Phase 20 marker-exempted it via `<!-- cruft-check:exempt-historical -->`. Preserved as a historical anchor — the v1.0 stale-README incident motivates the "sweep at release cuts" sprint rule; deleting the reference would lose the rule's rationale.
 - **PreCompact + SessionEnd verification opportunistic.** Both hooks exist (PreCompact backup, SessionEnd session-observer) and emit valid schema-conformant output. Their real-time firing is observed only opportunistically — we know they emit correctly because the SessionStart cruft-check pattern was the same shape and was verified after Phase 14d's `type: command` wiring fix. Deferred unless / until a session inspection turns up a misfire.
 - **`.skeleton-version` dogfood lag.** Skeleton repo doesn't carry its own `.skeleton-version` marker. The marker exists for target-project installs to track which skeleton commit they came from. Dogfood lag is intentional — skeleton edits its own `.claude/` directly without going through `install.sh` — so no marker is meaningful for skeleton-as-project. Don't add one; don't treat the absence as drift.
-- **bash-safety commit-message FP exemption** — **confirmed recurring across Phase 21 + 24** (two empirical data points now). The `pretooluse-bash-safety.sh` hook catches destructive patterns ANYWHERE in bash command strings — including inside `git commit -m "..."` message bodies AND `cat > file <<'EOF' ... EOF` heredoc payloads (Phase 24 hit the heredoc shape during synthetic-plugin verification, with destructive-pattern strings inside the heredoc body and in code comments). Worked around both times by writing files via the Write tool rather than bash heredocs, and by rewording commit messages to avoid literal destructive tokens. Only friction for skeleton meta-work (talking about destructive patterns in release notes / synthetic-test fixtures); target projects won't hit it. Low-priority maintenance — could earn its own small-fix phase adding commit-message-aware exemption (parse `-m` argument and skip destructive-pattern check on its content) and heredoc-aware exemption (parse heredoc payloads).
 <!-- cruft-check:exempt-historical -->
 - **Unresolved Bash-growth mystery in `settings.local.json`.** Pre-Phase-21, 12 `Bash(...)` entries had accumulated in the local file via "Always allow" clicks despite the bash-safety hook returning `permissionDecision: allow` on those same commands. Most likely cause: pre-Phase-14d historical residue when hooks were silently inert; CC's "Always allow" doesn't auto-prune entries that are now redundant. Phase 21 verified the hook DOES emit allow correctly post-Phase-14d. No code change earned. Diagnose only if growth resumes post-v1.1.4 (no new Bash entries observed during Phase 22 / 24 / 25 sessions).
 - **Windows Git Bash /tmp path gotcha** — synthetic-test only, not a runtime issue. Phase 24 hit this during plugin-quality-check synthetic verification: `/tmp/tmp.XXXX` (Git Bash POSIX path) confuses Windows Python's `os.path.normpath` — slashes get converted to backslashes and the path resolves wrong (e.g. `/tmp/...` becomes `\tmp\...` which Windows Python treats as a relative path that doesn't exist). **Production path** `~/.claude/plugins/cache/` resolves correctly via `os.path.expanduser` to `C:\Users\<user>\.claude\plugins\cache\` (Windows-native absolute). For synthetic tests on Windows, use `$env:TEMP\<dir>` or `C:\tmp\<dir>` rather than Git Bash's `/tmp`. Worth flagging here so future synthetic-test work doesn't waste an hour rediscovering this.
 
 ## What's next
 
-v1.1.4 is fresh (just cut today). Two options for the next phase, neither has high urgency:
+Post-Phase-31 codification cascade landing now. v1.1.4 released; audit closure (Phase 30 / 30b / 30c) and codification (Phase 31) shipped post-cut. v1.1.5 has no major feature items queued. Two strategic directions remain open:
 
 <!-- cruft-check:exempt-historical -->
-**Option 1 — defer v1.2.0 design open until v1.1.4 bakes.** v1.2.0 meta-evolution tier opens with `manager-optimizer` (Level-3 meta-meta — watches HOW the manager decides). Gated on production miles. v1.1.4 just shipped; the audit triad (cruft-checker + drift-checker + code-quality-auditor) hasn't accumulated any operational data yet. Recommend waiting **≥2 weeks of dogfood + production usage on Trainer-View / Echoes-Of-Gill** before opening v1.2.0 design. Without real dispatch data — *including data on which audit-triad findings are real vs noise* — `manager-optimizer` would optimize against vibes. This is a passive option — no work; just wait for the baseline to mature. The bake gate also gives the new project-level audit triad time to surface any v1.1.4 surface bugs that didn't appear in synthetic verification.
+**Defer v1.2.0 design open until v1.1.4 bakes.** v1.2.0 meta-evolution tier opens with `manager-optimizer` (Level-3 meta-meta — watches HOW the manager decides). Gated on production miles per ROADMAP § v1.2.0 Gating. v1.1.4 just shipped; the audit triad (cruft-checker + drift-checker + code-quality-auditor) hasn't accumulated any operational data yet. Recommend waiting **≥2 weeks of active use on Trainer-View / Echoes-Of-Gill** before opening v1.2.0 design. Without real dispatch data — *including data on which audit-triad findings are real vs noise* — `manager-optimizer` would optimize against vibes. Passive option — no work; just wait for the baseline to mature.
 
-**Option 2 — bash-safety commit-message FP exemption (small-fix phase).** Two empirical data points now: Phase 21 hit it in CHANGELOG / commit-message prose; Phase 24 hit it twice in synthetic-test heredoc payloads. The recurring-friction signal has earned a small-fix phase if you want to clear it. Scope: edit `pretooluse-bash-safety.sh` to parse `-m`/`--message` arguments out of `git commit` invocations and skip destructive-pattern check on the message body; same for heredoc payloads (`<<EOF ... EOF`). Single-commit small-fix shape. Frees future commits + synthetic-test fixtures from working around literal destructive-pattern strings.
+**Phase 32+ pre-pinball queue.** Marker refresh (Phase 32 — `update.sh` against self), directive-layer alignment (Phase 33 — remove `/goals` TEMPLATE STUB, reframe `integration-checker` as DEFERRED, add `code-quality-auditor` dispatch H3), bundle install of 6 ecosystem plugins (Phase 34), evaluation window (Phase 35), composition rules + retire/repurpose decisions (Phase 36+), v1.5 ecosystem integration tier (Phases 38-45). Pre-pinball queue captured in `docs/ROADMAP.md` § v1.1.5+.
 
-**Queued (low priority):** None other than Option 2 above. v1.1.4 release just shipped; v1.1.5 has no items queued.
-
-**Standard three-commit cadence throughout v1.1+** — brief → plan → A (mechanism) → B (integration + dogfood mirror) → C (CHANGELOG bullet) → push. Small-fix phases collapse to single commits per the Phase 10 rubric. Pre-cut cruft + plugin-quality sweeps mandatory at release cuts (Phase 6 / 19 / 22 / 25 precedent). Empirical audit before trusting brief diagnoses (Phase 21 precedent).
+**Standard three-commit cadence throughout v1.1+** — brief → plan → A (mechanism) → B (integration + dogfood mirror) → C (CHANGELOG bullet) → push. Small-fix phases collapse to single commits per the Phase 10 rubric. Pre-cut cruft + plugin-quality sweeps mandatory at release cuts (Phase 6 / 19 / 22 / 25 precedent). Empirical audit before trusting brief diagnoses (Phase 21 precedent, now codified in `CLAUDE_MANAGER.md`).
