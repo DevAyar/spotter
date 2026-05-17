@@ -164,6 +164,46 @@ The skeleton runs audits at two scopes; mixing them would muddy the discipline.
 
 Shared mechanics (cruft detection, doc-rot catches), different scope. Both are scheduled via `/goals` expanded `schedule` field.
 
+### Captures-surface enum stability
+
+The `suggested_artifact_type` enum on `workflow-suggester.schema.md` has nine stable values:
+
+<!-- cruft-check:exempt-historical -->
+- **Baseline (6):** `script`, `skill`, `agent`, `command`, `manual_action`, `unclear`. Established in v1.1.0 Phase 2 (workflow-suggester rewrite).
+- **v1.1.x additions (3):** `doc-fix` (Phase 7, paired with cruft-checker doc-rot observations); `infrastructure-fix` (Phase 16, paired with cruft-checker heuristic viii config-schema observations); `lesson` (Phase 18, surface-only — no producer heuristics, no X-builder, manual codification per Model C).
+
+v1.1.4 reused the existing `manual_action` baseline value as the routing target for `pattern_type: plugin_quality` observations emitted by `code-quality-auditor` (Phase 24) — no new enum value added. Future additions follow the **prefix-routing convention** established in Phase 16 + 18: observation notes starting `"<value>: "` route to `suggested_artifact_type: <value>`. Authors who hand-author captures may set the field directly. Adding a new enum value requires (a) edit the enum list in `workflow-suggester.schema.md`, (b) extend the routing block in `workflow-suggester.md`, (c) optionally add a producer heuristic if autonomous detection earns scope. Defer producer + X-builder until grounding data exists (same discipline as task-watchdog's deferred resource-anomaly signals; Phase 18 set the precedent).
+
+### Model C lesson codification
+
+Lessons codify directly into the directive surface that architecturally fits — `CLAUDE_MANAGER.md` for strategic-judgment patterns, `docs/ROADMAP.md` for sequencing constraints, `claude-skeleton-handoff.md` for sprint-state continuity, or whichever artefact carries the rule's natural authority.
+
+**NOT a separate lessons-log document.** The two alternatives were considered and cut:
+
+- **Model A (captures-as-library):** lessons live as a queryable library under `.claude/captures/`. Cut — captures are draft-then-ship work-items, not durable reference. Library accumulates stale captures.
+- **Model B (parallel lessons-log doc):** lessons live in a dedicated `LESSONS.md` doc with their own schema. Cut — duplicates content with the directive layer; readers consult two docs for one rule; drift between `LESSONS.md` and the directive layer becomes a real maintenance cost.
+
+Model C wins because every lesson eventually shapes a directive — codifying directly into the directive is the single-source-of-truth move. Phase 17 was the canonical first execution (plan-amendment behavior codified into `CLAUDE_MANAGER.md` H3); Phase 18 formalised the flow via the `lesson` capture-surface enum value (capture → manual codification → `shipped_to:` records the codified location).
+
+### Billing-pool design constraint for v1.2.0
+
+Scheduled mechanisms in v1.2.0 — `schedule` field on `/goals`, session-start surfacing of due items, `infrastructure-auditor` and `roadmap-auditor` cadence — must fire via **SessionStart hooks**, NOT out-of-band cron + `claude -p` invocations.
+
+**Why:** Anthropic's subscription billing splits subscription-pool quota from API-pool quota on 2026-06-15. Interactive Claude Code sessions consume subscription pool; `claude -p` headless invocations from cron consume API pool. A scheduled mechanism that fires via cron + `claude -p` would silently consume API quota even when the user is otherwise inside subscription scope; users would discover the spend only on the next bill. SessionStart-hook firing keeps scheduled work inside the same subscription quota as the active session — no quota-surface surprise.
+
+**How to apply:** when designing v1.2.0's scheduled mechanisms, wire them through the SessionStart hook chain (precedent: drift-checker, cruft-check, task-watchdog, plugin-quality-check already fire there). Real-time scheduling shapes that need cron-style firing get deferred to a separate v1.2.0+ phase that explicitly designs the cross-pool quota story; don't ship them inside v1.2.0's first cut.
+
+### Single source of truth for safety patterns
+
+Destructive-pattern arrays live in `.claude/lib/destructive-bash-patterns.sh` and `.claude/lib/destructive-powershell-patterns.sh`, sourced by:
+
+- **Real-time blocking surfaces:** `pretooluse-bash-safety.sh` (Phase 14c), `pretooluse-powershell-safety.sh` (Phase 21). Both PreToolUse hooks fail-closed if their lib is missing.
+- **Retrospective audit surface:** `plugin-quality-check.sh` heuristic iii (Phase 24).
+
+New destructive patterns get added in ONE place — the lib file — and propagate to all enforcement surfaces automatically. **When future audit surfaces emerge** (e.g. CI-time plugin scan, project-tuner-helper safety review, an `artifact-fit-analyzer` security pass), they source the same lib rather than duplicating patterns. The Phase 24 refactor was the canonical move from inline-array-per-script to shared-lib; the rule locks the architecture going forward.
+
+The same single-source-of-truth principle does NOT apply to the hook-schema validation logic — that's currently duplicated between `cruft-check.sh` heuristic viii and `plugin-quality-check.sh` heuristic ii because both scripts use inline Python heredocs and sharing across heredoc scopes would mean introducing a separate Python lib file (diverging from the established self-contained-script pattern). Duplication is acceptable when the canonical reference is small and the underlying spec (Anthropic hook schema) is stable. Revisit if the hook-schema validation grows significantly.
+
 ## v2.0 — plugin ecosystem layer
 
 A curated discipline for matching pain points and project context to specific marketplace plugins or community-library helpers. Catalog grows month by month — recommendations get sharper as the capture/reuse loop generates usage data the recommender can match against.

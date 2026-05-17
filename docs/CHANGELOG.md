@@ -4,7 +4,9 @@ All notable changes to claude-skeleton are documented here. Format follows [Keep
 
 ## [Unreleased]
 
-*(v1.1.4 cut on 2026-05-17. No items queued for v1.1.5. bash-safety commit-message FP exemption remains in handoff loose-ends as a low-priority maintenance item.)*
+*(v1.1.4 cut on 2026-05-17. Doc-only entry below; no feature items queued for v1.1.5. bash-safety commit-message FP exemption remains in handoff loose-ends as a low-priority maintenance item.)*
+
+- Extracted 4 locked architectural principles (captures-surface enum stability, Model C lesson codification, billing-pool design constraint for v1.2.0, single source of truth for safety patterns) from session handoff into `docs/ROADMAP.md` canonical Locked architectural principles section. Doc-shuffle only — no behaviour change.
 
 ## [1.1.4] - 2026-05-17 — Plugin-verification surface open
 
