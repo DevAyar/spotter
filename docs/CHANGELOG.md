@@ -9,6 +9,7 @@ All notable changes to claude-skeleton are documented here. Format follows [Keep
 - Extracted 4 locked architectural principles (captures-surface enum stability, Model C lesson codification, billing-pool design constraint for v1.2.0, single source of truth for safety patterns) from session handoff into `docs/ROADMAP.md` canonical Locked architectural principles section. Doc-shuffle only — no behaviour change.
 - Logged v1.1.5+ pre-pinball queue in `docs/ROADMAP.md` — claude-mem install locked; pre-pinball builds, ecosystem integration decisions, `/goal` vs `/goals` naming collision, first-install plugin suggestion flow, mental-model drift as audit-priority finding; multi-session-cumulative detection and roadmap velocity flagged for audit. Doc-only — no behaviour change.
 - Generated v1.1.4 state-dump artifact at `docs/AUDIT-v1.1.4-state.md` for post-v1.1.4 comprehensive audit. Doc-only — no behaviour change.
+- Generated CC-side audit artifact at `docs/AUDIT-v1.1.4-cc-side.md` reviewing v1.1.4 state with code-shape + CI + permissions focus. Reconciliation with chat-side audit pending. Doc-only — no behaviour change.
 
 ## [1.1.4] - 2026-05-17 — Plugin-verification surface open
 

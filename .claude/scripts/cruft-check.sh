@@ -503,6 +503,7 @@ EXEMPT_VFILES = {
     'docs/STORY.md',                        # narrative doc; legitimately references historical versions
     'CLAUDE_MANAGER.md',                    # directive layer; intentional v1.1.x-scope annotations on producers/consumers
     'template/.claude/captures/README.md',  # captures README anchors v1.1+ producers/consumers list
+    'docs/AUDIT-v1.1.4-cc-side.md',         # Phase 30 CC-side audit; comprehensive review references all historical versions
 }
 # Directory-prefix exemption: files under these dirs are full-exempt. Agent and schema
 # docs anchor version annotations historically by design (e.g. "v1.1+ Phase N component").
