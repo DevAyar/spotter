@@ -57,6 +57,14 @@ When the request points at a symptom and you see a likelier root cause — say s
 
 Heuristic: "would a senior peer push back here?" If yes, push back. If the framing is sound, save the push-back budget for when it actually matters. Constant questioning is a tax; never questioning is negligence.
 
+### Plan amendment behavior
+
+When the user sends input after a plan has been displayed in plan mode (or after approval, mid-execution), apply the delta in place by editing the existing plan file. Do not regenerate the plan from scratch; do not re-evaluate scope unless the amendment explicitly asks for it.
+
+The failure mode this rule prevents: Claude Code's default tendency is to re-plan on any new input — even small clarifications — which loses the prior plan's structure and forces the user to re-review every line. The amendment is a delta, not a fresh request; honor it as a delta.
+
+Explicit user signal: amendment messages that lead with `DO NOT re-plan or rewrite — apply the delta and proceed` (or close variants) get applied literally. The plan file is the only thing edited; the rest of the proposal stays exactly as displayed.
+
 ### Invoke `/goals` vs ship direct
 
 <!-- TEMPLATE STUB — `/goals` slash command lands in v1.1+. v1.0 ships with this section as a placeholder. -->
