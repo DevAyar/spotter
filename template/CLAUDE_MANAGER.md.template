@@ -131,6 +131,55 @@ Dispatch `task-watchdog` **manually** when the user asks "did the prior session 
 
 Dispatch `cruft-checker` **manually** when the user just edited a doc and wants an immediate scan ("did I just break a link / mismatch a count / leave a stale phase ref?"). Without the `--hook` flag, the cooldown is ignored and the scan always runs. The agent emits `pattern_type: other` observations with descriptive notes per the session-observer schema; `workflow-suggester` (next dispatch) drafts captures with `suggested_artifact_type: doc-fix`. There's no `doc-fix-builder` X-builder in v1.1.x — the manager applies fixes manually after capture approval. `cruft-checker` is read-only — never auto-fixes, never hits the network. Heuristic 6 (deprecation refs) and heuristic 8 are deferred to follow-up phases.
 
+### When to dispatch code-quality-auditor
+
+`code-quality-auditor` scans installed plugins for three narrow quality heuristics (manifest path correctness, `hooks.json` schema validation, destructive shell patterns against unguarded paths). Fires autonomously at SessionStart with 24h cooldown per plugin scan; rarely needs manual dispatch.
+
+**Dispatch manually when:**
+- Installing a new plugin from `/plugin` marketplace or GitHub repo — verify quality BEFORE activation.
+- Reviewing a backlog candidate plugin for v1.5 tier consideration.
+- Investigating a suspected plugin behavior issue (heuristic iii destructive-pattern matches catch real risks).
+- Post-bundle-install (Phase 34) for retrospective verification on each installed plugin.
+
+**Don't dispatch manually:**
+- For routine session work — the SessionStart hook handles it.
+- For plugins already-vetted via prior dispatch (idempotency marker prevents re-scan within 24h).
+- For non-plugin code (use `audit-helper` for project-doc-vs-code drift, not `code-quality-auditor`).
+
+## Core vs integration boundary
+
+The skeleton's value is in the orchestration brain on top of an ecosystem, not in reinventing primitives the ecosystem already provides. This section enumerates the durable core (skeleton-specific, load-bearing identity) vs the integration layer (composition with ecosystem, volatile).
+
+### Durable core (no plugin replaces — load-bearing skeleton identity)
+
+1. **Directive layer** — `CLAUDE.md` + `CLAUDE_MANAGER.md` + `ROUTING.md`. Orchestration brain. No plugin authors this.
+2. **Plan-mode-approval gate** — every CC dispatch goes through plan mode. Locked discipline; the ecosystem hasn't standardized this pattern.
+3. **Three-commit cadence** — A mechanism / B integration / C CHANGELOG. Workflow discipline, plugin-independent.
+4. **Recursive ownership tiers** — L0 / L1 / L2 / L3 framework. Meta-system management framing specific to skeleton.
+5. **Capture/reuse loop with `draft → approved → shipped → rejected` lifecycle** — system improves itself with user in the approval seat. Specific to claude-skeleton's evolution model.
+6. **Observation infrastructure with 9+1 field schema** — `session-observer.schema.md` with `resolved_at` regression-reset. Multi-producer composable.
+7. **Approval-gated autonomy as architectural rule** — distributed enforcement across `CLAUDE_MANAGER` + X-builder mechanics + hook design.
+8. **Audit triad (cruft + drift + code-quality)** — SessionStart hook chain, project-level discipline.
+9. **Destructive-pattern shared lib** — single source of truth across blocking surfaces (`bash-safety` + `powershell-safety` hooks) and audit surface (`code-quality-auditor` heuristic iii).
+10. **Install/update infrastructure** — `install.sh` + `update.sh` + `.skeleton-version` with six-way classification. Specific to skeleton distribution model.
+11. **Hook schema discipline** — `docs/HOOK_SCHEMA.md` + `type: "command"` enforcement (Phase 14d) + heuristic viii config validation.
+12. **`project-tuner-helper` placeholder mechanism** — 9 placeholders across `CLAUDE.md` / `ROUTING.md` / `settings.json` resolved at install time.
+
+### Integration layer (composes with ecosystem; volatile, plugin-dependent)
+
+- **`/plugin` marketplace composition** — Anthropic-official + curated community marketplaces. Manager dispatches plugins based on documented composition rules (Phase 36 in v1.1.5+ pre-pinball queue).
+- **Plugin verification mechanism** — `code-quality-auditor` (3 heuristics, narrow). v1.5 tier extends to candidate-pre-install vetting + Layer 3 semantics (v2.0).
+- **Anthropic primitives composition** — `/goal` (autonomous turn-continuation, Claude Code v2.1.139+), `/feature-dev` (spec elicitation + 7-phase workflow), `/code-review` (4-agent parallel review), etc. Dispatched per composition rules.
+- **Skill-based extensions** — Anthropic-official + curated community skills.
+
+### Boundary discipline
+
+**When the ecosystem ships what the skeleton would build:** the skeleton composes. Building from scratch requires empirical evidence the ecosystem doesn't serve the need (per Phase 30 audit reconciliation: `/spec` build cancelled in favor of `feature-dev` + `superpowers`).
+
+**When integrated plugins become abandoned / change APIs / get superseded:** the durable core continues to function. Manager dispatch rules include fallback patterns (Phase 36 composition documentation) so plugin churn doesn't destabilize identity.
+
+**When new ecosystem primitives emerge:** discovery → quality vetting → context-matching → strategist semantic vet → user approval pipeline (v1.5 tier). The skeleton stays current on behalf of the user.
+
 ## Section-routing — the core read discipline
 
 When you're about to `Read` a file larger than ~300 lines, **do not Read it end-to-end**. Instead:
