@@ -212,6 +212,12 @@ The point is not to list every plugin available. The point is to give the manage
 
 Running the skeleton's structure across multiple LLMs — Claude + DeepSeek + others — with the manager arbitrating which model handles which subtask. claude-skeleton was designed against Claude Code's specific affordances (subagent dispatch, slash commands, hooks, skill discovery). Re-targeting it for general LLM orchestration would change the project's center of gravity, not extend it.
 
+The motivation for the sibling project is concrete and cost-shaped. API spend at scale runs into a split that's increasingly hard to ignore: bulk code execution doesn't need Claude-grade judgment, but Claude-grade judgment is what you're paying for. A bridge architecture would dispatch execution work to cheaper models — MiniMax, Kimi-K2, Gemini Flash, DeepSeek, GLM, Qwen-Coder, others in that tier — while Claude handles planning, review, conflict resolution, and any judgment call where mistakes get expensive. The manager's arbitration role expands from "which helper handles this subtask" to "which model handles this subtask" — the same shape, applied across a wider surface.
+
+The reference design comes from a Reddit pattern doing the rounds: lock-file coordination between agents plus a tmux grid for parallel multi-agent dispatch. That's the architectural seed, not a spec — bridge will design its own concrete architecture when the project opens, but the lock-file + grid shape is what makes the cost split real instead of theoretical.
+
+The scaling caveat is worth naming up front. At 1 person × small-N projects, review is cheap and the cost savings compound. At multi-person × multi-project, review becomes the bottleneck — a Reddit user running 1 person × 100 sites hasn't hit it yet; 5 people × 5 projects would. The governance discipline transfers directly from skeleton to bridge — approval-gated autonomy, batched audit cadence, per-project tuning — that's the lineage. But bridge will need its own answer to review-at-scale; it doesn't get that for free from skeleton's design.
+
 The skeleton stays Claude Code-only through v2.0. If multi-LLM is pursued later, it lives as a **sibling project** — different name (working title `claude-skeleton-bridge`), shared lineage, separate identity. Out of scope through v2.0; out of scope as a feature graft, period. The decision to fork the identity for a multi-LLM target is itself a strategic decision that gets made on its own merits, not absorbed into a version bump.
 
 ## Cuts — what's NOT in the roadmap
