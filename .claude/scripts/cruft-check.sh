@@ -329,6 +329,7 @@ EXEMPT_PHASE_FILES = {
     'docs/AUDIT-v1.1.4-state.md',    # Phase 29 state-dump references phases (incl. future Phase 30+) by design
     'docs/AUDIT-v1.1.4-cc-side.md',  # Phase 30 CC-side audit references audit-emergent phase queue (30b, 31-46+) by design
     'CLAUDE_MANAGER.md',             # Phase 33: directive layer references future phases (e.g. Phase 39 / v1.5-B) as forward-looking dispatch guidance
+    'docs/PLUGIN-INSTALLS-v1.1.4.md',  # Phase 34 references future phases (34b, 35, 36) as evaluation/retire-candidate guidance
 }
 
 # Broaden valid_phases beyond CHANGELOG: include handoff doc + git commit messages.
@@ -515,6 +516,7 @@ EXEMPT_VFILES = {
     'template/.claude/captures/README.md',  # captures README anchors v1.1+ producers/consumers list
     'docs/AUDIT-v1.1.4-cc-side.md',         # Phase 30 CC-side audit; comprehensive review references all historical versions
     'docs/AUDIT-v1.1.4-marker-refresh-dryrun.md',  # Phase 32a dry-run inventory; references v0.4 fossil + multiple historical versions
+    'docs/PLUGIN-INSTALLS-v1.1.4.md',        # Phase 34 bundle-install record; references plugin versions (1.0.1, 5.1.0) + CC binary (2.1.138) + baseline 1.1.4
 }
 # Directory-prefix exemption: files under these dirs are full-exempt. Agent and schema
 # docs anchor version annotations historically by design (e.g. "v1.1+ Phase N component").
