@@ -328,6 +328,7 @@ EXEMPT_PHASE_FILES = {
     'claude-skeleton-handoff.md',
     'docs/AUDIT-v1.1.4-state.md',    # Phase 29 state-dump references phases (incl. future Phase 30+) by design
     'docs/AUDIT-v1.1.4-cc-side.md',  # Phase 30 CC-side audit references audit-emergent phase queue (30b, 31-46+) by design
+    'CLAUDE_MANAGER.md',             # Phase 33: directive layer references future phases (e.g. Phase 39 / v1.5-B) as forward-looking dispatch guidance
 }
 
 # Broaden valid_phases beyond CHANGELOG: include handoff doc + git commit messages.

@@ -71,27 +71,9 @@ The failure mode this rule prevents: Claude Code's default tendency is to re-pla
 
 Explicit user signal: amendment messages that lead with `DO NOT re-plan or rewrite — apply the delta and proceed` (or close variants) get applied literally. The plan file is the only thing edited; the rest of the proposal stays exactly as displayed.
 
-### Invoke `/goals` vs ship direct
-
-<!-- TEMPLATE STUB — `/goals` slash command lands in v1.1+. v1.0 ships with this section as a placeholder. -->
-
-`/goals` is a future slash command for goal-clarification dialog before non-trivial work — "what does done look like, what's the failure mode you're worried about, what's explicitly out of scope." v1.0 doesn't ship it. In its absence the manager proceeds with the stated intent and uses the commit-message body to record any implicit assumptions it had to make.
-
-When `/goals` lands, the manager will invoke it when: the request spans more than three files, the success criterion is fuzzy, the user's request implies a decision the manager doesn't have authority to make.
-
 ### Apply `integration-checker` before any plugin install
 
-<!-- TEMPLATE STUB — `integration-checker` agent lands in v1.1+. The manual checklist below is the v1.0 fallback. -->
-
-Any third-party plugin install (official `/plugin` marketplace or community library — see Plugin marketplace composition below) goes through the integration check first. Not optional.
-
-v1.0 fallback checklist (manual):
-- Does the plugin's `manifest.json` declare every hook it installs?
-- Are the hooks reasonable (`SessionStart`, `PreCompact` ok; opaque `PostToolUse` requires a reason)?
-- Does it call out to the network at hook time? If yes, refuse.
-- Does it conflict with a baseline helper? If yes, the baseline wins (Plugin discipline #5).
-
-v1.1+ will land `integration-checker` as a proper agent that runs this checklist mechanically.
+**STATUS: DEFERRED to v2.0** — agent doesn't exist yet. Reserved as dispatch guidance for when `integration-checker` ships as part of v2.0 plugin recommendation surface. For v1.1.5+ pre-pinball plugin installs (bundle install Phase 34), use `code-quality-auditor` in candidate mode (`--candidate-plugin` flag, Phase 39 / v1.5-B) once that ships; until then, manual code-quality vetting via direct file inspection of plugin source.
 
 ### Apply `bash-safety` to any recursive scan or project-wide file op
 
