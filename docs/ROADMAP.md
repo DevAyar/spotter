@@ -1,195 +1,37 @@
 # ROADMAP
 
-The sequencing doc for claude-skeleton. v1.0 → v2.0+. Living — updated as slices land. For backward-looking history see [`CHANGELOG.md`](CHANGELOG.md).
+The sequencing doc for claude-skeleton. v1.0 → v2.0+. Living — updated as slices land. For backward-looking history see [`CHANGELOG.md`](CHANGELOG.md). For the project's identity and locked principles in plain-English form, see [`STORY.md`](STORY.md). For orchestration mechanics, strategic judgment patterns, plugin discipline rules, and the three-commit cadence rubric, see [`../CLAUDE_MANAGER.md`](../CLAUDE_MANAGER.md).
 
-See [`../CLAUDE_MANAGER.md`](../CLAUDE_MANAGER.md) for orchestration mechanics, strategic judgment patterns, plugin discipline rules, and the three-commit cadence rubric. See [`STORY.md`](STORY.md) for project mission and identity.
+The substrate has shipped — **v1.1.4** is the current version, with the observation layer, capture/reuse loop, audit triad, plugin bundle, and hook infrastructure all live and stable. The governance vision is now locked: claude-skeleton is a structural immune system for projects, with per-project governance as the centerpiece principle. The road ahead is the sequence by which that vision lands — onboarding next, then ecosystem integration, then per-project manager-optimization (v1.2.0), then mature plugin recommendation (v2.0), then a multi-LLM sibling at some indefinite later point.
 
-## v1.0 — shipped (retrospective recap)
+## Where we are now (v1.1.4)
 
-Cut at [5630caa] on 2026-05-14. The orchestration layer is in production daily use across **Trainer-View** (Flutter + Firebase) and **Echoes-Of-Gill** (Godot), with **Fitness-Website** as the third target on deck.
+Each line below is a governance capability the substrate already supports — not a feature recap.
 
-What landed:
+- **Observation layer is working.** Three independent signal sources (session-observer, task-watchdog, cruft-checker) feed a shared schema in `.claude/observations/`. New producers can be added without re-architecting consumers.
+- **Capture/reuse loop is working.** Patterns observed in real session work become draft capture files; the user approves; an X-builder (a builder that turns approved captures into reusable artifacts — `script-builder` is the first) drafts the artifact; the user promotes when ready.
+- **Project-level audit triad is working.** `cruft-checker` (doc rot inside the project), `drift-checker` (skeleton-version drift against the upstream release), `code-quality-auditor` (installed-plugin sanity) all fire at session start with a cooldown.
+- **Plugin bundle is vetted and installed.** Six ecosystem plugins (`feature-dev`, `code-review`, `commit-commands`, `security-guidance`, `superpowers`, `claude-mem`) compose with the skeleton. The eyes-open install pattern (audit the plugin, install with explicit awareness of side effects) is proven on the trust-tier-2 claude-mem case.
+- **Hook infrastructure is correct.** The silent-inert failure modes that plagued earlier versions are eliminated. PreToolUse + SessionStart + SessionEnd hooks all fire as designed, with path resolution that survives CWD drift.
+- **Communication discipline is codified.** Plain English by default for user-facing prose, shipped today as a strategic-judgment H3 in the manager (Model C — direct codification into the directive surface that architecturally fits, not a separate lessons doc).
 
-- **Orchestration discipline** — `template/CLAUDE_MANAGER.md.template` carries the directive layer (strategic judgment patterns, dispatch mechanics, plugin marketplace composition, three-commit cadence, recursive ownership L0/L1/L2). Read top-down at session start; the manager onboards from this file alone.
-- **Baseline tooling** — 9 baseline agents (4 core helpers + 5 meta), 6 baseline skills, 2 baseline scripts, 4 baseline commands, 2 baseline hooks (SessionStart, PreCompact).
-- **Install / update infrastructure** — `install.sh` (three modes: fresh / merge / replace), `update.sh` (six-way classification using per-file SHA-256 hashes, with backfill for legacy markers), atomic JSON `.skeleton-version` marker.
-- **CI** — three-platform matrix (Ubuntu, Windows, macOS) running six install/update scenarios on every push and PR.
+## Where we're going — the v2.0 horizon
 
-**Success-criteria framing (retrospective):** the bar was *felt threshold*, not metrics — claude-skeleton at v1.0 when I and a few peers use it productively over a month, no major install bugs, patterns hold across the two production targets. That's what happened. See [`CHANGELOG.md`](CHANGELOG.md) `[1.0.0]` for the full per-slice breakdown.
+The mature form of claude-skeleton has four things in place. First, every install evolves its own discipline through a per-project manager-optimizer that watches that project's pattern of decisions over time and suggests refinements. Second, cross-install signal moves patterns into the shared template only when they prove themselves across multiple projects — the graduation mechanism. Third, plugin recommendations are tied to project context, not catalog completeness — you get suggested the plugins that fit your project, with reasons; you also get told which plugins don't fit, with reasons. Fourth, the orchestration layer composes with the broader ecosystem rather than reinventing it.
 
-## v1.1+ — the capture / reuse loop
-
-The centerpiece of v1.1+. Today the manager learns within a session and forgets between sessions. The capture/reuse loop closes that gap by turning recurring patterns into reusable artefacts — drafted by the system, approved by the user, then formalized into a script or helper that handles the pattern next time it shows up.
-
-### The four autonomy gaps
-
-The loop still maps to the four named gaps in the system, but the resolutions have shifted as components land:
-
-| # | Gap | Closes when |
-|---|---|---|
-| 1 | **Auto-dispatch by intent** — the manager has to be told to dispatch a helper; it can't infer from request shape. | Deferred to v1.2+ post-`manager-optimizer`, once real dispatch data exists. Manual dispatch via `CLAUDE_MANAGER.md.template` patterns continues to work in v1.1.0. See [Cuts](#cuts--rationale-for-whats-not-in-the-queue). <!-- cruft-check:exempt-historical --> |
-| 2 | **System-proposes-own-evolution** — the meta-system can suggest captures in the abstract but doesn't draft them. | **Closed in v1.1.0** by `workflow-suggester` (rewritten to draft concrete capture files) and the first downstream X-builder `script-builder` (drafts bash scripts from approved captures). <!-- cruft-check:exempt-historical --> |
-| 3 | **Clarifying-questions layer** — the manager either guesses the intent or asks one-off questions; no structured intake before non-trivial work. | **Closes in v1.2.0** via `/goals` expanded — research → targeted clarify → spec pipeline that X-builders consume natively. Merges with the clarifying-questions layer. |
-| 4 | **Proactive token optimization** — `token-efficiency-monitor` reports after a subtask blows its envelope; warning lands too late. | **Closes in v1.2.0** via `token-efficiency-monitor` upgraded from observational to proactive (flags before dispatch when planned scope smells over-budget). Needs design pass on Claude Code's token-data exposure to agents. |
-
-### v1.1.0 — tight scope (5 components)
-
-The capture/reuse loop in its first shippable form. **All five primitives shipped; v1.1.0 cut on 2026-05-15.** No `/goals` dependency at this tier — X-builders read captures directly.
-
-- **`session-observer`** ✓ *(shipped — Phase 1).* Real-time observation primitive. Notices repeated patterns during the session and emits structured observation files (`.claude/observations/<pattern_id>.json`) with redaction rules and a stable 9-field schema. Multi-source extensible — future producers (`cruft-checker`) write against the same schema.
-- **`workflow-suggester`** ✓ *(shipped — Phase 2).* Schema-driven consumer of observations. Walks `.claude/observations/`, filters to warranted patterns (confidence threshold `med`/`high`), and drafts concrete capture files at `.claude/captures/<pattern_id>.md` with an 8-field frontmatter and a 4-section body. The four lifecycle states are `draft → approved → shipped` (terminal success) and `rejected` (do-not-re-suggest marker). Idempotent by filename.
-- **`script-builder`** ✓ *(shipped — Phase 3, first X-builder).* Reads captures filtered to `status: approved AND suggested_artifact_type: script` and drafts bash files at `.claude/scripts/drafts/<pattern_id>.sh.draft`. Honors the 5-section discipline (shebang+strict-mode / constants / helpers / main / cleanup), `bash-safety` integration, path-shape guards. The `.sh.draft` extension makes drafts unexecutable until the user promotes them.
-- **`drift-checker`** ✓ *(shipped — Phase 4).* `.skeleton-version` marker drift between installed projects and the latest released skeleton tag. Read-only, notification-only — no auto-apply, no auto-update. Surfaced by the SessionStart hook chain; cache refreshed via `update.sh --check-remote` (the only network path).
-- **`task-watchdog`** ✓ *(shipped — Phase 5).* Retrospective observer of the prior Claude Code session. Reads `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl`, pairs `tool_use`/`tool_result` events, and emits two pattern shapes via session-observer's existing schema: long-running bash calls (≥5min default, `pattern_type: other` with descriptive notes) and recurring failures (same normalized signature ≥3 times in-session, `pattern_type: recurring_failure`). Canonical producer of `recurring_failure` observations (ownership transferred from `session-observer`). Retrospective only — real-time signals deferred until Claude Code exposes a polling hook; resource-anomaly signals bundle with v1.2.0's `token-efficiency-monitor` proactive upgrade.
-
-### v1.1.x — shipped (v1.1.1 cut on 2026-05-16)
-
-**Retrospective:** v1.1.x scope expanded mid-tier — the original 5-component polish framing grew to include the dogfood directive layer (Phase 9), observation resolution (Phase 12), and the hook infrastructure fix saga (Phases 14c–14f). v1.1.1 release boundary recognizes the delta. v1.1.2 returns to original polish scope.
-
-**Shipped in v1.1.1:**
-
-- **`cruft-checker`** ✓ *(shipped — Phase 7).* Third observation producer. Dogfood-only. Surfaces dangling refs, doc-rot, stale `CHANGELOG` entries, deprecated patterns still referenced in code. Feeds `workflow-suggester` like any other observation source.
-- **Dogfood directive layer** ✓ *(shipped — Phase 9).* `CLAUDE.md` + `CLAUDE_MANAGER.md` + `ROUTING.md` resolved at skeleton repo root from `template/*.template`; mirror invariant locked.
-- **Observation resolution** ✓ *(shipped — Phase 12).* `resolved_at` field added across producers; workflow-suggester filters resolved observations from capture generation.
-- **Commit-cadence-by-phase-size rubric** ✓ *(shipped — Phase 10/10c).* Three-tier sizing (small fix / medium phase / large overhaul) + every shipped phase ships a `[Unreleased]` CHANGELOG bullet by default.
-- **Permissions hardening** ✓ *(shipped — Phases 11/14/14c).* Canonical bare-tool-name allow patterns + PreToolUse hook (`pretooluse-bash-safety.sh`) replacing fragile string-pattern denies; 10 destructive Bash shapes blocked including 4 pipe-to-shell variants the deny rules couldn't catch.
-- **Hook infrastructure correctness** ✓ *(shipped — Phases 14c–14f).* `type: command` wiring added to all 5 hook entries; `sessionstart-rules.sh` schema corrected to wrapped `hookSpecificOutput` envelope; hook runtime artifacts gitignored. All five hooks (PreCompact, SessionStart rules, SessionStart cruft-check, SessionEnd, PreToolUse) now fire as designed.
-
-#### v1.1.2 — shipped (cut on 2026-05-16)
-
-Three items landed; one deferred. Completes the captures-surface enum expansion for v1.1.x; closes the hook-schema failure mode retrospectively.
-
-- **cruft-checker heuristic viii** ✓ *(shipped — Phase 16).* Validates `hooks[*]` entries in `.claude/settings.json` and `template/.claude/settings.json.template` against the canonical Anthropic hook schema. Catches missing `type: "command"` / `command` fields — the 14c→14f silent-inert failure mode. Paired with new `docs/HOOK_SCHEMA.md` reference doc.
-- **Plan amendment behavior** ✓ *(shipped — Phase 17).* New `### Plan amendment behavior` H3 under `## Strategic judgment patterns` in `CLAUDE_MANAGER.md`. Codifies: apply user-amendment input as a delta to the existing plan file; do not regenerate from scratch. Canonical precedent for the v1.1.x lesson-codification flow that Phase 18 then formalized.
-- **Lessons-log integration as `suggested_artifact_type: lesson`** ✓ *(shipped — Phase 18, surface only).* Added `lesson` to `workflow-suggester`'s enum + routing for `"lesson: "` prefix observations + a Lesson codification flow paragraph. No producer heuristics ship (autonomous detection deferred until grounding data exists — same discipline as task-watchdog's deferred resource-anomaly signals); no X-builder ships (lessons codify manually into the directive surface that architecturally fits — Phase 17 precedent).
-- **`code-quality-auditor` deferred.** Originally scoped as Layer 3 of plugin verification (reads actual source, evaluates fitness vs description). Home stays open between v1.1.3 standalone and a direct v2.0 fold — the architectural question (useful standalone, or only inside v2.0's plugin-recommendation stack?) gets answered at v2.0 design open.
-
-#### v1.1.3 — shipped (cut on 2026-05-17)
-
-Two items landed. Operational-friction relief — no new component scope, no schema changes; both items are tightening on existing primitives. Closes the v1.1.x polish arc that started post-v1.1.0 (capture/reuse loop) and ran through v1.1.1 (hook infrastructure correctness) and v1.1.2 (captures-surface enum completion + lesson codification flow).
-
-- **cruft-checker heuristic-x scope tuning** ✓ *(shipped — Phase 20).* Extended `EXEMPT_VFILES` and added `EXEMPT_VDIRS` to cover `.claude/agents/05_meta/` + `template/.claude/agents/05_meta/` (agent and schema docs), `CLAUDE_MANAGER.md`, `template/.claude/captures/README.md`; added `<!-- cruft-check:exempt-historical -->` inline marker convention (same-line OR preceding-line) and applied it to README / handoff / ROADMAP stragglers. Drops ~55 FPs against legitimate historical version annotations without losing the catch on actual stale forward refs.
-- **Bare-tool allows broadening + PowerShell safety parity** ✓ *(shipped — Phase 21).* Added `PowerShell` to bare `permissions.allow` (covers the Windows tool-ID gap; PowerShell is a separate `tool_name` from Bash). New `pretooluse-powershell-safety.sh` hook mirrors `pretooluse-bash-safety.sh` shape with PowerShell-specific destructive patterns (Remove-Item recursive+force + aliases, Format-Volume / Clear-Disk, Set-ExecutionPolicy Unrestricted / Bypass, iwr|iex pipe-to-shell, force-push / hard-reset-to-origin). Same locked default-allow design. Drops recurring "Always allow" prompts on routine PowerShell work without loosening the destructive deny surface.
-
-**Rolled forward:**
-
-- `code-quality-auditor` home decision resolved in v1.1.4 (Phase 24) — narrow-scope landing as a standalone v1.1.x component; Layer 3 semantic fitness-vs-description checks stay deferred to v2.0. See v1.1.4 below.
-- bash-safety commit-message FP exemption — kept in handoff loose-ends as a low-priority maintenance item. Manifests when a commit message contains literal destructive-pattern tokens as prose; current workaround is rewording. Not promoted to ROADMAP scope.
-
-#### v1.1.4 — shipped (cut on 2026-05-17)
-
-One concrete component landed. Plugin-verification surface now open. Composes with `cruft-checker` + `drift-checker` as the **project-level audit triad** firing at SessionStart. Phase 24 also piggybacked a destructive-pattern shared-lib extraction so real-time blocking (PreToolUse hooks) and retrospective audit (`plugin-quality-check.sh`) operate against a single source of truth.
-
-- **`code-quality-auditor`** ✓ *(shipped — Phase 24).* First plugin-verification component. Reads installed plugin source under `~/.claude/plugins/cache/` and emits observations against the existing schema for three narrow heuristics — (i) manifest-declared component path missing or empty, (ii) `hooks/` present but `hooks.json` malformed (reuses Phase 16 viii hook-schema validation), (iii) destructive shell patterns in plugin scripts against unguarded paths (reuses Phase 14c / Phase 21 destructive-pattern sets via shared `.claude/lib/` extraction). Routes via `workflow-suggester` as `suggested_artifact_type: manual_action`. Composes with `cruft-checker` + `drift-checker` as the project-level audit triad. Ships in `template/` (target projects also install plugins). Semantic Layer 3 fitness-vs-description checks remain deferred to v2.0 alongside `integration-checker`.
-- **Destructive-pattern shared lib extraction** ✓ *(shipped — Phase 24 piggyback).* Moved the `DESTRUCTIVE_BASH_PATTERNS` / `DESTRUCTIVE_POWERSHELL_PATTERNS` arrays from inline declarations in `pretooluse-bash-safety.sh` / `pretooluse-powershell-safety.sh` into shared `.claude/lib/destructive-{bash,powershell}-patterns.sh` files. Both PreToolUse hooks AND the new `plugin-quality-check.sh` heuristic iii source the libs — single source of truth across real-time blocking and retrospective audit.
-
-**Rolled forward:**
-
-- bash-safety commit-message FP exemption — still queued (low-priority maintenance, no change since v1.1.3). Phase 24 hit the FP twice during synthetic-plugin planting; both worked around via Write tool — additional data point but not yet warranting prioritization.
-
-### How the loop closes the gaps (in v1.1.0) <!-- cruft-check:exempt-historical -->
-
-A concrete walk-through, no `/goals` dependency:
-
-1. `session-observer` notices a recurring pattern over the last two weeks ("you've manually summarized SESSION_LOG before each retrospective four times") and emits an observation.
-2. `workflow-suggester` walks observations, filters to warranted ones, and drafts a capture file at `.claude/captures/<pattern_id>.md` with `status: draft, suggested_artifact_type: script`.
-3. User reviews the capture. Edits `status` to `approved`.
-4. `script-builder` walks captures, filters to `status: approved AND suggested_artifact_type: script`, and drafts a bash file at `.claude/scripts/drafts/<pattern_id>.sh.draft`.
-5. User reviews the draft, optionally edits, promotes by `mv`-ing into `.claude/scripts/<descriptive-name>.sh` + `chmod +x`. User flips the capture to `status: shipped` and adds `shipped_to:` pointing at the promoted path.
-6. Next time the pattern recurs, the script handles it. The pattern stops being a recurring manual chore.
-
-Each lifecycle stage closes one of the four autonomy gaps in part; together they close the meta-gap that v1.1+ targets — *the system improves itself with the user always in the approval seat*.
-
-## v1.1.5+ pre-pinball queue
-
-Buildable-without-data work for the window between v1.1.4 ship and pinball-game start. TV / EoG stay on v1.0 until pinball wraps; update.sh against them happens at context-switch time. Data-gated v1.2.0 components (`manager-optimizer`, `artifact-fit-analyzer`, etc.) stay deferred until real observation data flows.
-
-### Locked decisions
-
-- **Install `claude-mem`.** Persistent-memory plugin for Claude Code (`thedotmack/claude-mem`, 46K+ GitHub stars). Captures session activity, compresses with AI, injects context into future sessions. Highest-leverage ecosystem integration. Install via `npx claude-mem install`.
-- **Audit before integration.** Two-stage audit (chat-side strategist audit, then CC-side reconciliation audit with small handoff) lands before any ecosystem integration. Audit informs which plugins/skills compose vs conflict.
-- **Update TV / EoG deferred to post-pinball.** They produce no observation data while idle; update.sh interactive prompts deserve context-switch attention.
-
-### Buildable in this window (data-independent)
-
-In priority order:
-
-1. `/goals` expanded — research → clarify → spec pipeline. Highest pinball leverage. SEE naming-collision note below before building.
-2. bash-safety FP exemption — `git commit -m` parser only first (heredoc as separate phase if friction continues). Two empirical FP hits across Phase 21 + 24.
-3. `roadmap-auditor` (skeleton-only doc auditor). Static analysis, no data dependency.
-4. Scheduled-goals support (`schedule` field on `/goals` + SessionStart surfacing). Mechanism foundation.
-5. `infrastructure-auditor` partial (dispatches cruft + drift + code-quality on schedule; `artifact-fit-analyzer` slot deferred until data exists).
-6. `token-efficiency-monitor` investigation (doc-read into Claude Code's token-data exposure; writeup decides whether upgrade is possible).
-
-### Backlog — pending audit-informed decisions
-
-- **`/goal` (Anthropic) vs `/goals` (skeleton) naming collision.** Anthropic ships `/goal` (singular) as a built-in Claude Code v2.1.139+ command that sets a completion condition and continues turns autonomously until met (autonomous execution primitive). The skeleton ships `/goals` (plural) as a baseline command for research → clarify → spec elicitation (intake primitive). They are complementary, not overlapping — natural composition is `/goals` produces spec → user approves → `/goal` runs until spec satisfied. But the names differ by one letter, which will confuse anyone using both. Three options for audit decision: (a) rename skeleton's `/goals` to `/spec` or `/intake` or `/plan`; (b) keep `/goals`, document composition with `/goal` explicitly in CLAUDE_MANAGER; (c) defer — no rename, document only if it becomes a real-world friction.
-- **`/superpowers` plugin** (`obra/superpowers-marketplace`). Mature plugin with significant philosophical overlap with the skeleton (brainstorming = `/goals` shape; TDD enforcement; plan-execution-with-review). Compose-vs-compete question is the v2.0 plugin recommendation surface playing out for real. Audit decides whether to install + integrate as a manager-dispatched composition target, or defer to v2.0.
-- **First-install plugin suggestion flow (net-new design).** When the skeleton is installed in a project, the system should suggest relevant plugins/skills/commands based on project context. Implies a `project-tuner-helper` upgrade or new component. Net-new design surface; not currently in v1.2.0 or v2.0 scope. Audit identifies placement (v1.2.0 fold, v2.0 fold, or separate phase tier).
-- **Other plugins from the `/plugin` marketplace.** No specific candidates locked. Audit identifies what would compose well with the existing baseline.
-- **Additional skills beyond the 6 baseline.** Audit identifies gaps.
-- **The 6 community libraries named in CLAUDE_MANAGER.md.template's plugin marketplace composition section.** Currently referenced but not installed. Audit clarifies integration intent — are they composition targets the manager dispatches, or just reference material in the directive layer?
-
-### Deferred — needs data flow
-
-- `manager-optimizer` observer-only — could ship now but watches one install (skeleton dogfood) with no other producers active. Defer until TV / EoG / pinball are running v1.1.5+.
-- All other v1.2.0 components (`artifact-fit-analyzer`, `meta-session-observer` + `template-promoter`, `token-efficiency-monitor` upgraded, loop pruning).
-
-### Roadmap notes — surfaced during v1.1.4 retrospective
-
-- **Multi-session-cumulative friction detection (v1.2.0+ candidate).** Real gap: the bash-safety FP hit twice across Phase 21 + 24 (different sessions, different days), but no observer caught it autonomously. `task-watchdog` is prior-single-session. `session-observer` is in-session. `meta-session-observer` is cross-install. Cross-session-cumulative middle ground has no producer. Worth designing a producer that watches user-side workarounds across session boundaries.
-- **Mental-model-vs-roadmap drift is a real surface.** Strategic chat work surfaced that user mental model has been carrying integration assumptions (e.g. `/superpowers` as already-agreed) not reflected in locked docs. Audit must explicitly check for this drift as part of its scope — what other strategic decisions are held informally that should be in ROADMAP / handoff / CLAUDE_MANAGER?
-- **Roadmap velocity question.** User's architectural framing of skeleton-as-plugin-curator is the v2.0 vision but treated as more imminent than current roadmap reflects. Audit assesses whether some v2.0 surface should pull forward.
-
-## v1.2.0 — meta-evolution release
-
-Where the system grows hands. Opens with `manager-optimizer` (the Level-3 meta-meta framing preserved from earlier roadmap cuts), then expands to nine components that turn the v1.1.0 primitives into a self-tuning surface.
-
-### `manager-optimizer` (L3)
-
-Level-3 meta-meta. Watches **how the manager decides** — which judgment patterns fire, when dispatch happens vs. direct read, where escalation thresholds land in practice, where `/goals` gets invoked vs. skipped. Suggests refinements to `CLAUDE_MANAGER.md.template` based on observed decision drift.
-
-Post-v1.1.0 for the same empirical reason cited in the earlier roadmap: without `/goals` expanded and the capture/reuse loop generating real usage data, `manager-optimizer` would optimize against vibes. v1.2.0 is the version where the meta-system has enough self-observation to be worth tuning.
-
-### `artifact-fit-analyzer`
-
-Detects redundancy, inefficiency, and missing combinations across the project's existing agents / skills / scripts / commands / hooks. Drafts consolidation captures when two helpers overlap, missing-coverage captures when a recurring pattern has no artefact, or removal captures when an artefact never gets dispatched. Manager executes consolidation edits directly — no new builder needed for "rename, merge, or delete an existing artefact."
-
-### `/goals` expanded
-
-Research → targeted clarify → spec pipeline. Merges with Gap #3 (clarifying-questions layer). Pause-only-on-big-questions tuning — the conversation shape stays broad → narrow → edge-case → spec, but the system asks fewer one-off questions and instead surfaces the open spec gaps in a single batch. Outputs a structured spec doc that X-builders consume natively (script-builder reads it as input rather than re-deriving scope from the capture alone).
-
-### Loop pruning (via `manager-optimizer`)
-
-Retires captures that never get approved or scripts that never get dispatched. Driven by observation data — if a capture sits in `status: draft` for 60+ days, or a promoted script gets zero dispatch hits over a month, `manager-optimizer` surfaces a pruning suggestion. Same human-in-the-loop discipline as everything else; the system suggests, the user approves.
-
-### `meta-session-observer` + `template-promoter`
-
-The multi-project graduation mechanism. `meta-session-observer` runs at a higher tier than `session-observer` — it sees patterns *across installed projects*, not within one. When a pattern hits the graduation threshold (see [Locked architectural principles](#locked-architectural-principles)), `workflow-suggester` drafts a graduation capture (`suggested_artifact_type: graduation`). On approval, `template-promoter` executes: moves the artefact into `template/`, updates `install.sh` manifests, regenerates baseline hashes, updates CI scenarios. The skeleton learns from its own deployments.
-
-### `token-efficiency-monitor` (upgraded)
-
-Closes Gap #4. Today the monitor is observational — reports after a subtask blows its envelope. v1.2.0 makes it proactive: flags before dispatch when the planned scope smells over-budget, suggests narrower framings, recommends alternative helpers with smaller surface area. Needs design pass on Claude Code's token-data exposure to agents (what's readable at dispatch time vs. only post-hoc).
-
-### `infrastructure-auditor` (project-level)
-
-Scheduled audit coordinator that lives in `template/` — installed in every project. Dispatches `cruft-checker` + `drift-checker` + `artifact-fit-analyzer` against THIS project's `.claude/` on a cadence (weekly default, configurable via `/goals` `schedule` field). Surfaces a single consolidated report instead of three independent ones.
-
-### `roadmap-auditor` (skeleton-level)
-
-The skeleton's own auditor. ONLY in the dogfood `.claude/`, **not** in `template/`. Audits the roadmap docs, schemas, cross-phase contracts. Surfaces drift between what the roadmap claims and what the codebase actually does. Same scheduled cadence as `infrastructure-auditor`, but scoped to the skeleton's own meta-evolution surface.
-
-### Scheduled-goals support in `/goals`
-
-New `schedule` field on goals. Goals with a schedule live under `.claude/goals/scheduled/`. A session-start hook surfaces due items so they don't drop. The mechanism that drives `infrastructure-auditor` and `roadmap-auditor` cadence.
-
-### Gating
-
-v1.2.0 opens when v1.1.x has been running on Trainer-View / Echoes-Of-Gill for ≥2 weeks of active use. **Precise framing:** v1.1.x has been single-install (skeleton dogfood) for its entire lifetime; the "production daily use" claim from the v1.0 retrospective applies to v1.0 baseline only. v1.1.x production miles begin when `update.sh` runs against TV/EoG. Dogfood data informs but does not satisfy the bake gate.
+All four of those land between v1.1.5 and v2.0. v1.1.5 is the onboarding tier — what makes a new project enter the governance model cleanly. v1.5 is the ecosystem integration layer — per-project plugin recommendation foundations. v1.2.0 is the meta-evolution release — per-project manager-optimizer and the graduation mechanism. v2.0 is the mature plugin recommendation surface. A multi-LLM sibling lives at v3.0+ as a separate project entirely, not a feature graft.
 
 ## Locked architectural principles
 
 Decisions that hold across all v1.2+ work. Captured here so future slices don't relitigate them.
+
+### Approval-gated autonomy
+
+Thinking is autonomous; action is approved. The skeleton can suggest captures, surface plugin recommendations, detect drift, draft scripts — all autonomously. None of those become installed/applied artifacts without explicit user approval. Plan-mode discipline, capture-lifecycle states (`draft → approved → shipped`), and X-builder draft mechanics all enforce this line. **How it applies:** new mechanisms maintain the line by default; "auto-apply" is a deliberate carve-out (e.g. `--auto-apply` in `update.sh` accepts only TEMPLATE_UPDATED + NEW, never LOCALLY_MODIFIED or ORPHAN — the autonomy is bounded).
+
+### Per-project governance
+
+Each install evolves its own discipline. The shared template is a seed, not a final form. Every project tunes its own audit cadence, its own approval thresholds, its own sense of when to suggest a refactor. v1.2.0's per-project manager-optimizer (one instance per installed project, each watching its own context) is the mechanism that makes per-project tuning real. **How it applies:** new components ask "does this freeze the discipline at the template level, or let each project diverge?" Per-project divergence is the default; shared-template behavior is the carve-out that requires graduation evidence.
 
 ### Multi-project graduation
 
@@ -201,6 +43,18 @@ A pattern graduates from one project's `.claude/` into `template/` (i.e. ships t
 - **Zero negative observations** in the same 4-week window (no project has flagged the pattern as broken, noisy, or contraindicated).
 
 v1.2+ mechanism: `meta-session-observer` watches the cross-install signal → `workflow-suggester` drafts a graduation capture (`suggested_artifact_type: graduation`) → user approves → `template-promoter` executes the move, updates `install.sh` manifests, regenerates baseline hashes, updates CI scenarios. The threshold and mechanism together prevent the skeleton from inheriting one project's idiosyncrasies.
+
+### Flow + safety, both
+
+The manager protects flow during active work — no per-action interruptions, no permission prompts on reversible changes inside a feature branch, no clarifying-question avalanches on simple requests. Audits run on a cadence (at session start with a cooldown), not per-prompt. The architecture refuses the speed-vs-discipline tradeoff: flow + safety, both, as the default state. **How it applies:** new mechanisms designed against this principle must not introduce per-action friction; if a mechanism's value depends on real-time interrupts, it gets redesigned to fire on a cadence, or it gets deferred to a tier where the cadence-vs-interrupt design tradeoff is explicitly negotiated.
+
+### Guard rails, configurable but transparent
+
+Every protection in the system can be turned off. None of them can be turned off silently. Disabling a hook, skipping an audit, overriding a deny rule — the user gets explicit language ("You're now outside Claude Code's jurisdiction") before the action lands. The principle locks an architectural shape: there is no design freedom to add silently-defeatable guards. **How it applies:** when a phase scopes a new protection, the brief must answer "how does the user step outside this, and what language tells them they have?" Protections without an explicit escape hatch — or with a silent one — fail the design review.
+
+### Scope actively governed, not passively hoped for
+
+Every claude-skeleton install defines its scope explicitly through its own `CLAUDE.md`, `CLAUDE_MANAGER.md`, and locked principles. The system audits that scope continuously: cruft-checker for doc rot, drift-checker for version drift, code-quality-auditor for installed-plugin sanity, per-project manager-optimizer for decision drift (v1.2.0). When scope erodes, the system surfaces it; the user decides what to do. **How it applies:** every new audit producer asks "what specific scope question does this answer?" Producers that don't tie back to a scope question are decorative, not load-bearing.
 
 ### Two distinct audit surfaces
 
@@ -255,10 +109,6 @@ The same single-source-of-truth principle does NOT apply to the hook-schema vali
 
 The skeleton ships a baseline; `project-tuner-helper` shapes it per-project; `workflow-suggester` catches new patterns. Not "install and forget" — the skeleton evolves with its installations. The capture/reuse loop, observation infrastructure, and meta-agents in `05_meta/` all exist to support this evolution. **How it applies:** every new component asks "does this enable ongoing evolution, or freeze a snapshot?" The skeleton refuses snapshot-locking.
 
-### Approval-gated autonomy
-
-Thinking is autonomous; action is approved. The skeleton can suggest captures, surface plugin recommendations, detect drift, draft scripts — all autonomously. None of those become installed/applied artifacts without explicit user approval. Plan-mode discipline, capture-lifecycle states (`draft → approved → shipped`), and X-builder draft mechanics all enforce this line. **How it applies:** new mechanisms maintain the line by default; "auto-apply" is a deliberate carve-out (e.g. `--auto-apply` in `update.sh` accepts only TEMPLATE_UPDATED + NEW, never LOCALLY_MODIFIED or ORPHAN — the autonomy is bounded).
-
 ### Define-everything-upfront
 
 Brief specs lock interpretations before code; plan-mode surfaces them. The pre-build scoping rule (5 questions before any v1.1+ component prompt) forces upfront definition. Narrow-scope-by-design phases ratify it. **How it applies:** ambiguous briefs get the honing conversation BEFORE prompt drafting, not during execution. Plan-mode catches scope drift before commits.
@@ -275,86 +125,117 @@ The skeleton composes with the `/plugin` marketplace + named community libraries
 
 Don't ship retrospective signals or mechanisms that require Claude Code instrumentation surfaces that don't exist yet. Phase 5 (task-watchdog 2-signal scope vs 5-signal candidate) and Phase 18 (lesson-detection deferral) set the precedent: when a brief proposes a signal whose detection requires unavailable instrumentation, defer to the version where the relevant investigation lands (typically v1.2.0 for token data, future for real-time hooks) — explicitly note the deferral in the brief's locked decisions. **How it applies:** new components check "does this require CC surface X that exists today?" before locking scope. Unavailable-surface dependencies cause scope cut, not feature shipping with conditional code paths.
 
-## v2.0 — plugin ecosystem layer
+## Sequencing — when things land
 
-A curated discipline for matching pain points and project context to specific marketplace plugins or community-library helpers. Catalog grows month by month — recommendations get sharper as the capture/reuse loop generates usage data the recommender can match against.
+The roadmap runs in tiers. Each tier ships once a clear gate condition is satisfied. There are no calendar dates here — empirical readiness is the gate, not the clock.
 
-v2.0 folds three pieces that previously had separate phase numbers:
+### Current evaluation window
 
-- **`integration-checker`** — Layer 1+2 of plugin verification (manifest sanity, surface area). Planned for v2.0; not yet shipped. v1.1.4's `code-quality-auditor` picked up the manifest-honesty slice (heuristics i + ii) as standalone scope; the remainder of Layer 1+2 folds in here.
-- **`code-quality-auditor`** — Layer 3 (reads actual source, evaluates semantic fitness vs description). Layer 3 lands in v2.0. **Narrow-scope manifest honesty + security hygiene heuristics already shipped in v1.1.4** (Phase 24): 3 heuristics covering manifest path missing/empty (i), hooks.json schema violation (ii), destructive shell patterns against unguarded paths (iii). Semantic fitness-vs-description checks remain deferred to v2.0.
-- **Curated catalog** — only if community-curation value materializes. The standalone-phase framing is gone; a static catalog without a quality filter is just a directory.
+Phase 35 — the evaluation window for the v1.1.4 substrate — is open now. Four observations are accruing in parallel:
 
-The foundation is already in v1.0: `CLAUDE_MANAGER.md.template`'s plugin marketplace composition section names the seven ecosystem sources the manager draws from. v2.0 turns that section from "here is the ecosystem we compose with" into "for the shape of *this* project, here are the three plugins that pair best — and here are five that don't, with reasons."
+- **Skeleton dogfood baseline.** Claude Code restart with all six ecosystem plugins active. Observation of how the manager handles a typical session under the new substrate.
+- **Pinball install.** Pinball is the first target installed via fresh-mode `install.sh`. This is the bootstrap-on-empty-project test case.
+- **Trainer-View update.** TV runs `bash <skeleton>/scripts/update.sh` to refresh from v1.0 to v1.1.4. This is the existing-project update test case with significant local modifications.
+- **Echoes-Of-Gill update.** EoG runs the same update flow, staggered after TV so they don't share noise in the observation stream.
 
-Design principle (locked, verbatim):
+Phase 35 closes when empirical data from all four installs is available — when each has run for enough sessions to surface real signals. From there, Phase 36 decisions get made on data, not vibes.
+
+### After Phase 35 closes
+
+Phase 36 handles component retire/repurpose decisions. `plan-coordinator` is on the evaluation list. `commit.sh` and `audit-helper` are already ratified as keepers per a recent CC-side audit.
+
+Phase 37 codifies the audit-as-skeleton-primitive workflow into `CLAUDE_MANAGER.md` as a `## Strategic audit cycle` section.
+
+### How each project receives each tier
+
+The skeleton itself receives every tier through direct commits — the skeleton edits itself. Target projects (TV, EoG, Pinball, plus any future installs) receive each tier through `bash <skeleton>/scripts/update.sh` run from inside the project. The update mechanism classifies each file as `UNCHANGED`, `LOCALLY_MODIFIED`, `NEW_IN_TEMPLATE`, or `TEMPLATE_UPDATED` and prompts before any destructive change. Updates are safe by default — the script refuses to overwrite local modifications without explicit user say-so.
+
+## v1.1.5 onboarding tier (next ship)
+
+The next ship after Phase 35 closes. Onboarding is how a new project enters the governance model — without it, the install drops the user into a configured but unexplained environment, and the discipline doesn't take root. Five small phases land in sequence:
+
+- **A — README.md onboarding refresh.** The first 30 seconds a new visitor spends on the repo. Currently feature-list-shaped; reframes around the governance pitch.
+- **B — GETTING-STARTED.md.** The first 15 minutes after install. Walks through what just happened to the project, what to expect at session start, how to dispatch a helper for the first time.
+- **C — PLUGINS-GETTING-STARTED.md.** The opt-in framing for the six-plugin bundle and the trust-tier-2 / eyes-open install pattern.
+- **D — install.sh post-install message.** What the user sees in the terminal when the install completes. Currently terse; expands to point at GETTING-STARTED and the next-step dispatch.
+- **E — Optional first-run SessionStart welcome hook.** Surfaces on the first session in a freshly-installed project; explains what just got added to `.claude/` and where to start.
+
+## v1.5 ecosystem integration
+
+After v1.1.5 ships and the onboarding tier proves stable across the production targets, v1.5 opens. The tier introduces per-project plugin recommendation foundations — the system that watches a project's context and suggests ecosystem plugins (or rejects them) with reasons. It composes with v1.1.4's `code-quality-auditor` rather than replacing it.
+
+Components in scope:
+
+- **`recommendation.schema.md`** — the per-project plugin recommendation manifest. Frontmatter for project context (stack, audience, discipline preferences), body for recommendation rationale.
+- **`code-quality-auditor` candidate mode** — pre-install vetting against the v1.1.4 heuristics, so the recommender can flag plugins likely to fail the post-install audit before they get installed.
+- **`plugin-discovery-agent`** — surfaces ecosystem candidates relevant to the project's current state.
+- **`plugin-context-matcher`** — scores discovered candidates against the project's recommendation manifest.
+- **SessionStart hook for plugin-aware suggestions** with a cooldown so the suggestion stream doesn't become noise.
+- **First-install integration** — when `install.sh` finishes, the recommendation flow can run as an optional next step.
+- **Composition-rule documentation** in `CLAUDE_MANAGER.md.template`.
+
+v1.5 sits between v1.1.5 and v1.2.0 because per-project tuning (v1.2.0) needs the recommendation surface as one input — the per-project manager-optimizer watching dispatch patterns is more useful when the project has a clear sense of which plugins it composes with and why.
+
+## v1.2.0 meta-evolution — REFRAMED
+
+This is the big architectural reframe from the current strategist session. v1.2.0 was previously specced as a single manager-optimizer instance watching the skeleton's dogfood install. The new framing is per-project: each install gets its own manager-optimizer (an agent that watches how the manager decides over time, one instance per project), each watching that project's pattern of decisions, each drafting refinement suggestions for that project's `CLAUDE_MANAGER.md`. The skeleton's instance watches the skeleton; pinball's watches pinball; TV's watches TV.
+
+This matters because the projects are different. **Pinball governs pinball. Trainer-View governs TV.** Each project's discipline diverges naturally over time because the work itself differs — a mobile app with a deployed backend has different audit needs than a game in active gameplay development, which has different needs again from a pinball prototype starting up. A single shared manager-optimizer would either over-fit to one project's patterns and force them on the others, or stay vague enough to be useless. Per-project instances let each project tune itself without contaminating its siblings.
+
+Graduation gets real with the per-project framing in place. A new component called the meta-session-observer (a watcher that sees patterns across all installed projects, not within one) collects cross-install signal. When a pattern hits the graduation threshold (see Locked architectural principles above), `workflow-suggester` drafts a graduation capture, and on approval a `template-promoter` executes the move into the shared template. Every project's next `update.sh` run inherits the pattern. The skeleton itself improves as a result of every project that uses it.
+
+v1.2.0 is gated on production miles. The mechanism would optimize against vibes without real data, so the tier opens only when at least two weeks of post-v1.1.5 production miles have accrued on each of Trainer-View, Echoes-Of-Gill, and Pinball. The empirical bar is real — meta-evolution without dispatch history to learn from would land worse decisions than the current human-tuned defaults.
+
+Components in scope:
+
+- **Per-project manager-optimizer (centerpiece)** — one instance per installed project; watches that project's pattern of decisions; drafts refinement suggestions for that project's `CLAUDE_MANAGER.md`.
+- **`artifact-fit-analyzer`** — surfaces redundancy, inefficiency, and missing combinations across the project's agents / skills / scripts / commands / hooks. Drafts consolidation, missing-coverage, or removal captures.
+- **`/goals` expanded** — the research → targeted clarify → spec pipeline. Outputs a structured spec doc that X-builders consume natively. Closes the long-deferred clarifying-questions seam.
+- **Loop pruning (via manager-optimizer)** — retires captures that never get approved and scripts that never get dispatched.
+- **`meta-session-observer` + `template-promoter`** — the cross-install graduation mechanism.
+- **`token-efficiency-monitor` proactive upgrade** — flags before dispatch when planned scope smells over-budget, not just after the fact.
+- **`infrastructure-auditor` (project-level)** — scheduled audit coordinator that dispatches the project-level checkers on a cadence.
+- **`roadmap-auditor` (skeleton-level, dogfood only)** — the skeleton's own auditor of its roadmap, schemas, and cross-phase contracts.
+- **Scheduled-goals support** — `schedule` field on `/goals` plus a SessionStart surfacer for due items.
+
+## v2.0 plugin recommendation surface
+
+v2.0 is the mature plugin recommendation surface — a curated discipline for matching pain points and project context to specific marketplace plugins or community-library helpers. The tier folds three pieces that previously had separate phase numbers: `integration-checker` (Layer 1+2 of plugin verification — manifest sanity, surface area), `code-quality-auditor` Layer 3 (semantic fitness-vs-description; the layer beyond the narrow-scope heuristics that shipped in v1.1.4), and a curated catalog tied to project context (only if community-curation value materializes — a static catalog without a quality filter is a directory, which the principle below rules out).
+
+The foundation is in v1.0 already: `CLAUDE_MANAGER.md.template`'s plugin marketplace composition section names the ecosystem sources the manager draws from. v2.0 turns that section from "here is the ecosystem we compose with" into "for the shape of this specific project, here are three plugins that pair well — and five that don't, with reasons for each." Design principle (locked, verbatim):
 
 > **Don't be a directory; be a quality filter.**
 
-The point isn't to list every plugin. It's to give the manager a discipline for picking the right ones for the project at hand and rejecting the wrong ones early.
+The point is not to list every plugin available. The point is to give the manager a discipline for picking the right ones for the project at hand and rejecting the wrong ones early.
 
-## v3.0+ / future-future (out of v2.0 scope)
+## v3.0+ multi-LLM sibling project
 
-One idea kept visible but explicitly **outside v2.0**.
+Running the skeleton's structure across multiple LLMs — Claude + DeepSeek + others — with the manager arbitrating which model handles which subtask. claude-skeleton was designed against Claude Code's specific affordances (subagent dispatch, slash commands, hooks, skill discovery). Re-targeting it for general LLM orchestration would change the project's center of gravity, not extend it.
 
-### Multi-LLM orchestration
+The skeleton stays Claude Code-only through v2.0. If multi-LLM is pursued later, it lives as a **sibling project** — different name (working title `claude-skeleton-bridge`), shared lineage, separate identity. Out of scope through v2.0; out of scope as a feature graft, period. The decision to fork the identity for a multi-LLM target is itself a strategic decision that gets made on its own merits, not absorbed into a version bump.
 
-Running the skeleton's structure across multiple LLMs — Claude + DeepSeek + others — with the manager arbitrating which model handles which subtask. Architectural identity question rather than a feature: claude-skeleton was designed against Claude Code's specific affordances (subagent dispatch, slash commands, hooks, skill discovery). Re-targeting it for general LLM orchestration would change the project's centre of gravity.
+## Cuts — what's NOT in the roadmap
 
-Skeleton stays Claude-Code-only through v2.0. If multi-LLM is pursued later, it's a **sibling project** (different name, shared lineage — e.g. `claude-skeleton-bridge`) or a v3.0+ direction with an explicit fork-the-identity conversation — not a feature graft.
+Pieces that were on earlier candidate lists and have been explicitly cut. Logged so the rationale doesn't have to be re-derived.
 
-## Cuts — rationale for what's not in the queue
+Carry-overs from earlier sessions:
 
-Three pieces were on earlier candidate lists and have been explicitly cut. Logged so the rationale doesn't have to be re-derived.
+- **skill-builder and agent-builder cut.** Markdown writing is cheap — no automation gain from a builder that just stamps frontmatter and a body. `/goals` expanded (v1.2.0) produces the spec; manual write handles execution. The recommendation function for "should this be a skill, agent, script, or command?" moves to `artifact-fit-analyzer` (v1.2.0).
+- **Gap #1 auto-dispatch by intent deferred.** Deferred to v1.2+ post-manager-optimizer. Trying to close it earlier would mean inferring intent from request shape without empirical grounding — the same "optimize against vibes" trap that pushed manager-optimizer itself to v1.2+.
+- **Plugin recommendation as a standalone phase cut.** Folded into v2.0. A curated catalog without quality verification is a directory; quality verification without a catalog is just `integration-checker`. The two only justify a tier together.
+- **Lessons-log as a separate parallel doc (Model B) cut at Phase 18.** Duplicates content with the directive layer; readers consult two docs for one rule; drift between them becomes a real maintenance cost.
+- **Captures-as-lessons-library (Model A) cut at Phase 18.** Captures are draft-then-ship work items, not durable reference. The library accumulates stale captures.
+- **User-pause-on-plugin-install assumption cut at Phase 34.** The bundle install ran autonomously and cleanly; no user-pause was needed mid-stream.
+- **claude-mem indefinite deferral cut at Phase 34b.** claude-mem installed cleanly via the marketplace path; the eyes-open install pattern was proven on a trust-tier-2 case.
 
-### `skill-builder` and `agent-builder`
+New cuts from this session:
 
-Cut from the v1.1+ X-builder sequence. Markdown writing is cheap — no automation gain from a builder that just stamps frontmatter and a body. `/goals` expanded (v1.2.0) produces the spec; manual write handles execution. The recommendation/analysis function for "should this be a skill, agent, script, or command?" moves to `artifact-fit-analyzer` (v1.2.0).
-
-`script-builder` stays because bash has real discipline beyond markdown — strict-mode, path-shape guards, error handling, `bash-safety` integration. The X-builder pattern earns its keep on artefacts with non-trivial structural constraints.
-
-### Gap #1 — auto-dispatch by intent
-
-<!-- cruft-check:exempt-historical -->
-Deferred to v1.2+ post-`manager-optimizer`, once real dispatch data exists. Trying to close Gap #1 in v1.1.0 would mean inferring intent from request shape without empirical grounding — exactly the "optimize against vibes" trap that pushed `manager-optimizer` itself to v1.2+. Manual dispatch via `CLAUDE_MANAGER.md.template` patterns continues to work in v1.1.0; the gap is a known seam, not a blocker.
-
-### Plugin recommendation as a standalone v2.0 phase
-
-Folded into `integration-checker` (planned for v2.0) + `code-quality-auditor` (narrow scope shipped v1.1.4; Layer 3 semantic checks planned for v2.0). The earlier framing imagined a standalone catalog phase; that framing was a partial picture of the same thing. A curated catalog without quality verification is a directory (which the principle above rules out); quality verification without a catalog is just `integration-checker`. The two only justify a v2.0 phase together.
-
-## Dependency graph (updated)
-
-```
-v1.1.0 loop (3 shipped, 2 queued):
-  observations → captures → drafts (script-builder)
-                                  │
-                                  ├─> task-watchdog (queued, second producer against observation schema)
-                                  └─> drift-checker (queued, marker check, no auto-apply)
-
-v1.1.x polish:
-  cruft-checker (third observation producer) ──> workflow-suggester
-  code-quality-auditor (v1.1.4 narrow scope: 3 heuristics) ──> workflow-suggester
-                                              └─> v2.0 Layer 3 fold (semantic)
-  integration-checker (planned for v2.0) ──> Layer 1+2 fold
-  lessons → suggested_artifact_type: lesson (no separate skill)
-
-v1.2.0 meta-evolution:
-  /goals expanded ──> X-builders consume spec docs natively
-  manager-optimizer ──> watches dispatch patterns, suggests CLAUDE_MANAGER updates
-                  └─> loop pruning (retires unused captures and scripts)
-  meta-session-observer ──> cross-install signal ──> template-promoter
-                                                ──> graduation captures
-  infrastructure-auditor ──> dispatches cruft-checker + drift-checker + artifact-fit-analyzer
-  roadmap-auditor (skeleton dogfood only) ──> roadmap / schema / contract drift
-  scheduled-goals support ──> session-start hook surfaces due items
-
-v2.0:
-  Plugin recommendation surface ──> folds integration-checker + code-quality-auditor + catalog
-```
-
-<!-- cruft-check:exempt-historical -->
-`/goals` expanded ships in v1.2.0 and unlocks the meta-evolution tier. v1.1.0 work parallelizes within the loop (task-watchdog and drift-checker can land independently). v1.1.x → v1.2.0 → v2.0 is a hard sequence — each tier consumes signal that only exists once the prior tier has been in production for some weeks.
+- **Single-manager-optimizer (dogfood-only watching) cut.** Per-project manager-optimizer is the new lock. Each install evolves its own discipline; a single instance watching one project's patterns would force-fit those patterns onto every install regardless of fit.
+- **One-size-fits-all install cut.** Per-project tuning is core architecture, not an opt-in feature. The template is a seed, not a frozen final form. The previous framing left room for "skeleton ships a fixed config" — that framing is gone.
+- **"AI productivity tool" framing cut.** claude-skeleton is governance infrastructure, not a speed-up plugin. The product question is "does this preserve coherence over time," not "does this make me type faster." Speed is a byproduct of not having to clean up messes; it is not the deliverable.
 
 ## Closing — scope discipline
 
-claude-skeleton is an orchestration layer on the Claude Code ecosystem. It composes with the `/plugin` marketplace and the six community libraries named in the directive layer. It is **not** a multi-model framework, not a directory of every available plugin, and not an autonomous AI agent. Approval-gated autonomy is the working line: thinking is autonomous, action is approved. The roadmap above is the sequence in which that line gets pushed — never erased.
+claude-skeleton is an orchestration layer on the Claude Code ecosystem. It composes with the `/plugin` marketplace and the named community libraries. It is **not** a multi-model framework, not a directory of every available plugin, and not an autonomous AI agent. Approval-gated autonomy is the working line: thinking is autonomous, action is approved. Each project draws its own line on top of that shared base — per-project governance means the skeleton's defaults are the seed, not the ceiling.
+
+The roadmap above is the sequence in which that working line gets pushed — tier by tier, the discipline gets richer, the audits get sharper, the per-project tuning gets real. The user's role at the approval gate never disappears. Scope is governed actively; it is never erased.

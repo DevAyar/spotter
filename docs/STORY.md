@@ -1,91 +1,100 @@
 # claude-skeleton — the story
 
+claude-skeleton is a governance layer for Claude Code projects — a **structural immune system** that watches a project for scope decay, drift, and the silent erosion of the principles it was built on. It sits on top of the Claude Code ecosystem and orchestrates the moving parts (agents, skills, scripts, slash commands, hooks) so the project itself stays coherent as it grows. This is not a productivity tool. It is structural infrastructure — the thing that makes "this codebase is still maintainable six months in" a sentence that can be true.
+
+## The problem we're solving
+
+Projects decay structurally over time. A project starts clean. You know why every piece exists, what each helper does, why a particular file holds a particular role. Six months later — three features shipped, two team members rotated, four refactors and a half-done migration — the original logic has faded. Nobody remembers exactly why this script has that flag. The decay is gradual and invisible until the cleanup cost is enormous.
+
+AI-assisted coding makes the decay faster and harder to spot. It is easy to generate volume. It is hard to maintain coherence across that volume. What lands is **AI-generated slop** — code that compiles, that passes the test, but that doesn't fit the project's shape: redundant helpers next to the originals they duplicate, leftover scaffolding from abandoned approaches, drift between what the docs claim and what the code actually does. The symptom is visible. The cause is structural.
+
+Existing tools catch the wrong layer. Linters and formatters check syntax — does this file parse, is this brace closed, is this variable used. Plugins ship reusable skills. None of them ask the question that actually matters here: does this still belong here? Is this consistent with what the project said it was when it started? The structural question lives above the syntax check. Without a watcher at that layer, nothing catches drift.
+
+Human discipline alone fails. The intent is always to keep things clean. Deadlines hit. Shortcuts accumulate. Context fades. By the time someone notices that the project is drifting away from its declared shape, the work to pull it back is no longer cheap. Catching drift early is a different problem than fixing it late, and almost everything in claude-skeleton exists to make the early catch possible.
+
 ## Mission
 
-**Help others reach their goal with the least friction and the most architectural integrity.**
+claude-skeleton is a **structural immune system** for projects. The frame is borrowed deliberately from biology: the system watches for things that don't belong, surfaces them while they're still small, and lets the human decide what to do. Think of it in three pieces — a constitutional framework (the locked principles each project commits to), an executive branch (the manager that runs decisions during work), and watchdogs (the auditors firing on a cadence to check that the project hasn't drifted away from the constitution). Together they form the layer that catches structural problems before they become structural rewrites.
 
-Both halves matter equally. Friction reduction without architectural integrity is vibe coding — fast and brittle. Architectural integrity without friction reduction is academic discipline — sound and unused. The skeleton holds both.
+The center of the system is one rule. In a claude-skeleton project, **scope is actively governed, not passively hoped for.** Every project that ships in this system defines what it is — which problem it's solving, which patterns it commits to, which lines it won't cross. The skeleton enforces that definition through the project's lifetime. The discipline is not a one-time setup move at install; it's a recurring check that the project still resembles what its constitution says it is.
 
-Practically, this means:
+Each install evolves its own brain. This is what **per-project governance** means in practice. claude-skeleton ships a template — a seed configuration — but every project tunes itself from there. **Pinball governs pinball. Trainer-View governs TV.** The skeleton runs in production today on a small set of real projects of mine — Trainer-View (Flutter + Firebase mobile app), Echoes-Of-Gill (Godot game in active development), Pinball (a new game starting up), and the skeleton's own dogfood install — each with different needs, different rhythms, different things worth watching. The shared template carries only what proves itself across multiple installs; idiosyncratic patterns stay local to the project they belong to.
 
-- **Least friction:** the skeleton stays current with the ecosystem on behalf of the user (discovery → vetting → recommendation pipeline; v1.5 tier). The skeleton handles plugin churn so users don't have to.
-- **Most architectural integrity:** plan-mode discipline + three-commit cadence + approval-gated autonomy + capture/reuse loop + audit triad preserve correctness through every change.
-- **Composition over reinvention:** when the ecosystem ships what the skeleton would build, the skeleton composes. Building from scratch requires empirical evidence the ecosystem doesn't serve the need.
+The discipline runs in the background of normal work. The manager handles decisions for you during a session so you stay in flow — when to dispatch a helper (an agent that does a focused piece of work and returns), when to read directly, when to ask before doing something destructive. Audits run on a cadence (a few times a session, at session start, on a cooldown), not after every prompt, so the work itself isn't interrupted. This is **flow + safety, both** — the system isn't a tradeoff between speed and discipline; it's an architecture that gets both. Over time, as the system watches what you keep saying yes and no to, **the approval gate gets smarter, not more annoying** — friction at the gate decreases as patterns earn trust.
 
-## What this is
+The system also makes the project handoff-ready. Someone inheriting the codebase — a collaborator joining the team, a buyer evaluating an acquisition, future-you in three months who has forgotten the context — can read the project's constitution and understand how it was meant to work, what was deliberate, what was just-this-once. The skeleton is what makes the inheritance possible. Without a written-down structure, handoff collapses to "ask the person who built it" — and that person might not be available, or might be you with a blank slate.
 
-claude-skeleton is an orchestration skeleton for Claude Code projects. Install it into a target project and you inherit a working manager-and-helpers setup — agents, skills, scripts, slash commands, hooks — already tuned, non-destructive, with safe automated updates. Current version: **v1.1.4**. The capture/reuse loop is live (five components closing autonomy Gap #2), built on top of v1.0's install / update / CI foundation with the three-platform matrix green on every push and PR. Used in production today on two real projects with very different stacks: Trainer-View (Flutter + Firebase) and Echoes-Of-Gill (Godot). The audience is small — me and a few peers — and that's the audience this doc is written for.
+Drift is prevented **before it becomes irreversible**. The longer scope problems sit, the more they cost. A redundant helper caught in the same session it appears is a five-minute delete. The same helper caught six months later, after two features have built on top of it, is a partial rewrite. The system's job is to catch the problem at the cheap stage. The cost curve is steep — catching it early is the entire game; catching it late is a different game entirely.
 
-## Why it exists
+The human stays in control throughout. The system **enforces transparency, not rigidity.** Guard rails exist; they can be turned off. But turning them off is always explicit. There is no silent escape from the principles you committed to. If you want to step outside the discipline for a particular session or a particular task, you can — and the system tells you, plainly, that you've done it. The full sequencing of how this comes together lives in [`ROADMAP.md`](ROADMAP.md).
 
-The skeleton exists because variable attention forces system-design discipline that turns out to be generally useful.
+## Core principles
 
-I have ADHD. Some days my attention is a laser; some days it's a flashlight with a dying battery. The flashlight days are where most "smart agent" workflows break — the agent assumes you remember what you decided three sessions ago, where the helper lives, why this script has that flag. On a laser day that's fine. On a flashlight day the project goes sideways. So I started writing things down: who owns what, how the manager should think, what to do when X. Persistent state instead of in-head state. Explicit handoffs instead of "you'll remember." Written-down judgment instead of vibe-based decisions.
+Eight principles flow from the mission. Each is non-negotiable; every roadmap decision composes against this list.
 
-The unexpected part: every peer I showed it to also wanted it. Not because they have ADHD, but because LLM-collaboration over weeks has the same shape as a flashlight day — you don't remember what last week's session decided either, and the agent definitely doesn't. The constraint-forced discipline (explicit rules, persistent markers, structured intake) generalises. It's a fixed-attention crutch that turns out to be a long-context tool. The bit that should be obvious in retrospect: anything that survives my worst attention day will survive anyone's normal one.
+### Approval-gated autonomy
 
-The patterns themselves came from Trainer-View — a Flutter+Firebase project where I spent Phases 1 through 3 grinding through "what does a Claude Code session actually need to know on startup, and what's the cheapest way to put it there." The manager + helper split, the routing table, the section-routing read discipline, the three-commit cadence — all field-tested in a production project before they got generalised into the skeleton. claude-skeleton is the second version of "the thing I wished I'd had on day one of Trainer-View."
+Thinking is automated; action is approved. The system can read, plan, observe, audit, and draft suggestions on its own — none of that requires permission. But anything that changes the project — a commit, a script that runs, a file that gets installed — waits for the user. This line holds across every version of the skeleton and every plugin it composes with.
 
-## How it works
+### Per-project governance
 
-A claude-skeleton install has four layers. Each is small enough to hold in your head.
+Each install evolves its own discipline. The shared template is a seed, not a final form. Every project tunes its own audit cadence, its own approval thresholds, its own sense of when to suggest a refactor. A v1.2.0 component called the manager-optimizer (an agent that watches how the manager decides over time, one instance per project) is the mechanism that makes per-project tuning real; the full design lives in [`ROADMAP.md`](ROADMAP.md).
 
-**Runtime.** The manager owns the conversation. It reads `CLAUDE_MANAGER.md` on session start to know what kind of work it does and what discipline applies. When work would burn context — heavy multi-file reads, cross-file pattern scans — it dispatches a helper from `.claude/agents/`. Helpers do focused work and return; they don't own the conversation. For mechanical things where verbatim output matters (commits, deploys), the manager runs a script from `.claude/scripts/` rather than re-implementing the work each time. Skills are behavioural conventions the manager honours without a hook — they're rules, not enforcers. Four moving parts, each with a clear role.
+### Multi-project graduation
 
-**Approval gates.** The skeleton runs approval-gated autonomy. Reversible-and-cheap things — editing source files in a feature branch, running tests, writing to project docs — the manager proposes and executes. Destructive, shared-state, or high-blast-radius things — pushing to a shared branch, dropping data, sending external messages, modifying CI or auth — the manager proposes and waits. The line is drawn by blast radius, not prestige. A two-character commit message typo that's already been pushed is shared-state and warrants a check-in; a 200-line refactor in a feature branch is reversible-and-cheap and ships.
+Patterns graduate from a single project's `.claude/` into the shared template only when they prove themselves across multiple projects. The bar is broad adoption (at least two-thirds of installs), a minimum of three projects in the sample, four weeks of stable behavior, and zero negative observations across that window. One project liking a pattern is not enough; idiosyncrasies stay local.
 
-**Recursive ownership.** The skeleton has explicit responsibility levels. **L0** is the project work itself — code, content, features the team ships. **L1** is the helpers watching project work: `audit-helper`, `research-helper`, `monitoring-helper`, `plan-coordinator`. **L2** is the helpers watching the meta-system itself: `self-audit-helper`, `agent-slicer`, `system-memory-helper`, `workflow-suggester`. **L3** is reserved for v1.2+ — a `manager-optimizer` that will watch how the manager itself decides. The levels go outward from the work; each higher level watches the one below. Naming them makes them designable rather than emergent. Most orchestration projects have meta-management as a thing that shows up when someone files an issue; L0/L1/L2 says "the meta-management is a layer, here's where it is."
+### Flow + safety, both
 
-**Install / update mechanism.** `install.sh` (three modes: fresh / merge / replace) writes a JSON `.skeleton-version` marker that records a SHA-256 hash of every installed file. `update.sh` uses those hashes to classify each file against the current template — `TEMPLATE_UPDATED` (template moved, you didn't touch it), `LOCALLY_MODIFIED` (you changed it since install), `UNCHANGED`, `NEW`, `ORPHAN`. Updates are safe because the script can tell, file by file, what's a real template change versus your local edit. Pre-0.8.0 shell-format markers backfill to JSON on first run with a prominent warning. The persistence story is what makes "I'll come back in a month and update" a normal sentence instead of "I'll come back in a month and probably break something."
+The manager protects flow during active work — it doesn't interrupt every prompt for permission, it doesn't ask three clarifying questions before a one-line change, it doesn't surface every observation as a blocking event. Audits run on a cadence, not per-action. The architecture refuses the speed-vs-discipline tradeoff: flow + safety, both, as the default state.
 
-## How to use it
+### Compose, don't compete
 
-**Install.** From inside a target git repo:
+claude-skeleton sits on top of Claude Code's plugin marketplace. It does not try to replicate every plugin or replace every helper. The first move when a need shows up is to look at what the ecosystem already ships — `/feature-dev`, `code-review`, `superpowers`, claude-mem, and the rest — and compose with it. Building from scratch happens only when the ecosystem doesn't serve the need; the cost of duplicating something good is much higher than the cost of pulling it in.
 
-```bash
-curl -sL https://raw.githubusercontent.com/DevAyar/claude-skeleton/main/scripts/install.sh | bash -s -- --mode=merge
-```
+### Guard rails, configurable but transparent
 
-Or, with a local checkout: `bash <path-to-claude-skeleton>/scripts/install.sh --mode=merge`. The default merge mode adds missing files and never overwrites existing ones — safe by default. After the script finishes, dispatch `project-tuner-helper` to inspect the target project, fill in the placeholders (`{{PROJECT_NAME}}`, `{{TEST_COMMAND}}`, and so on), and recommend any project-specific helpers worth adding. The full reference lives in [`INSTALLATION.md`](INSTALLATION.md), including the update path, modes, dry-run, and the per-file-hash mechanism.
+Every protection in the system can be turned off. None of them can be turned off silently. When a user crosses out of the protective shape — disabling a hook, skipping an audit, overriding a deny rule — the system says it, in plain language: **You're now outside Claude Code's jurisdiction.** The user is never trapped by the system, and the user is also never lied to about the state of the system.
 
-**A session.** Open Claude Code in the installed project. The manager reads `STATUS.md` (what was last touched), `ROUTING.md` (which task goes to which handler), and `CLAUDE_MANAGER.md` (how to think) at session start. From there it's normal work: you describe what you want, the manager decides — using the strategic judgment patterns in `CLAUDE_MANAGER.md` — whether to do it directly, dispatch a helper, or run a script. When you finish a slice, three-commit cadence: commit A is the work, commit B is docs and config, commit C is the VERSION + CHANGELOG bump, then push. Small work collapses to one commit; large work expands. The cadence isn't a rule the skeleton enforces; it's the rhythm the directive layer documents so future sessions inherit it.
+### Quality filter, not directory
 
-## What's distinctive
+For plugin recommendations and ecosystem composition, the skeleton is a quality filter, not a catalog. It does not try to list every plugin available; it suggests the ones that fit this specific project's context, and explicitly flags the ones that don't. **Don't be a directory; be a quality filter** is the operating rule. Recommendations get sharper as the system gathers data about what works in each project.
 
-Three things actually distinguish claude-skeleton from the rest of the ecosystem. (A fourth, the ADHD-driven design rationale, is up in *Why it exists*.)
+### Plain English by default
 
-**Composition with the ecosystem, not competition.** claude-skeleton is the orchestration layer. The Claude Code plugin ecosystem provides the components — official `/plugin` marketplace, `claude-code-templates`, `claude-agentic-framework`, `wshobson/agents`, `claude-skills`, `awesome-claude-code-subagents`, `ClaudeFast`. A target project running claude-skeleton can — and should — pull from any of those. The skeleton's job is to make the choices coherent, not to ship every helper itself. The verbatim design principle, locked at the directive layer: *"Don't be a directory; be a quality filter."* The point isn't to list every available plugin; it's to give the manager a discipline for picking the right ones for the project at hand and rejecting the wrong ones early.
+The directive layer (`CLAUDE_MANAGER.md` and the docs that shape it) reads like a peer conversation, not a specification. Jargon gets translated inline on first use. One technical term per concept. This was codified today as a strategic-judgment H3 in the manager — user-facing prose stays digestible to project owners and peers, not portfolio voice or marketing register.
 
-**Recursive ownership as an explicit principle.** Most orchestration projects have meta-management as an emergent property — somebody notices a helper is misbehaving and files an issue, somebody else writes the audit. L0 / L1 / L2 names the levels up front: project work, helpers watching project work, helpers watching the meta-system. L3 is reserved for the `manager-optimizer` that v1.2+ will land, which will watch how the manager itself decides. Naming the levels makes them designable. It's not that the levels emerged and got documented after the fact; they were planned and the helpers were assigned to them. The difference matters because designable means you can add a level cleanly when v1.2+ ships, instead of refactoring an emergent mess.
+## How it prevents scope decay
 
-**Per-file SHA-256 update mechanism, validated in production.** The `.skeleton-version` marker records a hash of every installed file at install time. `update.sh` compares three hashes — recorded, current-on-disk, current-template — to classify each file. The result is that "safe automated updates" actually mean something: you can run `update.sh` knowing it will apply template updates, refuse to touch your local modifications, and prompt only on the ambiguous cases. The mechanism has been validated across two real targets at different stack profiles: Trainer-View (Flutter + Firebase, mobile app shipping features) and Echoes-Of-Gill (Godot, a game in active development). Two stacks, two team sizes, two update cadences — the mechanism survives both.
+The discipline runs through a loop with several stages. None of them is novel on its own — observers, audits, manager judgment, builders, all exist in various places in the ecosystem. What's specific to claude-skeleton is that they're connected into a coherent pipeline, with the user's approval at the load-bearing center.
 
-## What it's not
+Stage one is observation. Three independent watchers — the session-observer (tracks patterns inside one session), the cruft-checker (catches stale references in the project's own docs), and the task-watchdog (retrospectively reads the last session's transcript for recurring failures and long-running commands) — write structured observation files into `.claude/observations/` against a shared schema. Three sources, one format. The schema makes it possible to add new producers later without re-architecting the consumers.
 
-A few things claude-skeleton is **not**, said plainly so expectations are right.
+Stage two is capture. A consumer called the workflow-suggester (an agent that walks observations and drafts proposals from them) writes capture files into `.claude/captures/`. A capture has frontmatter (status, confidence, suggested artifact type) and a body explaining the pattern. Status flows: `draft → approved → shipped`, or `rejected` to mark a do-not-suggest-again pattern. The user reviews every capture before it leaves draft state.
 
-It's not a directory of every available plugin — the marketplace composition section names seven sources and trusts the manager to pick well. It's not a multi-LLM framework — Claude Code only through v2.0; if multi-model orchestration is pursued later, it's a sibling project, not a feature graft. It's not an autonomous AI agent that ships changes on its own; the line is approval-gated autonomy — *thinking is autonomous, action is approved*. And it's not a portfolio or marketing artefact: the audience is me and a few peers using it on real projects. If it ever became a thing pitched to teams, that's a different project under a different name.
+Stage three is the approval gate. The user reads the capture, decides whether the pattern is worth automating, and flips the status. The gate is the locus of human judgment — the system surfaces; the human decides. There is no auto-approval at this layer because the choice is structural, not mechanical: should this pattern become permanent?
 
-## Where it's going
+Stage four is the builder. For approved captures, a script-builder (the first instance of a builder-that-turns-captures-into-artifacts — call it an X-builder, where the X is the artifact type) drafts a bash file at `.claude/scripts/drafts/<pattern>.sh.draft`. The draft is unexecutable until the user promotes it. The pattern stops being a recurring manual chore once the script lands. This is the capture/reuse loop closing — the system notices a repeated piece of work, drafts a fix, and the user promotes it when they're ready.
 
-The full sequencing doc is [`ROADMAP.md`](ROADMAP.md). The three landmarks past v1.0:
+Stage five is audit. The project-level audit triad (cruft-checker for doc rot inside the project, drift-checker for skeleton-version drift against the upstream, code-quality-auditor for installed-plugin sanity) fires at session start with a cooldown, surfaces findings as observations, and feeds them back into the loop. Findings are not interrupts — they accumulate as observations the manager batches into the same approval surface as everything else.
 
-**v1.1+ — capture / reuse loop.** A `session-observer` notices recurring patterns in real session work, `workflow-suggester` evolves from "suggests in prose" to "drafts a concrete proposed-helper or proposed-script file," `/goals` becomes the clarifying-questions layer for refining the spec, `script-builder` formalises an approved capture into a reusable script. Closes the four named autonomy gaps in one named loop.
+Stage six is per-project manager-optimization (v1.2.0). Each install gets its own manager-optimizer that watches how the project's manager actually decides over time and drafts refinement suggestions for the project's `CLAUDE_MANAGER.md`. Stage seven is graduation — patterns proven across at least three projects move into the shared template via a cross-install watcher (the meta-session-observer), so every project that runs `update.sh` inherits them on its next refresh. The loop is self-improving without ever taking the user out of the approval seat.
 
-**v1.2+ — `manager-optimizer`.** L3 meta-meta. Watches how the manager decides over time and suggests refinements to `CLAUDE_MANAGER.md.template`. Explicitly post-v1.1+ — it needs real usage data from the loop first, or it'd be optimising against vibes.
+## What claude-skeleton is NOT
 
-**v2.0 — plugin recommendation system.** A curated catalog matching pain points and project context to specific marketplace plugins or community libraries. Foundation is already in v1.0's marketplace composition section.
+A few things claude-skeleton is **not**, said plainly so expectations are right:
 
-## Peer projects
+- **Not a productivity plugin.** Discipline is the point. Speed is a byproduct of not having to clean up messes later.
+- **Not autonomous without approval.** The human stays in the seat of judgment, always. Anything that changes a file or runs a command waits for the user.
+- **Not multi-LLM.** claude-skeleton is Claude Code-only by design. If a multi-LLM version is pursued in the future, it lives as a sibling project (working name: `claude-skeleton-bridge`), not a feature graft into this one.
+- **Not a plugin directory.** Recommendations are vetted, scoped per-project, quality-filtered. **Don't be a directory; be a quality filter.**
+- **Not one-size-fits-all.** Per-project tuning is core architecture, not an edge case. A pinball game and a mobile app should not feel identical under the hood.
+- **Not opaque governance.** Every guard rail can be turned off, with explicit warning. The user is never trapped by the system.
 
-claude-skeleton sits in a populated ecosystem. Same problem space, different implementation choices — these are the projects worth knowing about:
+## Who this is for
 
-- **`claude-code-templates`** — stack-by-stack template projects. Useful as a starting point you then tune.
-- **`claude-agentic-framework`** — higher-level multi-agent orchestration patterns. When project work crosses multiple agent loops.
-- **`wshobson/agents`** — curated subagent collection. Strong baselines for code review, refactoring, and domain-specific tasks.
-- **`claude-skills`** — behavioural-skill library. Same shape as our `.claude/skills/`; pull individual skills as needed.
-- **`awesome-claude-code-subagents`** — community discovery surface.
-- **`ClaudeFast`** — performance-oriented agent patterns. Tight loops, minimal token use.
-- **`storybloq`** — adjacent in problem space; worth citing for completeness.
+Solo developers and small teams shipping projects worth maintaining longer than three months. Games, frameworks, mobile apps, deployed services, anything where structural coherence matters more than throwing one-shot scripts together. The skeleton's overhead — defining what the project is, what discipline applies, what gets audited — pays back as soon as the project hits the "I came back to this six months later" stage.
 
-These are the ecosystem claude-skeleton composes with, not competitors to displace. Different projects make different bets — `claude-code-templates` bets on per-stack scaffolding, `claude-agentic-framework` bets on multi-agent orchestration, claude-skeleton bets on a directive layer + recursive ownership + safe automated updates. The right choice depends on what you're building, and a real project may end up using two or three of these together. That's the design.
+Anyone planning to hand off or sell their work also benefits. The skeleton makes inheritance readable. A buyer or collaborator can read the constitution, understand the discipline the previous author committed to, and make informed decisions about what to keep, what to change, and where the load-bearing pieces live.
+
+Who this is not for: throwaway scripts, single-session experiments where nothing survives the afternoon, people who want zero discipline and pure flow (flow + safety, both, is a deliberate stance — the safety half adds friction that some workflows simply don't need), and people committed to a non-Claude-Code workflow. The skeleton is opinionated about Claude Code's specific affordances (subagent dispatch, slash commands, hooks, skills) and would lose most of its value retargeted to a different host.
