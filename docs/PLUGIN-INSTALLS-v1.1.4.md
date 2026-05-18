@@ -389,3 +389,313 @@ Phase 34b (claude-mem install) inherits:
 ## Failures (if any)
 
 None. All 5 installs completed cleanly. claude-mem deferred to Phase 34b per § Trust-tier-2 vetting → § Phase 34 disposition.
+
+---
+
+# Phase 34b — claude-mem eyes-open install (Phase 34 deferral closure)
+
+**Snapshot:** 2026-05-17 (same-day as Phase 34)
+**Install paths used:** hybrid — marketplace install (`claude plugin install claude-mem@thedotmack`) for clean plugin manifest tracking + `npx claude-mem@latest install` for runtime bootstrap
+**Outcome:** SUCCESS after a disk-full failure-and-retry intermezzo. claude-mem v13.2.0 installed and functional.
+
+This phase establishes the canonical **"vetted-with-concerns → eyes-open install"** pattern for v1.5-tier installs (Phase 38+).
+
+## Pre-execution investigation (plan-mode WebFetch + gh api findings)
+
+### Marketplace path exists — issue #1170 closed
+
+- Repo: `thedotmack/claude-mem` — marketplace manifest at `.claude-plugin/marketplace.json` (correct CC location); plugin manifest at `plugin/.claude-plugin/plugin.json`
+- Marketplace name: `thedotmack`; plugin name: `claude-mem`; version: 13.2.0
+- Issue #1170 ("marketplace install fails — missing marketplace.json at repo root") closed 2026-02-18; author commented "Fixed this"
+- **Install command:** `claude plugin marketplace add thedotmack/claude-mem` + `claude plugin install claude-mem@thedotmack`
+
+### Plugin runtime requirements (from `plugin/package.json`)
+
+- `engines: { node: ">=18.0.0", bun: ">=1.0.0" }` — Bun is a declared runtime engine
+- 26 dependencies: 22 tree-sitter language grammars + `zod` + `shell-quote` + `tree-sitter-cli` (latter has a postinstall building native binaries)
+- `worker-service.cjs` requires `bun:sqlite` (Bun-native module) — MUST run under Bun, cannot run under pure Node
+
+### Plugin hook surface (from `plugin/hooks/hooks.json`)
+
+Aggressively instrumented — claude-mem registers SIX hook types:
+
+| Event | Matcher | Timeout | What it invokes |
+|---|---|---|---|
+| Setup | `*` | 300s | `node scripts/version-check.js` (one-time at install) |
+| SessionStart | `startup\|clear\|compact` | 60s × 2 | `worker-service.cjs start` + `worker-service.cjs hook claude-code context` |
+| UserPromptSubmit | (all prompts) | 60s | `worker-service.cjs hook claude-code session-init` |
+| PostToolUse | `*` | 120s | `worker-service.cjs hook claude-code observation` — fires after EVERY tool call |
+| PreToolUse | `Read` | 60s | `worker-service.cjs hook claude-code file-context` |
+| Stop | (always) | 120s | `worker-service.cjs hook claude-code summarize` |
+
+All hooks invoke `node scripts/bun-runner.js scripts/worker-service.cjs <subcommand>` via shell with a dynamic plugin-path resolver. The dispatcher (`bun-runner.js`) finds Bun on PATH or in `~/.bun/bin/bun.exe`, then re-executes the worker under Bun.
+
+### MCP server (from `plugin/.mcp.json`)
+
+Registers `mcp-search` stdio MCP server invoking `node scripts/mcp-server.cjs` via shell with dynamic path resolution.
+
+## Install path chosen: hybrid
+
+**Empirical decision tree result:** Branch (c) — marketplace install lands plugin cleanly with minimal side effects, BUT the plugin's `version-check.js` (Setup hook target) explicitly emits `claude-mem: runtime not yet set up - run: npx claude-mem@latest install` until the runtime bootstrap completes.
+
+**User decision (2026-05-17): Option A — keep marketplace install + complete via `npx claude-mem@latest install` bootstrap.** Hybrid path captures the best of both: clean plugin manifest tracking via marketplace + complete runtime via npx.
+
+## Pre-install baseline (verbatim, from `/c/tmp/phase34b/*.pre`)
+
+```
+== bun ==
+/c/Users/darre/.bun/bin/bun
+== uv ==
+uv: not installed
+== bun --version ==
+1.3.9
+== uv --version ==
+n/a
+== claude-mem ==
+claude-mem: not installed
+== node ==
+v24.11.1
+```
+
+- Bun ALREADY installed pre-Phase-34b (v1.3.9). **Concern 1's Bun side-effect was preempted by user's pre-existing install.**
+- uv absent.
+- Shell rc files: `.bashrc`, `.bash_profile`, `.zshrc`, `.profile` ALL ABSENT (Git Bash on Windows uses inherited env, no per-user rc files).
+- No claude-mem / bun worker processes running.
+- Marketplaces registered: `claude-plugins-official`, `superpowers-marketplace` (Phase 34 state).
+- Installed plugins: 6 entries (Phase 34 state).
+
+## Install output (verbatim)
+
+### Stage 1 — Marketplace install
+
+```
+=== marketplace add ===
+Adding marketplace…SSH not configured, cloning via HTTPS: https://github.com/thedotmack/claude-mem.git
+Refreshing marketplace cache (timeout: 120s)…
+Cloning repository (timeout: 120s): https://github.com/thedotmack/claude-mem.git
+Clone complete, validating marketplace…
+Cleaning up old marketplace cache…
+✔ Successfully added marketplace: thedotmack (declared in user settings)
+exit: 0
+
+=== plugin install ===
+Installing plugin "claude-mem@thedotmack"...✔ Successfully installed plugin: claude-mem@thedotmack (scope: user)
+exit: 0
+```
+
+### Stage 2 — npx bootstrap (after disk-full retry)
+
+**First attempt failed with ENOSPC** while bun was extracting 142 tree-sitter tarballs. Disk was at 100% (931G/931G, 0 available). User manually freed space.
+
+**Retry succeeded** with 7.3G available:
+
+```
+claude-mem install
+  claude-mem v13.2.0 · reinstall
+  Copying to marketplace directory...
+  Plugin files copied OK
+  Caching v13.2.0...
+  Plugin cached (v13.2.0) OK
+  Marketplace registered OK
+  Plugin registered OK
+  Plugin enabled OK
+  Checking Bun…
+  Checking uv…
+  Installing plugin dependencies…
+  Runtime ready (Bun 1.3.14, uv uv 0.11.14 (3fdfdc7d4 2026-05-12 x86_64-pc-windows-msvc)) OK
+  Running npm install...
+  Dependencies installed OK
+  Claude Code: plugin registered OK
+  Claude Code: auto-memory disabled (CLAUDE_CODE_DISABLE_AUTO_MEMORY=1).
+  Skipped (non-TTY)
+
+  Installation Complete
+  Version:     13.2.0
+  Plugin dir:  C:\Users\darre\.claude\plugins\marketplaces\thedotmack
+  IDEs:        claude-code
+  Auto-memory: disabled (CLAUDE_CODE_DISABLE_AUTO_MEMORY=1)
+
+  Next Steps
+  ! Worker autostart skipped — start it manually with npx claude-mem start
+
+claude-mem installed successfully!
+exit: 0
+```
+
+Notes:
+- Bootstrap reports "reinstall" mode — idempotent against the prior marketplace install.
+- Worker autostart **explicitly skipped in non-TTY environment**. User must run `npx claude-mem start` to activate the background daemon. **Concern 2 mitigation: daemon does not spawn by default in non-interactive contexts.**
+- Auto-memory disabled because `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` is set in the user's CC environment. The install respects this.
+- DEP0190 Node.js deprecation warning emitted (cosmetic; not blocking).
+
+## Post-install state + diff (verbatim from `/c/tmp/phase34b/*.diff`)
+
+### Tooling diff (boot.pre → boot.post)
+
+```
+== bun ==                            == bun ==
+/c/Users/darre/.bun/bin/bun          /c/Users/darre/.bun/bin/bun
+== uv ==                             == uv ==
+uv: not installed              →     /c/Users/darre/.local/bin/uv.exe
+== bun --version ==                  == bun --version ==
+1.3.9                          →     1.3.14
+```
+
+- **Bun upgraded** in place: 1.3.9 → 1.3.14 (claude-mem's install runs `bun upgrade` to required version).
+- **uv installed** at `~/.local/bin/uv.exe` (66M binary + `uvw.exe` 338K). `~/.local/bin` is NOT on the user's PATH, but the plugin's hooks self-handle this via `export PATH="$HOME/.local/bin:$PATH"` patterns at hook fire time.
+
+### Shell rc diff
+
+```
+.bashrc:        ABSENT pre  →  STILL ABSENT post
+.bash_profile:  ABSENT pre  →  STILL ABSENT post
+.zshrc:         ABSENT pre  →  STILL ABSENT post
+.profile:       ABSENT pre  →  STILL ABSENT post
+```
+
+**Concern 1's "shell rc edits" sub-concern: FULLY MITIGATED.** No shell rc files were created or modified.
+
+### `installed_plugins.json` diff
+
+Gained one entry:
+```json
+"claude-mem@thedotmack": [{
+  "scope": "user",
+  "installPath": "C:\\Users\\darre\\.claude\\plugins\\cache\\thedotmack\\claude-mem\\13.2.0",
+  "version": "13.2.0",
+  "installedAt": "2026-05-18T02:51:23.782Z",
+  "lastUpdated": "2026-05-18T02:51:23.782Z",
+  "gitCommitSha": "37d24944af5f4afaa0de2b0bd0034bb432f2b714"
+}]
+```
+
+Proper version + gitCommitSha recorded (contrast with Phase 34's 4 trust-tier-1 plugins recorded as `version: "unknown"`).
+
+### `settings.json` diff
+
+```diff
+   "enabledPlugins": {
+     ...,
+     "superpowers@superpowers-marketplace": true,
++    "claude-mem@thedotmack": true
+   },
+   "extraKnownMarketplaces": {
+     "claude-plugins-official": { ... },
+     "superpowers-marketplace": { ... },
++    "thedotmack": {
++      "source": { "source": "github", "repo": "thedotmack/claude-mem" }
++    }
+   }
+```
+
+### `~/.claude-mem/` post-bootstrap state
+
+```
+CAPTURE_BROKEN    (363 bytes — diagnostic from a Step-4 probe of bun-runner.js with empty stdin; refs upstream issue #2188; not destructive)
+logs/
+  └── runner-errors.log
+settings.json     {"CLAUDE_MEM_RUNTIME": "worker"}
+```
+
+### Process state diff
+
+No new claude-mem / bun-named processes post-install. Worker autostart was correctly skipped in non-TTY environment.
+
+### Plugin cache + node_modules
+
+- `~/.claude/plugins/cache/thedotmack/claude-mem/13.2.0/` populated with full plugin structure (plus `bun.lock` + `node_modules/` with 29 entries — all tree-sitter packages + zod + shell-quote + native build artifacts).
+- Plugin layout note: marketplace install **flattens** the repo's `plugin/` subdir — files land directly at `13.2.0/` (not `13.2.0/plugin/`). The plugin's hooks handle this dual-layout via `[ -d "$_R/plugin/scripts" ] && _Q="$_R/plugin" || _Q="$_R"` checks. Defensive engineering.
+
+## Functional verification
+
+| Probe | Result |
+|---|---|
+| `plugin-quality-check.sh --plugin-dir <installed>` | exit 0, no findings (clean against heuristics i / ii / iii) |
+| `node scripts/version-check.js` (Setup hook target) | empty output post-bootstrap (= "runtime ready" silent success) — pre-bootstrap it emitted `claude-mem: runtime not yet set up` |
+| `~/.local/bin/uv.exe --version` | `uv 0.11.14 (3fdfdc7d4 2026-05-12 x86_64-pc-windows-msvc)` |
+| `bun --version` | `1.3.14` |
+| `claude mcp list` | `plugin:claude-mem:mcp-search` shows ✓ Connected |
+
+**MCP server `mcp-search` registered and reachable** — adds an MCP server to the user's Claude Code MCP server list. Phase 35 watches reliability + context cost.
+
+### Skills shipped (Phase 35 evaluation input)
+
+claude-mem ships 12 skills (no commands, no agents):
+
+`babysit`, `do`, `how-it-works`, `knowledge-agent`, `learn-codebase`, `make-plan`, `mem-search`, `pathfinder`, `smart-explore`, `timeline-report`, `version-bump`, `wowerpoint`
+
+**Overlap with skeleton primitives + Phase 34 plugins** (Phase 36 retire/repurpose candidates):
+- `make-plan` ↔ skeleton `Plan` agent / `superpowers:writing-plans` / `feature-dev:/feature-dev` — 4-way collision
+- `smart-explore` ↔ skeleton `Explore` agent / `feature-dev:code-explorer` — 3-way collision
+- `knowledge-agent` ↔ generic agent dispatch + `superpowers:subagent-driven-development`
+- `learn-codebase` ↔ `feature-dev:/feature-dev` for first-pass codebase ingestion
+- `mem-search` ↔ unique (uses claude-mem's vector index)
+- `timeline-report` ↔ unique
+- `do`, `babysit`, `pathfinder`, `wowerpoint`, `version-bump`, `how-it-works` — investigate during Phase 35
+
+## Rollback procedure
+
+```bash
+CLAUDE="/c/Users/darre/AppData/Roaming/Claude/claude-code/2.1.138/claude.exe"
+
+# 1. Stop the worker if running (note: in non-TTY environments, it never started)
+npx claude-mem stop 2>/dev/null || true
+
+# 2. Uninstall claude-mem npm/runtime side (removes ~/.claude-mem state per claude-mem's docs)
+npx claude-mem uninstall 2>&1 | tee /c/tmp/phase34b-rollback.out
+# (Note: README warned "close all Claude Code sessions before uninstalling, or ~/.claude-mem will be recreated by active hooks")
+
+# 3. Uninstall the CC plugin (marketplace side)
+"$CLAUDE" plugin uninstall claude-mem@thedotmack
+"$CLAUDE" plugin marketplace remove thedotmack
+
+# 4. (Optional) Remove uv if no longer needed
+~/.local/bin/uv.exe self uninstall
+#   OR manually: rm -rf ~/.local/bin/uv.exe ~/.local/bin/uvw.exe
+
+# 5. (Optional) Bun is shared infrastructure — leave installed unless user wants it gone.
+#    If removing: powershell -c "iwr https://bun.sh/uninstall.ps1 | iex"
+#    OR manually: rm -rf ~/.bun
+
+# 6. Shell rc files were not edited — no restoration needed.
+
+# 7. Verify cleanup
+"$CLAUDE" plugin list   # claude-mem absent
+ls ~/.claude-mem 2>&1   # should be absent
+"$CLAUDE" mcp list      # mcp-search absent
+```
+
+## Phase 34 concerns disposition
+
+Each of the 4 concerns documented in Phase 34's vetting (this artifact's earlier "Trust-tier-2 vetting → claude-mem" subsection) addressed empirically:
+
+| # | Phase 34 concern | Phase 34b empirical disposition |
+|---|---|---|
+| **1** | `npx claude-mem install` auto-installs Bun + uv globally + edits shell rc | **PARTIALLY MITIGATED.** uv installed at `~/.local/bin/uv.exe` (66M; not on PATH but plugin self-handles via hook PATH augmentation). Bun was pre-existing (v1.3.9) and got upgraded in-place to v1.3.14 by the bootstrap. **NO shell rc edits** (.bashrc / .bash_profile / .zshrc / .profile all still absent post-install). |
+| **2** | Background Bun worker daemon ambient state | **MITIGATED in non-TTY.** Install explicitly skipped worker autostart: "Worker autostart skipped — start it manually with `npx claude-mem start`". No claude-mem / bun worker process running post-install. User must opt-in to daemon. |
+| **3** | Opt-in network egress to Telegram/Discord/Slack | **NOT ACTIVATED** per phase constraint. No opt-in flags set. Code paths remain dormant. Phase 35 watch item if user opts in later. |
+| **4** | Marketplace status (#1170 said marketplace install was broken) | **RESOLVED.** Issue #1170 closed 2026-02-18 by repo author. Marketplace install path worked cleanly. Hybrid mechanism (marketplace install for tracking + npx bootstrap for runtime) is the empirical clean path. |
+
+## Phase 35 evaluation additions (claude-mem-specific)
+
+Carried forward to Phase 35's 2–3 week evaluation:
+
+1. **Hook chain noise.** claude-mem's `PostToolUse(*)` + `PreToolUse(Read)` + `UserPromptSubmit` + `Stop` hooks fire across most user interactions. Cumulative latency vs. pre-bundle baseline. Phase 36 retire-candidate if noise > value.
+2. **MCP server `mcp-search` reliability + context cost.** Watch for stale results, latency, token-cost growth from its responses appearing in context.
+3. **Worker daemon stability** IF user starts it manually (`npx claude-mem start`). Memory leaks, CPU spikes, port 37777 conflicts.
+4. **Skill overlap dispatch decisions** — `make-plan` vs `Plan`/`superpowers:writing-plans`/`feature-dev`; `smart-explore` vs `Explore`/`feature-dev:code-explorer`. Track empirically; surface for Phase 36 retire/repurpose.
+5. **Context-injection token cost comparison** (claude-mem vs superpowers vs skeleton baseline). When does claude-mem's recall surface useful context vs polluting it?
+6. **Setup hook outcome on first SessionStart** — current session loaded plugins at start; claude-mem's hooks activate at next CC restart. First-fire behavior is TBD.
+7. **`PreToolUse(Read)` latency on every Read** — measurable impact on the agent's hot path. May warrant disable if cost outweighs value.
+
+## Phase 34b risks materialized
+
+1. **Disk full (ENOSPC) during bootstrap** — first attempt failed mid bun-install of 142 tree-sitter tarballs. User manually freed disk; retry succeeded. **Captured as a lesson: any plugin requiring large npm-install runs needs ~2-3GB headroom.** No skeleton-side mitigation; user disk hygiene is the answer.
+2. **Marketplace install alone is non-functional** — plugin lands but hooks emit "runtime not yet set up". Hybrid (marketplace + npx) is the documented working path. **Future v1.5-tier installs should expect this pattern** if the upstream plugin has a separate runtime bootstrap.
+3. **MCP server registration is automatic** post-install — adds to user's CC MCP server list without explicit opt-in. Surface for Phase 35; could be retired if cost exceeds value.
+
+## Phase 34b inputs to future phases
+
+- **Phase 35** (evaluation window): inherits the 7 watch items above.
+- **Phase 36** (retire/repurpose decisions): inherits the 12-skill overlap matrix; `make-plan`, `smart-explore`, and `knowledge-agent` are the highest-overlap candidates.
+- **Phase 38+ "v1.5-tier" plugin installs** (the next vetted-with-concerns install class): inherits this artifact's pattern — investigation → marketplace vs npx path determination → pre/post diff capture → eyes-open install → rollback procedure documented. **Phase 34b is the canonical first execution of this pattern.**
