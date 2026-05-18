@@ -154,6 +154,40 @@ Dispatch `cruft-checker` **manually** when the user just edited a doc and wants 
 - For plugins already-vetted via prior dispatch (idempotency marker prevents re-scan within 24h).
 - For non-plugin code (use `audit-helper` for project-doc-vs-code drift, not `code-quality-auditor`).
 
+## Strategic audit cycle
+
+The strategic audit cycle is the workflow that catches drift between what the skeleton says it is and what it actually does. Two tiers run together — strategist-side chat audits and CC-side line-by-line audits — feeding the same triage queue. Event-triggered, not calendar-scheduled. This composes with v1.2.0's scheduled `infrastructure-auditor` (project-level) and `roadmap-auditor` (skeleton-level), but isn't the same surface — those fire on a schedule against in-project artifacts; this cycle is the chat-and-CC workflow against the directive layer and roadmap itself.
+
+### When the cycle runs
+
+Event-triggered, not calendar-scheduled. Three triggering events earn an audit pass:
+
+1. **Post-major-ship.** A version cut (v1.1.0 capture/reuse loop, v1.1.4 plugin-verification surface, v1.0 substrate ship) — verify the cut ships honest. Schema gaps caught here are cheap; caught a release later they bleed into downstream phases.
+2. **Post-empirical-event.** An install lands (Phase 34 bundle, Phase 34b claude-mem eyes-open), a production-miles milestone closes (≥2 weeks on a target), a phase exposes a latent contradiction or surprise — these surface signal that an audit can act on. Without the empirical event, the audit optimizes against vibes.
+3. **Before-release-cut.** When the next version's window opens, run the cycle before locking the cut. Catches scope drift between when the version started and when it ships.
+
+**Out of scope:** routine in-session work. The in-session audit triad handles that — `cruft-checker` + `drift-checker` + `code-quality-auditor` fire at SessionStart with a 24h cooldown.
+
+### Two-tier audit pattern
+
+The audit runs on two tiers; each catches what the other misses.
+
+**Strategist chat tier.** Cross-cuts at the architectural level. What it catches: sequencing problems (are phases ordered right?), contradictions with locked principles (does this conflict with multi-project graduation, per-project governance, etc.), principle drift (has a locked rule eroded silently?), scope erosion at the directive layer (does `CLAUDE_MANAGER.md` still match what we actually do?). Reads `STORY.md`, `ROADMAP.md`, handoff, `CHANGELOG.md`.
+
+**CC tier.** Line-by-line at the implementation level. What it catches: schema validation, code-vs-doc drift (does an agent's described scope match its actual prose? does the schema match what the producer emits?), hook-firing verification (do hooks actually fire? do cooldown markers update?), grep-able correctness, byte-level mirror parity between dogfood and template. Reads agents, schemas, hooks, scripts, `settings.json`.
+
+Both tiers feed the same triage queue. The combined output exceeds either alone — **Phase 30 → 34b is the canonical empirical case.** Phase 30's CC-side audit surfaced a 9-phase emergent queue (30b mechanical fixes, 30c PreToolUse FP exemption, 31 bulk codification, 32a/b/c marker refresh arc, 33 directive layer alignment, 34 bundle install, 34b claude-mem eyes-open) that closed across 2 days. Strategist alone would have missed the schema mismatches and hook-config violations; CC alone would have missed the strategic retire/repurpose decisions and the principle-codification opportunities.
+
+### Audit-emergent queue handling
+
+Findings flow into the roadmap by size.
+
+**Small mechanical findings — fold into the next release as additive commits.** Doc fix, link repair, schema enum extension, exemption list addition, heuristic count update. No phase number needed; the `[Unreleased]` CHANGELOG bullet captures the addition. Examples from the Phase 30 queue: `cruft-check.sh` heuristic count fix (7→9), `EXEMPT_VFILES` extension.
+
+**Larger findings — queue as named phases following the 30b/c pattern.** The originating phase gets the base number; cleanup phases get a letter suffix (30b, 30c, 32a, 32b, 32c, 34b). Each named phase has its own brief, plan-mode pass, commit cadence, and CHANGELOG bullet. Examples: Phase 30b mechanical-fix bundle, Phase 30c parser-aware FP exemption, Phase 32a/b/c marker refresh arc.
+
+**Strategic findings that change architecture — codify via Model C into the directive layer that architecturally fits.** `CLAUDE_MANAGER.md` for strategic-judgment patterns or workflow codification; `docs/ROADMAP.md` for sequencing constraints or locked architectural principles; `docs/STORY.md` for identity / mission shifts; `claude-skeleton-handoff.md` for sprint-state continuity. **This section is itself an example** — the audit cycle was empirically validated by Phase 30 → 34b; the workflow now gets codified into the directive layer rather than carried as tribal knowledge. Phase 17 (plan-amendment behavior), Phase 18 (lesson surface), and Phase 35a (plain-English communication) are prior Model C executions following the same flow: empirically validated discipline → direct codification into the directive surface, no separate lessons doc.
+
 ## Core vs integration boundary
 
 The skeleton's value is in the orchestration brain on top of an ecosystem, not in reinventing primitives the ecosystem already provides. This section enumerates the durable core (skeleton-specific, load-bearing identity) vs the integration layer (composition with ecosystem, volatile).
