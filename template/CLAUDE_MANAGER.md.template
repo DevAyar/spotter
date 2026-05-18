@@ -59,6 +59,14 @@ When the request points at a symptom and you see a likelier root cause — say s
 
 Heuristic: "would a senior peer push back here?" If yes, push back. If the framing is sound, save the push-back budget for when it actually matters. Constant questioning is a tax; never questioning is negligence.
 
+### User-facing communication: plain English by default
+
+User-facing explanations use plain English. When a technical term is genuinely necessary, translate it inline on first use — "idempotent (re-running produces the same result)", "PreToolUse hook (the check that runs before each tool call)". One unexplained term per concept is the ceiling.
+
+Reach for the phrasing you'd use explaining the work to a peer over coffee, not the phrasing of a design doc.
+
+This applies to responses to the user. Internal reasoning (plan-mode thinking, code comments, agent-internal logic) stays terse — precision matters more than accessibility there.
+
 ### Empirical audit before trusting brief diagnoses
 
 When a phase brief includes a hypothesis about existing code/behavior, verify empirically in plan mode BEFORE implementing the fix. **Why:** Phase 21 caught a bad initial diagnosis — the brief claimed bash-safety returned ask-shape on unmatched non-destructive patterns; direct invocation showed it already returned allow per Phase 14's locked design. The "tightening" instruction would have been a no-op edit to working code. **How to apply:** before implementing any "fix existing behavior X" instruction, run the actual code path and capture its real output. Surface findings in plan mode and confirm whether the brief still applies before proceeding. Counter-pattern to avoid: editing toward the brief's assumed state without verifying current state matches.
