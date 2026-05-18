@@ -1,33 +1,32 @@
 # claude-skeleton — session handoff
 
 <!-- cruft-check:exempt-historical -->
-Current as of **2026-05-17** — through **Phase 30c audit closure + Phase 31 codification** (post-v1.1.4 release `2a0caf6` / tag `v1.1.4`).
+Current as of **2026-05-18** — through **Phase 34b** (commit `f72d132`, bundle install arc closed).
 
 This doc is the chat-session continuity surface. Read top-down at the start of a fresh session to onboard the manager onto current state, locked principles, and the next phase to draft a prompt for. Not a release artefact — lives outside the changelog.
 
 ## TL;DR
 
-- **v1.1.4 shipped 2026-05-17** at `2a0caf6`, tag `v1.1.4`. **Plugin-verification surface open** — `code-quality-auditor` (Phase 24) ships as the first concrete plugin-audit component with three narrow heuristics, composing with `cruft-checker` + `drift-checker` as the **project-level audit triad** firing at SessionStart. Single release-cut commit per Phase 19 / 22 precedent (Phase 25).
-<!-- cruft-check:exempt-historical -->
-- **v1.1.x polish arc remains closed; v1.1.4 opens new plugin-verification surface.** Five releases in three days: v1.1.0 capture/reuse loop (2026-05-15) → v1.1.1 hook infrastructure correctness (2026-05-16) → v1.1.2 captures-surface enum completion + lesson codification flow (2026-05-16) → v1.1.3 operational-friction relief (2026-05-17) → v1.1.4 plugin-verification surface open (2026-05-17). No v1.1.5 placeholder — left open until real items queue.
-- **Phase 24 destructive-pattern shared-lib refactor.** Bash-safety + powershell-safety hooks (Phase 14c / Phase 21) now source pattern arrays from `.claude/lib/destructive-{bash,powershell}-patterns.sh` — **single source of truth** across real-time blocking AND retrospective audit. Adding a new destructive pattern propagates to all enforcement surfaces.
-- **First real-world plugin scan: zero findings** against `42crunch-api-security-testing@1.0.1` (the one real installed plugin in `~/.claude/plugins/cache/`). All three heuristics clean. Phase 24's synthetic-plugin verification already proved each heuristic catches its target case; Phase 25's pre-cut sweep was the first real-world pass.
-- **GitHub Release** published with the `[1.1.4]` CHANGELOG section as notes: <https://github.com/DevAyar/claude-skeleton/releases/tag/v1.1.4>.
-- **Items rolled forward.** `integration-checker` (Layer 1+2) + semantic "fitness vs description" checks (Layer 3) + curated catalog — all fold into v2.0.
-- **Audit closure cascade landed (Phase 30 / 30b / 30c).** CC-side audit surfaced 10 findings; 7 mechanical fixes landed in 30b + 30c; 1 emergent hook CWD-independence fix bundled in 30b. Audit-as-skeleton-primitive workflow validated empirically. State-dump §17 bash-safety FP loose-end CLOSED in 30c (parser-aware redaction of `git commit -m` bodies + bash heredoc + PowerShell here-string payloads; counter-tests preserve deny outside exempted regions).
-- **Phase 31 codification underway.** Bulk extraction of principles + sprint rules + mission statement into canonical surfaces (ROADMAP § Locked architectural principles now 12 principles; CLAUDE_MANAGER carries empirical-audit + hook-path-discipline + Co-Authored-By-trailer rules; STORY.md has Mission section). Handoff simplified to sprint state + active loose-ends; principles + sprint-rules sections dropped (now in canonical homes — see Where things live below).
-<!-- cruft-check:exempt-historical -->
-- **v1.2.0 meta-evolution tier** opens next. Nine components, opens with `manager-optimizer` (Level-3 meta-meta). Gated on **v1.1.4 production miles** — plugin-verification surface just opened, audit triad needs operational data. Recommend deferring until v1.1.4 bakes ≥2 weeks on Trainer-View / Echoes-Of-Gill (cadence reset after the v1.1.3 → v1.1.4 ship sequence).
-- **v2.0 plugin recommendation** later still — folds `integration-checker` + `code-quality-auditor` Layer 3 semantics + curated catalog. Verbatim principle: *"Don't be a directory; be a quality filter."*
-- **CI green** across Ubuntu / macOS / Windows for every commit in the sprint. **Dogfood-mirror invariant** held throughout — every `template/` change byte-identical in skeleton's own `.claude/` except documented intentional drift (defaultMode plan vs default; dogfood-only cruft-check SessionStart hook; `compactPrompt` placeholder vs resolved).
+- **Audit-emergent queue COMPLETE** — 9 phases shipped 2026-05-17 → 2026-05-18 (Phase 30 CC-side audit + 30b mechanical fixes + 30c FP exemption + 31 bulk codification + 32a/c/b marker refresh arc + 33 directive layer alignment + 34 bundle install + 34b claude-mem eyes-open). All emerged from chat-strategist + CC-side audit reconciliation; all landed before Phase 35 evaluation window opened.
+- **Bundle install of 6 plugins COMPLETE** — 5 trust-tier-clean (`feature-dev`, `code-review`, `commit-commands`, `security-guidance`, `superpowers`) + 1 eyes-open (`claude-mem` v13.2.0 via hybrid marketplace+bootstrap path). All landed in `~/.claude/plugins/cache/`; skeleton-repo footprint = doc artefacts only (`PLUGIN-INSTALLS-v1.1.4.md`, CHANGELOG bullets).
+- **Eyes-open install pattern LOCKED** — Phase 34b is canonical first execution; v1.5-tier vetted-with-concerns plugins follow this shape (plan-mode investigation → marketplace-vs-npx determination → pre/post state capture → empirical decision-tree → rollback documentation → concerns disposition by name).
+- **Audit-as-skeleton-primitive workflow VALIDATED EMPIRICALLY** — CC-side audit (Phase 30) surfaced 10 findings chat-audit missed; chat-audit surfaced architectural framing CC's line-by-line read didn't; Phase 30b emergent hook-CWD fix dogfood-discovered during testing. The two-tier audit pattern works — codifies as `## Strategic audit cycle` in CLAUDE_MANAGER per Phase 37.
+- **Phase 35 evaluation window OPEN** — passive observation ~3 weeks; data accumulates from every CC session; Phase 36 retire/repurpose decisions wait on data. Concurrent strategic work (Phase 37 codification, Phase 36 design draft, Phase 38+ scoping) can ship anytime.
+- **v1.1.5 onboarding tier QUEUED** — 5 small phases (README refresh, GETTING-STARTED, PLUGINS-GETTING-STARTED, install.sh post-install message, optional first-run hook). Defers to AFTER pinball + TV/EoG + Phase 35 close per user preference (repo turbulence ≠ external-user-ready yet).
+- **Bash CLI form (`claude plugin install ...`) is the canonical plugin install mechanism** — slash commands (`/plugin install`) only work in Claude Code CLI, not Desktop/web (GitHub #42142, #56623). v1.5 design must use bash form to work across environments.
+- **Plugin/skeleton scope separation EXPLICIT** — skeleton template = project-scoped (`.claude/`, propagates via install.sh/update.sh from skeleton template); plugins = user-scoped (`~/.claude/plugins/`, doesn't enter any repo). Cloning skeleton repo ≠ getting plugins. "Opt-in everything" is the UX layer.
+- **Strategist-chat-layer scope CLARIFIED** — skeleton + bundle-installed plugins (`/feature-dev` for spec elicitation, superpowers for brainstorming, `/code-review` for quality gates, `claude-mem` for cross-session continuity, audit triad for continuous checks) provide strategist-discipline-layer natively for target projects. A separate chat-strategist tab earns its keep ONLY for the meta-system (claude-skeleton itself), because the meta-system edits itself — recursive loop requires external strategic discipline. Pinball + TV + EoG run entirely inside CC; this skeleton chat stays as dedicated strategist for meta-system work.
+- **Substrate clean** — CI green throughout (3 OS × every commit); marker refreshed v0.4 → v1.1.4 (45 file hashes); directive layer aligned with shipped reality (no vapor pointers); line-endings policy enforced; bash-safety FP closed (3rd-recurring hit eliminated).
 
 ## Where things live
 
-- **Locked architectural principles** → `docs/ROADMAP.md` § Locked architectural principles
+- **Locked architectural principles** → `docs/ROADMAP.md` § Locked architectural principles (now 12 H3 subsections)
 - **Strategic judgment patterns + orchestration rules** → `CLAUDE_MANAGER.md` § Strategic judgment patterns
 - **Project mission** → `docs/STORY.md` § Mission
+- **Core vs integration boundary** → `CLAUDE_MANAGER.md` § Core vs integration boundary (Phase 33)
+- **Plugin install records** → `docs/PLUGIN-INSTALLS-v1.1.4.md` (Phase 34 + Phase 34b)
 - **Active sprint state** (Phase recaps, what just shipped, what's queued) → this doc § Sprint state — what shipped
-- **Active loose ends** (current decisions pending, recurring friction not yet fixed) → this doc § Loose ends / queued items
+- **Active loose ends** → this doc § Loose ends / queued items
 
 This handoff is the chat-session continuity surface — transient sprint state, not durable spec. Durable spec lives in the canonical surfaces above.
 
@@ -149,7 +148,47 @@ Three-commit cadence. First v1.1.4 component — first plugin-verification surfa
 
 ### Phase 25 — `2a0caf6` — v1.1.4 release cut
 
-VERSION 1.1.3 → 1.1.4. CHANGELOG promotion with summary "plugin-verification surface open". Pre-cut sweeps: `cruft-check` surfaced 9 heuristic-x findings — README:52 stale v1.1.3 anchor (real fix folded in via marker), 8 handoff findings (transient, deferred to next handoff refresh = Phase 26 below). **Zero heuristic-x findings** elsewhere — Phase 20 scope tuning held cleanly through Phase 24's substantial additions. `plugin-quality-check` against real installed `42crunch-api-security-testing@1.0.1`: **zero findings** — all three heuristics clean on production plugin. **First real-world plugin-audit pass** (Phase 24's synthetic verification already proved each heuristic catches its target). Doc-rot folded in: `.gitignore` extended with `.claude/.last-plugin-quality-check` (matches existing `.last-*` marker family). Annotated tag `v1.1.4` + GitHub Release with `[1.1.4]` CHANGELOG as notes. Handoff refresh deferred to next phase per Phase 23 precedent.
+VERSION 1.1.3 → 1.1.4. CHANGELOG promotion with summary "plugin-verification surface open". Pre-cut sweeps: `cruft-check` surfaced 9 heuristic-x findings — README:52 stale v1.1.3 anchor (real fix folded in via marker), 8 handoff findings (transient, deferred to next handoff refresh). **Zero heuristic-x findings** elsewhere — Phase 20 scope tuning held cleanly through Phase 24's substantial additions. `plugin-quality-check` against real installed `42crunch-api-security-testing@1.0.1`: **zero findings** — all three heuristics clean on production plugin. **First real-world plugin-audit pass** (Phase 24's synthetic verification already proved each heuristic catches its target). Doc-rot folded in: `.gitignore` extended with `.claude/.last-plugin-quality-check` (matches existing `.last-*` marker family). Annotated tag `v1.1.4` + GitHub Release with `[1.1.4]` CHANGELOG as notes.
+
+### Phase 30 — `748cf5f` — CC-side audit
+
+Read-only artifact at `docs/AUDIT-v1.1.4-cc-side.md` (338 lines, 7 sections). Validated 6 chat-audit predictions; surfaced 10 new findings (1 HIGH, 3 MEDIUM, 6 LOW); disputed chat-audit's retire-candidates (`commit.sh` + `audit-helper` KEEP per non-overlapping scope; `plan-coordinator` NEUTRAL pending feature-dev evaluation). Confirms audit-as-skeleton-primitive workflow validates itself empirically — CC's line-by-line read catches what chat-audit's strategic framing misses; chat-audit catches what CC's narrow focus doesn't.
+
+### Phase 30b — `c2739a5` + `f61f11b` + `0806357` — Audit-finding mechanical fixes
+
+Three-commit cadence covering 7 audit findings (H1-H7). Schema carve-out for deterministic producers (`occurrences ≥ 1` allowed for cruft-checker + code-quality-auditor); cruft-check.sh header heuristic count + confidence-tier comment; `timeout` portability fallback in `update.sh` + env-overridable `SKELETON_REPO_URL`; 11 new destructive patterns in libs (rsync/dd/mkfs/truncate/find-root/shred|srm shapes + Stop/Restart-Computer/Set-Acl/Compress-Archive/wmic shapes); 4 new CI scenarios (check-remote-cached, hook-fail-closed, cruft-check-fixture, replace-with-yes-piped). **Emergent fix:** PreToolUse hooks now resolve LIB via `${CLAUDE_PROJECT_DIR:-.}` instead of relative path — discovered when `cd /tmp` during testing exposed fail-closed-on-CWD-drift lockup. Codified as architectural rule in CLAUDE_MANAGER (Phase 31).
+
+### Phase 30c — `bcabac0` + `4d77913` — bash-safety + powershell-safety FP exemption
+
+Parser-aware redaction of `git commit -m` message bodies + heredoc/here-string payloads in both PreToolUse hooks. Closes 3rd-recurring FP (Phase 21 + 24 + 30b empirical hits). Counter-tests (semicolon-chained, AND-chained, bare-pattern, post-heredoc) verify destructive patterns OUTSIDE exempted shapes still deny. Shell-portable parser — bash regex + sed only; no Python/jq in redaction logic.
+
+### Phase 31 — `89b7208` + `0bb9504` + `f849fdb` — Bulk codification
+
+Three-commit cadence. Extracted 5 "Other principles" + 1 sprint rule (Compose-with-available-surfaces) into `docs/ROADMAP.md` § Locked architectural principles (now 12 H3 subsections). Codified 2 sprint rules (empirical-audit before trusting diagnoses, Co-Authored-By trailer) + hook-path-resolution discipline (Phase 30b emergent) as CLAUDE_MANAGER strategic-judgment H3s. Added Mission section to `docs/STORY.md`. Production-miles precision reframe in ROADMAP v1.2.0 gating. Simplified handoff doc (322→244 lines, 24% reduction). Back-mirrored template→dogfood for `self-audit-helper.md` (73→92 lines) + `project-tuner-helper.md` (124→188 lines).
+
+### Phase 32a — `a0194cc` — Marker refresh dry-run inventory
+
+Read-only artifact at `docs/AUDIT-v1.1.4-marker-refresh-dryrun.md`. Captured `update.sh --dry-run` output against v0.4 fossil marker. 4 TEMPLATE_UPDATED entries (3 line-ending FP + 1 locked settings.json drift). 8 empirical learnings about update.sh behavior. **Mental-model drift caught:** `--claude-only` flag is install.sh-only; `update.sh` by-design scopes to `.claude/`.
+
+### Phase 32c — `bba2d8a` — Line-ending normalization
+
+Tightened `.gitattributes` with `* text=auto eol=lf` policy rule. Stripped CRLF from 3 worktree files (`audit-helper.md`, `monitoring-helper.md`, `session-observer.md`). Closed 3 of 4 Phase 32a TEMPLATE_UPDATED entries (line-ending FP). Fix was policy-level — index already held LF; only worktree had CRLF due to `core.autocrlf=true`.
+
+### Phase 32b — `9a50ea2` — Marker refresh apply
+
+Ran `update.sh` interactively with `[S]kip all` defaults. Refreshed `.claude/.skeleton-version` from v0.4 fossil (6-line shell-export) → v1.1.4 schema (JSON, 58 lines, 45-entry files object). Empirical learning: `update.sh classify()` silent-backfills `hash_recorded` for ALL template-walked files including skipped — marker captures "current baseline" not "template baseline." Settings.json recorded at dogfood-resolved bytes (intentional drift preserved). Marker arc closed (32a → 32c → 32b).
+
+### Phase 33 — `1a2dee4` + `baf21a7` + `f874fa9` — Directive layer alignment
+
+Three-commit cadence. Removed `/goals` TEMPLATE STUB (vapor pointer; `/spec` build decision reversed per audit reconciliation). Reframed `integration-checker` H3 from TEMPLATE STUB to "STATUS: DEFERRED to v2.0." Added new `### When to dispatch code-quality-auditor` H3 (6 dispatch H3s total). Added new `## Core vs integration boundary` H2 (12 durable core primitives + 4-item integration layer + 3 boundary discipline rules). Dropped `.skeleton-version dogfood lag` loose-end from handoff (closed post-32b). Both CLAUDE_MANAGER mirrors byte-identical modulo placeholder drift.
+
+### Phase 34 — `07d9b26` — Bundle install (5 of 6 plugins)
+
+First non-skeleton-meta phase in audit-emergent queue. Mid-execution mechanism switch: `/plugin` slash commands unavailable in Claude Code Desktop (GitHub #42142, #56623); switched to `claude plugin install` bash CLI form. CC drove install autonomously via Bash tool (no user-pause needed; original plan's slash-command pause was obsolete with correct tool). Installed `feature-dev` + `code-review` + `commit-commands` + `security-guidance` + `superpowers`. Trust-tier-2 vetting via WebFetch surfaced claude-mem concerns; deferred to Phase 34b for eyes-open install. `plugin-quality-check` zero findings on all 5; no `installed_plugins.json` vs `enabledPlugins` gap (GitHub #20661 didn't reproduce). New: `docs/PLUGIN-INSTALLS-v1.1.4.md` (394-line install record).
+
+### Phase 34b — `f72d132` — claude-mem eyes-open install (Phase 34 deferral closure)
+
+Hybrid install path: marketplace install (`claude plugin marketplace add thedotmack/claude-mem` + `claude plugin install claude-mem@thedotmack`) landed plugin cleanly + `npx claude-mem install` bootstrap completed runtime state. Empirical disposition of 4 original concerns: (1) Bun upgraded in-place 1.3.9 → 1.3.14, uv freshly installed at `~/.local/bin/uv.exe`, NO shell rc edits (none exist on Windows Git Bash); (2) daemon autostart skipped in non-TTY environment (user opt-in via `npx claude-mem start`); (3) network egress code paths exist but not activated; (4) marketplace path empirically clean (issue #1170 closed). Disk-full incident during npm install captured as real-world lesson (plugins with native deps need 2-3GB headroom). Eyes-open install pattern established as canonical for v1.5-tier vetted-with-concerns plugins.
 
 ## Roadmap (condensed; full version in `docs/ROADMAP.md`)
 
@@ -174,13 +213,23 @@ Plugin-verification surface open. One concrete component, one piggyback refactor
 - **`code-quality-auditor`** (Phase 24) — first plugin-verification surface. Reads installed plugin source for three narrow heuristics — manifest honesty (i + ii) + security hygiene (iii — destructive shell patterns against unguarded paths). Composes with `cruft-checker` + `drift-checker` as the **project-level audit triad** firing at SessionStart. Ships in `template/`. Routes via `workflow-suggester` as `suggested_artifact_type: manual_action`. Semantic Layer 3 "fitness vs description" deferred to v2.0.
 - **Destructive-pattern shared lib extraction** (Phase 24 piggyback) — moved patterns from inline declarations in Phase 14c / Phase 21 hooks into `.claude/lib/destructive-{bash,powershell}-patterns.sh`. All consumers source the libs. Single source of truth across real-time blocking and retrospective audit.
 
-**Rolled forward to v1.1.5-or-later or v2.0:**
+**Rolled forward to v2.0:** `integration-checker` (Layer 1+2 plugin verification); semantic "fitness vs description" checks (Layer 3); curated plugin catalog.
 
-- `integration-checker` (Layer 1+2 plugin verification) — planned for v2.0.
-- Semantic "fitness vs description" checks — Layer 3 originally scoped for `code-quality-auditor`, now deferred to v2.0 alongside `integration-checker`.
-- Curated plugin catalog — v2.0 fold.
+### Audit-emergent queue — ✓ COMPLETE (Phase 30 → 34b, 2026-05-17 → 2026-05-18)
 
-**No v1.1.5 placeholder yet** — left open until real items queue.
+9 phases shipped over 2 days, all post-v1.1.4 release cut. CC-side audit (Phase 30) opened the queue; mechanical fixes (30b/c) closed line-by-line findings; bulk codification (31) moved principles to canonical homes; marker refresh arc (32a/c/b) brought dogfood marker from v0.4 fossil to v1.1.4 current; directive layer alignment (33) removed vapor pointers; bundle install (34) put 5 trust-tier-clean plugins into operation; eyes-open install (34b) closed the claude-mem deferral via hybrid marketplace+bootstrap path. No new VERSION cut — all changes additive on v1.1.4 substrate. Phase 35 evaluation window opens next.
+
+### v1.1.5 — Onboarding tier (NEW, queued for post-Phase-35-close)
+
+5 small phases adding the user-experience layer the skeleton has lacked while being a single-user project:
+
+- **v1.1.5-A:** README.md onboarding refresh (landing page, decision framework, install command, "what you get")
+- **v1.1.5-B:** `docs/GETTING-STARTED.md` (first-15-minutes walkthrough after install)
+- **v1.1.5-C:** `docs/PLUGINS-GETTING-STARTED.md` (plugin install onboarding, explicit "you don't have to install any of these" framing)
+- **v1.1.5-D:** install.sh post-install message ("✓ Installed. See GETTING-STARTED.md for next steps")
+- **v1.1.5-E (optional):** First-run SessionStart welcome hook (one-time, self-disabling)
+
+Strategic significance: closes the "skeleton built for an audience of one" gap. "Opt-in everything" UX principle locked: cloning ≠ installing; installing skeleton ≠ installing plugins; installing recommended plugins ≠ activating optional features. Each layer is a deliberate user choice. Sequencing: AFTER pinball + TV/EoG + Phase 35 close — repo turbulence during testing ≠ external-user-ready state.
 
 ### v1.2.0 — meta-evolution tier
 
@@ -196,7 +245,11 @@ Nine components turning v1.1.0 primitives into a self-tuning surface:
 - `roadmap-auditor` (skeleton-level, dogfood only) — drift between roadmap and codebase.
 - Scheduled-goals support in `/goals` — `schedule` field, session-start surfacing of due items.
 
-**Gating language updated:** v1.2.0 needs **v1.1.4 production miles** before opening (cadence reset after the v1.1.3 → v1.1.4 ship sequence). Without empirical dispatch data from the v1.1.4 baseline (the audit triad now in place), `manager-optimizer` would optimize against vibes — the same trap that pushed it to v1.2+ originally.
+**Gating language updated:** v1.2.0 needs **v1.1.x production miles** before opening, where production miles BEGIN when `update.sh` runs against TV/EoG post-Phase-35. Without empirical dispatch data from live targets, `manager-optimizer` would optimize against vibes.
+
+### v1.5 — ecosystem integration tier (gated on Phase 35 evaluation + v1.1.5 onboarding ship)
+
+Phase 38+ surface: `recommendation.schema` (project-scoped plugin recommendation manifest), `code-quality-auditor` candidate mode (extends Phase 24 component to evaluate recommended plugins pre-install), `plugin-discovery-agent`, `plugin-context-matcher`, SessionStart hook + cooldown for plugin-aware suggestions, first-install integration with installer flow, composition-rule docs. Bash CLI form (`claude plugin install ...`) is canonical install mechanism per the Phase 34 finding — works across Claude Code Desktop / web / CLI.
 
 ### v2.0 — plugin recommendation surface
 
@@ -215,29 +268,65 @@ Re-targeting the skeleton for Claude + DeepSeek + others would change the projec
 - **Lessons-log as separate parallel doc (Model B) cut in v1.1.2.** A `docs/LESSONS.md`-style dedicated reference doc with its own schema and its own lifecycle. Cut at Phase 18 in favor of Model C (codify directly into the directive surface that architecturally fits — `CLAUDE_MANAGER.md` / `docs/ROADMAP.md` / handoff). Rationale: duplicates content with the directive layer; readers consult two docs for one rule; drift between LESSONS.md and the directive layer becomes a real maintenance cost. Model C is the single-source-of-truth move.
 <!-- cruft-check:exempt-historical -->
 - **Captures-as-lessons-library (Model A) cut in v1.1.2.** A persistent library of captures under `.claude/captures/` that includes lessons as a queryable reference category. Cut at Phase 18. Rationale: captures are draft-then-ship work-items with `draft → approved → shipped` (or `rejected`) lifecycle, not durable reference. A library accumulates stale captures and re-purposes the captures surface in a way that conflicts with X-builder consumption. Lessons codify into the directive layer (Model C); captures stay as ephemeral work-tracking.
+- **User-pause-on-plugin-install assumption cut.** Phase 34 originally planned a user-pause for slash-command execution. Bash CLI form (`claude plugin install ...`) is invokable via Bash tool → CC drives end-to-end. Original assumption was an artifact of the wrong tool, not an inherent property of plugin install. Lesson: when CC plans a user-pause, interrogate whether it's necessary or just an assumed tool limitation.
+- **claude-mem indefinite deferral cut.** Phase 34's HALT-ON-CONCERN initial disposition was "skip claude-mem; defer indefinitely." User feedback flipped to eyes-open install via dedicated Phase 34b. The deferral wasn't actually indefinite; it was waiting for a properly-scoped phase. Pattern lesson: HALT-ON-CONCERN means "pause for informed consent," not "permanent refusal."
+
+## Architectural findings from this sprint
+
+Strategic-level findings that aren't already locked as principles but inform future design.
+
+- **Audit-as-skeleton-primitive workflow VALIDATED EMPIRICALLY.** Two-tier audit (strategist + CC, or chat + line-by-line) catches more than either alone. Composition + disagreement + reconciliation produces stronger findings than single-source review. Phase 37 will codify into CLAUDE_MANAGER as `## Strategic audit cycle` section.
+- **Bash CLI form is canonical for plugin installs.** v1.5 ecosystem-integration tier's discovery → recommendation → install pipeline MUST use bash form (`claude plugin install ...`), not slash commands, to work across Claude Code Desktop / web / CLI. Input for Phase 38+ design.
+- **Plugin/skeleton scope separation.** Skeleton template = project-scoped (`.claude/`, propagates via install.sh/update.sh); plugins = user-scoped (`~/.claude/plugins/`, doesn't enter any repo). v1.5-A `recommendation.schema.md` design must respect this: recommendations live in project repo (travel with the project); installs are user-scoped (don't force on collaborators).
+- **"Opt-in everything" UX principle.** Cloning the repo doesn't install the skeleton. Installing the skeleton doesn't install plugins. Installing recommended plugins doesn't enable optional features. Each layer is a deliberate user choice — the user-experience-side expression of approval-gated autonomy. v1.1.5 onboarding tier operationalizes this principle.
+- **Hook path resolution discipline LOCKED** (Phase 30b emergent, Phase 31 codified). Hooks resolve paths via `${CLAUDE_PROJECT_DIR:-.}`, not relative paths. Applies to all future hooks; existing hooks audit-checked during future maintenance.
+- **Eyes-open install pattern LOCKED** (Phase 34b canonical execution). For vetted-with-concerns plugins: plan-mode investigation → marketplace-vs-npx determination → pre/post state capture → empirical decision-tree → rollback documentation → concerns disposition by name. Each concern from vetting addressed empirically post-install.
+- **Strategist-chat-layer scope LOCKED: meta-system only, not target projects.** The skeleton was built so target projects DON'T need a separate strategic-chat-layer hovering above CC. v1.1.4's plugin bundle (feature-dev + code-review + commit-commands + security-guidance + superpowers + claude-mem) operationalizes this — `/feature-dev` elicits specs with in-depth questioning, superpowers' brainstorming surfaces strategic tradeoffs, `/code-review` provides 4-agent quality gates pre-commit, claude-mem persists cross-session context, the skeleton's audit triad runs continuously underneath. **The recursion test:** a separate strategist-chat tab earns its keep IFF the work being done can edit the discipline itself. claude-skeleton edits itself (meta-meta-system); pinball doesn't (just a game). **How it applies:** future-you defaulting to "create a chat for every project" is a code smell — interrogate whether the project actually edits the system providing its discipline. If yes → strategist-chat layer needed. If no → CC + skeleton + plugins is sufficient. Pinball + TV + EoG + any future target projects run inside CC; this skeleton chat stays as the dedicated strategist layer because the skeleton edits itself.
 
 ## Loose ends / queued items
 
 - **Node.js 20 deprecation in CI** — GitHub Actions deprecation timeline cites June 2026 for full removal. CI uses `actions/checkout@v4` + `actions/setup-python@v5` which still rely on Node 20 internals. Watch for action version bumps before then; the matrix may need a refresh.
 - **`uninstall.sh` deferred.** No production demand yet — both current targets (Trainer-View, Echoes-Of-Gill) have stable installs. Will ship when there's real signal (e.g. a user trying to roll back the skeleton). Locked invariants when it lands: read `.skeleton-version`'s `files` map, prompt before deleting any locally-modified file (same `LOCALLY_MODIFIED` discipline `update.sh` uses).
 - **`defaultMode` mismatch.** Template ships `"defaultMode": "default"` in `settings.json.template`; skeleton's dogfood `.claude/settings.json` uses `"defaultMode": "plan"`. Intentional — dogfood-as-meta-system needs plan-mode discipline; target projects don't necessarily. Don't conflate.
-- **Existing installs ready for `update.sh` to v1.1.4.** Trainer-View and Echoes-Of-Gill are still on v1.0 baseline. v1.1.4 is the natural moment to run `bash <skeleton>/scripts/update.sh` against their `.claude/`. Six-way classification handles the delta: new template agents (session-observer, drift-checker, task-watchdog, code-quality-auditor), new template scripts (`drift-check.sh`, `task-watchdog.sh`, `plugin-quality-check.sh`), new template lib (`destructive-{bash,powershell}-patterns.sh`), 5 hook files including the new PowerShell safety hook from Phase 21, schema docs, the `resolved_at` observation-schema extension, the captures surface (workflow-suggester rewrite + script-builder X-builder), the captures-surface enum expansion (`doc-fix` / `infrastructure-fix` / `lesson`), and the SessionStart hook chain now firing the plugin-quality-check entry. Update is non-destructive; local modifications stay.
 <!-- cruft-check:exempt-historical -->
 - **task-watchdog deferred signals.** Three signals out of v1.1.0 scope, ordered by gating: (1) **no-progress** — same tool call returning identical output ≥N times consecutively; needs real-time hook surface CC doesn't expose. (2) **approval-waiting** — tool prompt sitting unanswered for >N minutes; same hook-surface gap. (3) **resource anomalies** — token / memory / CPU spikes; bundles with v1.2.0 `token-efficiency-monitor` proactive upgrade (same Gap #4 investigation into Claude Code's token-data exposure to agents).
-<!-- cruft-check:exempt-historical -->
-- **handoff:136 disposition.** The `v0.9.0` historical anchor (in the prose "the v1.0 cut shipped a stale README ('v0.9.0') that survived nine months") was an indefinite-accepted heuristic-x FP through v1.1.2. Phase 20 marker-exempted it via `<!-- cruft-check:exempt-historical -->`. Preserved as a historical anchor — the v1.0 stale-README incident motivates the "sweep at release cuts" sprint rule; deleting the reference would lose the rule's rationale.
 - **PreCompact + SessionEnd verification opportunistic.** Both hooks exist (PreCompact backup, SessionEnd session-observer) and emit valid schema-conformant output. Their real-time firing is observed only opportunistically — we know they emit correctly because the SessionStart cruft-check pattern was the same shape and was verified after Phase 14d's `type: command` wiring fix. Deferred unless / until a session inspection turns up a misfire.
 <!-- cruft-check:exempt-historical -->
 - **Unresolved Bash-growth mystery in `settings.local.json`.** Pre-Phase-21, 12 `Bash(...)` entries had accumulated in the local file via "Always allow" clicks despite the bash-safety hook returning `permissionDecision: allow` on those same commands. Most likely cause: pre-Phase-14d historical residue when hooks were silently inert; CC's "Always allow" doesn't auto-prune entries that are now redundant. Phase 21 verified the hook DOES emit allow correctly post-Phase-14d. No code change earned. Diagnose only if growth resumes post-v1.1.4 (no new Bash entries observed during Phase 22 / 24 / 25 sessions).
-- **Windows Git Bash /tmp path gotcha** — synthetic-test only, not a runtime issue. Phase 24 hit this during plugin-quality-check synthetic verification: `/tmp/tmp.XXXX` (Git Bash POSIX path) confuses Windows Python's `os.path.normpath` — slashes get converted to backslashes and the path resolves wrong (e.g. `/tmp/...` becomes `\tmp\...` which Windows Python treats as a relative path that doesn't exist). **Production path** `~/.claude/plugins/cache/` resolves correctly via `os.path.expanduser` to `C:\Users\<user>\.claude\plugins\cache\` (Windows-native absolute). For synthetic tests on Windows, use `$env:TEMP\<dir>` or `C:\tmp\<dir>` rather than Git Bash's `/tmp`. Worth flagging here so future synthetic-test work doesn't waste an hour rediscovering this.
+- **Windows Git Bash /tmp path gotcha** — synthetic-test only, not a runtime issue. Phase 24 hit this during plugin-quality-check synthetic verification: `/tmp/tmp.XXXX` (Git Bash POSIX path) confuses Windows Python's `os.path.normpath` — slashes get converted to backslashes and the path resolves wrong. **Production path** `~/.claude/plugins/cache/` resolves correctly via `os.path.expanduser` to `C:\Users\<user>\.claude\plugins\cache\` (Windows-native absolute). For synthetic tests on Windows, use `$env:TEMP\<dir>` or `C:\tmp\<dir>` rather than Git Bash's `/tmp`.
+- **Phase 35 watch items (claude-mem-specific):** `PostToolUse(*)` + `PreToolUse(Read)` + `UserPromptSubmit` + `Stop` hook chain noise; MCP server (`mcp-search`) reliability + context cost; daemon stability if user opts in via `npx claude-mem start`; 4-way `make-plan` command overlap (claude-mem vs skeleton vs feature-dev); 3-way `smart-explore` command overlap; context-injection token cost from superpowers SessionStart hook; `PreToolUse(Read)` hot-path latency on every file Read.
+- **Disk-space pre-check for plugin installs.** Phase 34b hit disk-full during npm install. Plugins with substantial native dependencies (tree-sitter family, sqlite, etc.) need 2-3GB headroom. v1.5-A `recommendation.schema` design should include `estimated_install_footprint_gb` field; v1.1.5-C plugins-getting-started doc should warn about this. No skeleton-side mitigation possible.
+- **`cached_skeleton_head` population deferred indefinitely on dogfood.** Phase 32b left this null. Structurally meaningless on dogfood (dogfood IS upstream — asking "is dogfood ahead of dogfood?" returns "always equal by definition"). Will populate naturally on TV/EoG via `--check-remote` when those updates run.
+- **commit-commands vs commit.sh dispatch overlap (Phase 36 retire-candidate).** Phase 34 surfaced this. Phase 35 evaluation needs side-by-side observation to inform Phase 36 decision. CC-audit Section 5 Dispute 2 disputed retirement (commit.sh has verbatim-contract value); empirical Phase 35 data may confirm or refute.
+- **Phase 35 watch item — empirical validation of strategist-chat-layer scope.** If pinball / TV / EoG sessions reveal a recurring need for chat-side strategic discipline that the skeleton + plugins can't provide natively, that's a v1.5+ finding: the skeleton's strategist-role provisioning needs more work. Document the gap if it surfaces (specific scenarios where CC + plugins didn't provide enough strategic pushback, where you reached for a separate chat instinctively, etc.). Negative result (no gap surfaces; CC + plugins is sufficient) confirms the skeleton's core value proposition.
 
 ## What's next
 
-Post-Phase-31 codification cascade landing now. v1.1.4 released; audit closure (Phase 30 / 30b / 30c) and codification (Phase 31) shipped post-cut. v1.1.5 has no major feature items queued. Two strategic directions remain open:
+**Phase 35 evaluation window NOW OPEN** (passive observation, ~3 weeks; data accumulates from every CC session).
 
-<!-- cruft-check:exempt-historical -->
-**Defer v1.2.0 design open until v1.1.4 bakes.** v1.2.0 meta-evolution tier opens with `manager-optimizer` (Level-3 meta-meta — watches HOW the manager decides). Gated on production miles per ROADMAP § v1.2.0 Gating. v1.1.4 just shipped; the audit triad (cruft-checker + drift-checker + code-quality-auditor) hasn't accumulated any operational data yet. Recommend waiting **≥2 weeks of active use on Trainer-View / Echoes-Of-Gill** before opening v1.2.0 design. Without real dispatch data — *including data on which audit-triad findings are real vs noise* — `manager-optimizer` would optimize against vibes. Passive option — no work; just wait for the baseline to mature.
+### Suggested sequencing during Phase 35
 
-**Phase 32+ pre-pinball queue.** Marker refresh (Phase 32 — `update.sh` against self), directive-layer alignment (Phase 33 — remove `/goals` TEMPLATE STUB, reframe `integration-checker` as DEFERRED, add `code-quality-auditor` dispatch H3), bundle install of 6 ecosystem plugins (Phase 34), evaluation window (Phase 35), composition rules + retire/repurpose decisions (Phase 36+), v1.5 ecosystem integration tier (Phases 38-45). Pre-pinball queue captured in `docs/ROADMAP.md` § v1.1.5+.
+| Window | Action | Why |
+|---|---|---|
+| Days 1-3 after Phase 35a | Restart CC; baseline observation of 6 plugins (especially claude-mem hooks firing on first activated session); use dogfood normally | claude-mem hooks load at session start — must restart for activation. Baseline data captured before propagating to other projects. |
+| Days 3-7 | Pinball install + first major prompt | Fresh project; tests v1.1.4 substrate on new-project context; lower stakes than TV/EoG; pinball is primary creative focus. |
+| Days 7-14 | TV update via `bash <skeleton>/scripts/update.sh` against Trainer-View | Higher stakes (deployed at trainer-view.web.app); inherits all v1.1.x improvements; production miles BEGIN here per locked production-miles framing. |
+| Days 14-21 | EoG update via same mechanism | Staggered from TV; if TV update surfaces `update.sh` issues, address before EoG. |
+| Day 21+ | Phase 35 closes; Phase 36 (retire/repurpose decisions) opens with empirical data | Decision-execution phase. |
 
-**Standard three-commit cadence throughout v1.1+** — brief → plan → A (mechanism) → B (integration + dogfood mirror) → C (CHANGELOG bullet) → push. Small-fix phases collapse to single commits per the Phase 10 rubric. Pre-cut cruft + plugin-quality sweeps mandatory at release cuts (Phase 6 / 19 / 22 / 25 precedent). Empirical audit before trusting brief diagnoses (Phase 21 precedent, now codified in `CLAUDE_MANAGER.md`).
+**Note on chat structure during Phase 35:** Pinball, TV, and EoG run entirely inside CC. No separate Claude chat tabs needed for them — the skeleton's directive layer + bundle-installed plugins provide the strategist discipline natively (`/feature-dev` for spec elicitation, superpowers brainstorming for in-depth questioning, `/code-review` for quality gates, claude-mem for cross-session continuity, audit triad for continuous checks). This skeleton chat stays as the dedicated strategist layer ONLY because the skeleton edits itself (meta-meta-system recursion); target projects don't have that recursion problem.
+
+### Concurrent strategic work (chat-side, anytime during Phase 35)
+
+- **Phase 37 codification** — audit-as-skeleton-primitive workflow into CLAUDE_MANAGER `## Strategic audit cycle` section + queue `strategic-audit-coordinator` for v1.2.0+. Doc-shuffle; can ship in a single afternoon.
+- **Phase 36 design draft** — composition rules framework, written before Phase 36 execution.
+- **Phase 38+ design scoping** — v1.5 component plans (`recommendation.schema`, `code-quality-auditor` candidate mode, `plugin-discovery-agent`, `plugin-context-matcher`, etc.).
+
+### Post-Phase-35 sequence
+
+1. **Phase 36** — retire/repurpose decisions (`plan-coordinator` only; `commit.sh` + `audit-helper` KEEP per CC-audit Section 5 dispute, ratified).
+2. **v1.1.5 onboarding tier** — 5 small phases A-E. Closes the "single-user project" gap. Sequenced AFTER pinball + TV/EoG so external visibility lands on stable substrate, not turbulence.
+3. **Phase 37 codification** — audit-as-primitive workflow into CLAUDE_MANAGER (if not already shipped concurrently during Phase 35).
+4. **Phase 38+ v1.5 ecosystem-integration tier** — `recommendation.schema`, `code-quality-auditor` candidate mode, `plugin-discovery-agent`, `plugin-context-matcher`, SessionStart hook + cooldown, first-install integration, composition-rule docs.
+5. **Phase 45** — v1.5.0 release cut.
+6. **Phase 46+** — v1.2.0 design opens (gated on v1.1.x production miles ≥ 2 weeks on TV/EoG, which begins post-update during Phase 35).
