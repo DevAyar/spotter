@@ -37,12 +37,12 @@ Each install evolves its own discipline. The shared template is a seed, not a fi
 
 A pattern graduates from one project's `.claude/` into `template/` (i.e. ships to every installation) when it crosses a hard threshold:
 
-- **≥66% of installed projects** show the same pattern (the bar is broad adoption, not narrow taste).
-- **Minimum 3 projects** in the sample (one or two installs is anecdote).
+- **≥75% of installed projects** show the same pattern (target 90%+). The 75% floor exists because broad adoption — not narrow majority — is the bar; at small N, even 66% can be 2-of-3-projects coincidence.
+- **Minimum 15 projects** in the sample (target 20+). Small-sample variance across 3 projects is too high to call any pattern "broadly proven"; the 15-project floor exists to prevent small-N coincidence promotion. 20+ projects is the target where graduation decisions become statistically meaningful.
 - **≥4 weeks stable** — the pattern hasn't been edited or reverted recently in any of the contributing projects.
 - **Zero negative observations** in the same 4-week window (no project has flagged the pattern as broken, noisy, or contraindicated).
 
-v1.2+ mechanism: `meta-session-observer` watches the cross-install signal → `workflow-suggester` drafts a graduation capture (`suggested_artifact_type: graduation`) → user approves → `template-promoter` executes the move, updates `install.sh` manifests, regenerates baseline hashes, updates CI scenarios. The threshold and mechanism together prevent the skeleton from inheriting one project's idiosyncrasies.
+This tier of mechanism — cross-install pattern detection — ships in **v3+** when claude-skeleton's install base supports it. v1.2.0 mechanisms are per-project (one instance per install, each watching its own context) and do not depend on graduation. Before the v3+ threshold, graduation happens manually via strategist judgment; the formal mechanism (`meta-session-observer` + `template-promoter`) is the FORMALIZATION of that discipline, not the introduction of it. See § v3.0+ for the formal mechanism's shape.
 
 ### Flow + safety, both
 
@@ -182,11 +182,15 @@ This is the big architectural reframe from the current strategist session. v1.2.
 
 This matters because the projects are different. **Pinball governs pinball. Trainer-View governs TV.** Each project's discipline diverges naturally over time because the work itself differs — a mobile app with a deployed backend has different audit needs than a game in active gameplay development, which has different needs again from a pinball prototype starting up. A single shared manager-optimizer would either over-fit to one project's patterns and force them on the others, or stay vague enough to be useless. Per-project instances let each project tune itself without contaminating its siblings.
 
-Graduation gets real with the per-project framing in place. A new component called the meta-session-observer (a watcher that sees patterns across all installed projects, not within one) collects cross-install signal. When a pattern hits the graduation threshold (see Locked architectural principles above), `workflow-suggester` drafts a graduation capture, and on approval a `template-promoter` executes the move into the shared template. Every project's next `update.sh` run inherits the pattern. The skeleton itself improves as a result of every project that uses it.
+v1.2.0 gating is **per-component**, not monolithic. Three classes of component, each with its own readiness bar:
 
-v1.2.0 is gated on production miles. The mechanism would optimize against vibes without real data, so the tier opens only when at least two weeks of post-v1.1.5 production miles have accrued on each of **two target projects — Trainer-View (mobile-deployed Firebase) and Echoes-Of-Gill (Godot game)**. The two cover sufficient structural variation for designing a per-project mechanism — a mobile app with a deployed backend and a game in active development exercise different audit cadences, different dispatch shapes, different scope-decay surfaces. Pinball joins as anticipated third sample whenever it arrives — additive to the per-project manager-optimizer's reach, not gating to its design.
+- **Per-project components** — `manager-optimizer`, `artifact-fit-analyzer`, `infrastructure-auditor` (project-level), `roadmap-auditor` (skeleton-level, dogfood only), loop pruning (via manager-optimizer), `token-efficiency-monitor` proactive upgrade. Each component's design needs only one project's data, by definition. **Gate:** ANY ONE production project with ≥2-3 weeks of post-v1.1.5 production miles. Per-project mechanisms don't need cross-install validation — that's a v3+ concern.
+- **Pure design components** — `/goals` expanded (research → targeted clarify → spec pipeline mechanism design), scheduled-goals (`schedule` field data shape + SessionStart surfacer integration). **Gate:** can open NOW. No production miles required to design schemas and pipelines; only execution / refinement needs data.
+- **Cross-install components** — `meta-session-observer`, `template-promoter`. **Moved OUT of v1.2.0** — see § v3.0+ tier below. These require a real install base (15+ projects, 75%+ adoption of candidate patterns) to operate against, which v1.2.0 cannot supply.
 
-This is a different bar than the **graduation** threshold described under Locked architectural principles (`### Multi-project graduation`). Graduation requires ≥3 projects because cross-install pattern-promotion needs broad evidence to avoid forcing one project's idiosyncrasies on everyone — that's load-bearing for the multi-project-shared-template move. v1.2.0 design start is per-project mechanism design; the two bars serve different mechanisms and shouldn't be conflated. The empirical bar is real — meta-evolution without dispatch history to learn from would land worse decisions than the current human-tuned defaults.
+The previous monolithic gating ("two weeks of miles on TV + EoG") was over-gating for per-project mechanisms whose design only needs one project's data. Trainer-View (mobile-deployed Firebase) + Echoes-Of-Gill (Godot game) remain the canonical first samples for per-project component design — they cover real structural variation between a deployed mobile backend and a game in active development. Pinball joins as anticipated additive sample whenever it arrives — enriches the per-project mechanism's reach, not gating to its design.
+
+The bar separation matters: v1.2.0 design start is per-project mechanism design (one project's data suffices); v3+ graduation needs broad install-base evidence (≥15 projects, 75%+ adoption). Conflating the two bars over-gates v1.2.0 work that doesn't depend on cross-install signal.
 
 Components in scope:
 
@@ -194,11 +198,12 @@ Components in scope:
 - **`artifact-fit-analyzer`** — surfaces redundancy, inefficiency, and missing combinations across the project's agents / skills / scripts / commands / hooks. Drafts consolidation, missing-coverage, or removal captures.
 - **`/goals` expanded** — the research → targeted clarify → spec pipeline. Outputs a structured spec doc that X-builders consume natively. Closes the long-deferred clarifying-questions seam.
 - **Loop pruning (via manager-optimizer)** — retires captures that never get approved and scripts that never get dispatched.
-- **`meta-session-observer` + `template-promoter`** — the cross-install graduation mechanism.
 - **`token-efficiency-monitor` proactive upgrade** — flags before dispatch when planned scope smells over-budget, not just after the fact.
 - **`infrastructure-auditor` (project-level)** — scheduled audit coordinator that dispatches the project-level checkers on a cadence.
 - **`roadmap-auditor` (skeleton-level, dogfood only)** — the skeleton's own auditor of its roadmap, schemas, and cross-phase contracts.
 - **Scheduled-goals support** — `schedule` field on `/goals` plus a SessionStart surfacer for due items.
+
+`meta-session-observer` + `template-promoter` are no longer in v1.2.0 scope; canonical home is § v3.0+ tier below.
 
 ## v2.0 plugin recommendation surface
 
@@ -210,7 +215,15 @@ The foundation is in v1.0 already: `CLAUDE_MANAGER.md.template`'s plugin marketp
 
 The point is not to list every plugin available. The point is to give the manager a discipline for picking the right ones for the project at hand and rejecting the wrong ones early.
 
-## v3.0+ multi-LLM sibling project
+## v3.0+ — ecosystem maturity tier (cross-install graduation + multi-LLM sibling)
+
+### Cross-install graduation machinery
+
+`meta-session-observer` (cross-install pattern watcher) + `template-promoter` (executes graduation moves) formalize what's currently a manual discipline. Before this tier ships, graduation happens via strategist judgment — patterns get promoted from one project's `.claude/` to `template/` based on human-curated assessment. The formal mechanism waits for a real install base (15+ projects with 75%+ adoption of candidate patterns; target 20+ / 90%+) because cross-install pattern detection without enough installs surfaces noise, not signal.
+
+When the threshold is reached: `meta-session-observer` watches cross-install signal → `workflow-suggester` drafts a graduation capture (`suggested_artifact_type: graduation`) → user approves → `template-promoter` executes the move (updates `install.sh` manifests, regenerates baseline hashes, updates CI scenarios). The mechanism is the FORMALIZATION of graduation, not the introduction of it. Manual graduation is the v1.2.0-through-v2-era discipline; formal mechanism is the v3+ unlock.
+
+### Multi-LLM sibling project
 
 Running the skeleton's structure across multiple LLMs — Claude + DeepSeek + others — with the manager arbitrating which model handles which subtask. claude-skeleton was designed against Claude Code's specific affordances (subagent dispatch, slash commands, hooks, skill discovery). Re-targeting it for general LLM orchestration would change the project's center of gravity, not extend it.
 
@@ -241,6 +254,7 @@ New cuts from this session:
 - **Single-manager-optimizer (dogfood-only watching) cut.** Per-project manager-optimizer is the new lock. Each install evolves its own discipline; a single instance watching one project's patterns would force-fit those patterns onto every install regardless of fit.
 - **One-size-fits-all install cut.** Per-project tuning is core architecture, not an opt-in feature. The template is a seed, not a frozen final form. The previous framing left room for "skeleton ships a fixed config" — that framing is gone.
 - **"AI productivity tool" framing cut.** claude-skeleton is governance infrastructure, not a speed-up plugin. The product question is "does this preserve coherence over time," not "does this make me type faster." Speed is a byproduct of not having to clean up messes; it is not the deliverable.
+- **Cross-install graduation as a v1.2.0 component cut.** Moved to v3+. The mechanism (`meta-session-observer` + `template-promoter`) requires a real install base (15+ projects, 75%+ adoption of candidate patterns) to operate against; v1.2.0 cannot supply it. Until then graduation happens manually via strategist judgment; the formal mechanism waits. Graduation threshold raised from 3 projects / 66% adoption to 15 projects / 75% adoption (target 20+ / 90%+) — small-sample variance across 3 projects is too high to call any pattern "broadly proven."
 
 ## Closing — scope discipline
 
