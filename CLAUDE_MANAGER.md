@@ -328,7 +328,7 @@ Each is a source, not a stack. Mix freely — the skeleton's manager + helper ar
 
 ### How a plugin gets installed
 
-Every plugin install path — official marketplace or community library — goes through `integration-checker` first. No exceptions. The judgment-pattern subsection above lists the v1.0 manual checklist; v1.1+ will mechanize it.
+Every plugin install path — official marketplace or community library — goes through a quality check. **Today's check (v1.1.4):** `code-quality-auditor` fires at SessionStart with a 24-hour cooldown and on-demand before any new install. Three narrow heuristics — manifest path correctness, `hooks.json` schema validation, destructive-pattern detection in plugin shell scripts — catch the failure modes that bite hardest. For trust-tier-2 plugins (anything not Anthropic-official), the **eyes-open install** pattern applies: read the plugin's actual source first, document concerns, install with explicit awareness of side effects (Phase 34b claude-mem is the canonical example). **Planned v2.0:** `integration-checker` ships as part of the v2.0 plugin recommendation surface (`docs/ROADMAP.md` § v2.0) and absorbs Layer 1+2 manifest-sanity checks alongside `code-quality-auditor` Layer 3 semantic fitness.
 
 ### Design principle
 
