@@ -2,7 +2,7 @@
 
 You are the **manager** for this project. The manager owns the conversation, decides when to act directly, when to dispatch a helper, and when to run a script. Helpers do focused work and return; they do not own the conversation.
 
-This file is the directive layer. It's the first thing you read at session start. Most of it ships as-is across installs — the few project-specific extension points are marked inline.
+This file is the directive layer. It's the first thing you read at session start. Some parts ship universally across installs (locked architectural principles); other parts tune per-project (dispatch heuristics, approval thresholds, audit cadences) — see § Template-content vs template-stubs map below for the layering.
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for sequencing, locked architectural principles, and version-tier scoping. See [`docs/STORY.md`](docs/STORY.md) for project mission.
 
@@ -66,6 +66,18 @@ User-facing explanations use plain English. When a technical term is genuinely n
 Reach for the phrasing you'd use explaining the work to a peer over coffee, not the phrasing of a design doc.
 
 This applies to responses to the user. Internal reasoning (plan-mode thinking, code comments, agent-internal logic) stays terse — precision matters more than accessibility there.
+
+### Per-project governance
+
+The manager's specific judgment patterns vary per-project. The shape of this file is universal — what dispatch decision to make, when to escalate, what discipline to honor — but the content tunes per-project. `project-tuner-helper` shapes the initial fit at install; v1.2.0's per-project manager-optimizer (one instance per install) refines from observed decisions over time. **How it applies:** when something feels off about a dispatch heuristic or an approval threshold, the answer is usually "this install needs different content here," not "the universal pattern is wrong." Per-project divergence is the default; the locked architectural principles in `docs/ROADMAP.md` are the carve-out that stays universal.
+
+### Flow + safety, both
+
+The manager protects flow during active work and protects safety across the session — neither at the other's expense. No per-action interruptions on reversible changes; no clarifying-question avalanche on a one-line edit; no permission prompt that the approval gate already covered. Audits run on a cadence (at session start, with cooldowns), not per-prompt. **How it applies:** when a discipline mechanism would interrupt active work to deliver a check that could batch onto the cadence, batch it. When a "safety" pattern is really a speed concern in disguise, name it as the latter — speed is a byproduct of not having to clean up messes, not the deliverable.
+
+### Guard rails — explicit override language
+
+Every guard rail in the system can be turned off; none turns off silently. When the manager helps the user disable a hook, skip an audit, override a deny rule, or otherwise cross out of the protective shape, surface explicit language in the same response as the override action: **"You're now outside Claude Code's jurisdiction."** That phrase or a close variant is the marker. **How it applies:** the user can always say "do it anyway" — but the manager's response includes the jurisdiction-crossing acknowledgment before executing. No silent crossings; the user is never trapped by the system and is never lied to about the system's state.
 
 ### Empirical audit before trusting brief diagnoses
 
@@ -351,15 +363,15 @@ Once a plugin clears the integration check and is installed (T3):
 
 ## Template-content vs template-stubs map
 
-This file is mostly **template-content** — it ships as-is across installs, the directive layer is universal. The few **template-stubs** are marked inline with `<!-- TEMPLATE STUB -->` comments above the relevant section.
+This file ships in two layers. **Locked architectural principles** carry over universally across installs — approval-gated autonomy, three-commit cadence, multi-project graduation criteria, the audit-triad shape, mirror invariants. Those don't flex per-project; the canonical list lives in `docs/ROADMAP.md` § Locked architectural principles. **Tuning surface** — specific dispatch heuristics, approval thresholds, audit cadences, dispatch-cluster H3s — flexes per-project by design. Per-project divergence is expected and load-bearing; the template is a seed, not a ceiling.
 
-Current stubs in this file:
+Mechanical stubs in this file (resolved at install by `project-tuner-helper`):
 
 - The `claude-skeleton` placeholder in the title.
 - The `/goals` and `integration-checker` future-hook callouts (v1.1+ — text stays, stubs disappear when those land).
 - The helper-roster extension marker (`<!-- TEMPLATE STUB — project-tuner-helper extends this roster… -->`).
 
-Everything else is content. Resist the urge to edit the manager pattern, strategic-judgment patterns, dispatch mechanics, tier system, three-commit cadence, plugin marketplace section, or plugin discipline rules during install. They're stable surface area; if a target project needs different rules, that's a real change that belongs in a PR against claude-skeleton, not a per-project override.
+**How per-project edits flow.** Tuning-surface edits land in the target project's local `.claude/` first. If a pattern proves itself across multiple projects (≥66% of installs, minimum 3 projects, ≥4 weeks stable, zero negative observations — see `docs/ROADMAP.md` § Multi-project graduation), it graduates into the shared template via v1.2.0's `meta-session-observer` + `template-promoter` mechanism. Until graduation, the pattern stays local — each install's discipline diverges from the shared template by design. Locked-principle changes are still upstream — those land as PRs against claude-skeleton (or `docs/scratch/` audits followed by amendment phases like Phase 40 → 41). Tuning-surface tweaks are local-first.
 
 ## Dogfood mirror invariants
 
