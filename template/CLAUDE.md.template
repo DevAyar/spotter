@@ -4,6 +4,8 @@
 
 You are working with {{WHO_YOU_ARE_WORKING_WITH}}.
 
+This file is the per-install constitution. Companion surfaces: [`docs/ROADMAP.md`](docs/ROADMAP.md) carries the locked architectural principles; [`CLAUDE_MANAGER.md`](CLAUDE_MANAGER.md) is the executive surface; the audit triad is the watchdog cadence.
+
 ## Communication style
 
 {{COMMUNICATION_STYLE}}
@@ -32,3 +34,5 @@ Defaults: plain English, jargon-with-translation, what-to-do-next first. Skip pr
 - `.claude/commands/` — slash commands.
 - `.claude/hooks/` — Claude Code hooks (SessionStart, PreCompact).
 - `docs/` — project records (STATUS.md, SESSION_LOG.md, ARCHITECTURE.md, ...).
+
+Scope is actively governed, not passively hoped for — the project-level audit triad (`cruft-checker` / `drift-checker` / `code-quality-auditor`) fires at session start with a cooldown to surface drift before it accumulates.

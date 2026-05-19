@@ -1,8 +1,10 @@
 # claude-skeleton
 
-Orchestration layer on the Claude Code ecosystem.
+Structural immune system for Claude Code projects — the governance layer that keeps scope coherent over time.
 
 You are working with Project owner + peers — digestible, not portfolio/mass-market. Drop marketing register. Useful first, philosophy second.
+
+This file is the per-install constitution. Companion surfaces: [`docs/ROADMAP.md`](docs/ROADMAP.md) carries the locked architectural principles; [`CLAUDE_MANAGER.md`](CLAUDE_MANAGER.md) is the executive surface; the audit triad is the watchdog cadence.
 
 ## Communication style
 
@@ -32,3 +34,5 @@ N/A — skeleton has no rendered UI.
 - `.claude/commands/` — slash commands.
 - `.claude/hooks/` — Claude Code hooks (SessionStart, PreCompact).
 - `docs/` — project records (STATUS.md, SESSION_LOG.md, ARCHITECTURE.md, ...).
+
+Scope is actively governed, not passively hoped for — the project-level audit triad (`cruft-checker` / `drift-checker` / `code-quality-auditor`) fires at session start with a cooldown to surface drift before it accumulates.
