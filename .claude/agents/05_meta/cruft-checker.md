@@ -80,6 +80,8 @@ Observation files at `.claude/observations/<pattern_id>.json` conforming to [`se
 - `notes`: free-text `≤120 chars` describing the specific violation (e.g. `"i: link-missing-file → docs/INSTALLATION.md:42: target docs/MISSING.md"`).
 - `evidence`: single entry with `kind: "doc_cruft"`, `summary` matching the notes text, `timestamp` of the scan.
 - `confidence`: `"med"` on first sighting. Cross-session re-observation bumps `occurrences`; per schema rules, ≥5 → `"high"`.
+- `privacy_class`: `"local-only"` on every emission (Phase 46). Doc names, file paths, and project structure carried by every heuristic make these unsafe to share cross-install. The `redact-observation.sh` lib refuses to emit `local-only` observations.
+- `target_resource` (Phase 46): optional for cruft-checker — each heuristic has its own target shape (markdown file, VERSION, README, settings.json, etc.) and an in-emit mapping would be brittle. Deferred to a follow-up phase; for v1.1.5 the field is omitted.
 
 Re-observation rules from the schema apply unchanged — same pattern_id across sessions merges into the existing file (occurrences bumps, last_seen updates, evidence appends capped at 20).
 

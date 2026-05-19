@@ -53,6 +53,8 @@ Observation files at `.claude/observations/<pattern_id>.json` conforming to [`se
 - `notes`: free-text `≤120 chars` with heuristic-prefix routing (e.g. `"i: <plugin> manifest declares <component> at <path> but path is missing"`, `"ii: <plugin> hooks.json <reason>"`, `"iii: <plugin> <script-path> contains <pattern> against unguarded path"`).
 - `confidence`: `high` for i and ii (crisp pass/fail), `med` for iii (regex match has modest FP risk).
 - `evidence`: single entry with `kind: "plugin_audit"`, `summary` matching the notes text, `timestamp` of the scan.
+- `privacy_class`: `"share-with-redaction"` on every emission (Phase 46). Plugin name + heuristic ID are safely shareable cross-install; plugin paths under `~/.claude/plugins/cache/<marketplace>/...` may leak local user info via marketplace name, so `share-with-redaction` lets the redaction lib strip the leakier fields.
+- `target_resource`: `plugin:<plugin_name>` derived from the signature prefix (`<heuristic-id>:<plugin_name>:...`). Enables downstream stale-checker / manager-optimizer queries against plugin-quality observations by plugin.
 
 Re-observation rules from the schema apply unchanged — same `pattern_id` across sessions merges into the existing file (occurrences bumps, last_seen updates, evidence appends capped at 20).
 

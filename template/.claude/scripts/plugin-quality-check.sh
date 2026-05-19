@@ -110,6 +110,17 @@ def emit(signature, notes, confidence='high'):
         evidence = [new_evidence]
         prior_notes = notes
 
+    # Phase 46: plugin-quality observations are share-with-redaction —
+    # plugin name + heuristic shareable across installs, but plugin paths
+    # under ~/.claude/plugins/cache/<marketplace>/... may leak local user
+    # info via marketplace name. target_resource derived from signature:
+    # signatures all follow "<heuristic-id>:<plugin_name>:..." so we split
+    # on ':' and take the second token (plugin_name) for the target.
+    target_resource = None
+    sig_parts = signature.split(':', 2)
+    if len(sig_parts) >= 2 and sig_parts[1]:
+        target_resource = f'plugin:{sig_parts[1]}'
+
     out = {
         'pattern_id': pid,
         'source': 'code-quality-auditor',
@@ -121,7 +132,10 @@ def emit(signature, notes, confidence='high'):
         'evidence': evidence,
         'confidence': confidence,
         'notes': prior_notes,
+        'privacy_class': 'share-with-redaction',
     }
+    if target_resource:
+        out['target_resource'] = target_resource
     tmp = path + f'.tmp.{os.getpid()}'
     with open(tmp, 'w', encoding='utf-8', newline='\n') as f:
         json.dump(out, f, indent=2, sort_keys=True)

@@ -329,6 +329,33 @@ def write_observation(pid, ptype, signature, events, notes=None):
     else:
         confidence = 'low'
 
+    # Phase 46 privacy_class mapping for task-watchdog:
+    #   - recurring_failure → share-with-redaction (error signature shareable,
+    #     command args redact via the safe-to-share field allowlist).
+    #   - other (long-running bash) → share-with-redaction (duration + tool
+    #     shareable; command args redact).
+    privacy_class = 'share-with-redaction'
+
+    # target_resource: opportunistic. For recurring_failure, attribute to the
+    # failing tool (Bash | Read | Edit | ...). For long-running bash, attribute
+    # to "script:<first-bash-token>" when the command is a script invocation,
+    # else just "tool:Bash". Producers MAY omit when no identifiable resource.
+    target_resource = None
+    if events:
+        first = events[0]
+        if ptype == 'recurring_failure':
+            tn = first.get('tool_name', '')
+            if tn:
+                target_resource = f'tool:{tn}'
+        else:
+            cmd = first.get('command', '')
+            if cmd:
+                first_token = cmd.strip().split(None, 1)[0] if cmd.strip() else ''
+                if first_token.endswith('.sh') or '/' in first_token:
+                    target_resource = f'script:{os.path.basename(first_token)}'
+                else:
+                    target_resource = 'tool:Bash'
+
     out = {
         'pattern_id': pid,
         'source': source,
@@ -339,9 +366,12 @@ def write_observation(pid, ptype, signature, events, notes=None):
         'resolved_at': None,
         'evidence': combined,
         'confidence': confidence,
+        'privacy_class': privacy_class,
     }
     if notes:
         out['notes'] = notes
+    if target_resource:
+        out['target_resource'] = target_resource
 
     tmp = path + f'.tmp.{os.getpid()}'
     with open(tmp, 'w', encoding='utf-8', newline='\n') as f:

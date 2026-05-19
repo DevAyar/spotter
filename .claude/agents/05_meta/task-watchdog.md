@@ -36,6 +36,10 @@ Observation JSON files at `.claude/observations/<pattern_id>.json` conforming to
 
 `source: "task-watchdog"` on every observation. Re-observation rules from the schema apply: same `pattern_id` across sessions → bumps `occurrences`, updates `last_seen`, appends to `evidence` (capped at the 20 most recent entries).
 
+`privacy_class: "share-with-redaction"` on every emission (Phase 46). Error signatures and bash duration metrics ARE shareable cross-install, but the raw command args and content fields need stripping. The `redact-observation.sh` lib enforces this on emission to any cross-install destination — `share-with-redaction` observations get reduced to the safe-to-share field allowlist (evidence keeps `timestamp` + `kind` only; `args_redacted`, `summary`, `notes` get stripped).
+
+`target_resource` is set opportunistically: `tool:<name>` for `recurring_failure` (the failing tool), and `script:<basename>` for long-running bash when the command looks script-shaped (path-containing or ends in `.sh`), else `tool:Bash`.
+
 `resolved_at` is always written: `null` on new emission and on re-emission (regression-reset). task-watchdog does NOT actively set `resolved_at` to a timestamp on existing observations — its scope is one prior session per scan, so absence in a scan is not meaningful evidence of permanent resolution. Per the schema's "Resolution lifecycle" section, task-watchdog's observations from older sessions stay `null` indefinitely. Intentional asymmetry with `cruft-checker`, which can run a full resolve pass because its scope covers the entire skeleton repo on every scan.
 
 ## Idempotency contract

@@ -41,7 +41,9 @@ Confidence heuristic (v1.1.0 default): ≥5 occurrences with a consistent signat
 
 ## What it outputs
 
-For each detected pattern, one JSON file at `.claude/observations/<pattern_id>.json` conforming to [`session-observer.schema.md`](session-observer.schema.md). Fields: `pattern_id`, `source`, `pattern_type`, `occurrences`, `first_seen`, `last_seen`, `resolved_at`, `evidence`, `confidence`.
+For each detected pattern, one JSON file at `.claude/observations/<pattern_id>.json` conforming to [`session-observer.schema.md`](session-observer.schema.md). Fields: `pattern_id`, `source`, `pattern_type`, `occurrences`, `first_seen`, `last_seen`, `resolved_at`, `evidence`, `confidence`, `privacy_class` (Phase 46; see below). `target_resource` is optional/encouraged — emit when the pattern targets an identifiable artifact (e.g. `repeated_edit` on `foo.md` → `target_resource: "file:foo.md"`).
+
+**privacy_class** (required, Phase 46): set to `"local-only"` on every session-observer emission. The producer scans `SESSION_LOG.md` and command/edit/error traces — all four pattern types (`repeated_command`, `repeated_edit`, `error_resolution`, `other`) carry project-specific paths, file names, or error context. Conservative default — `redact-observation.sh` refuses to emit these cross-install.
 
 - **New pattern.** Creates a new file. `source: "session-observer"`, `first_seen` = `last_seen` = window start, `resolved_at: null`.
 - **Re-observed pattern.** Reads the existing file, increments `occurrences`, updates `last_seen`, appends new evidence entries (capped at the most recent 20 to bound file size), sets `resolved_at: null` (regression-reset if it was previously marked resolved), leaves `first_seen` and `pattern_id` unchanged. `source` stays whatever the original producer wrote — re-observation doesn't change provenance.

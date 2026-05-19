@@ -113,6 +113,11 @@ def emit(signature, notes, summary=None):
     else:
         confidence = 'med'  # cruft-checker baselines at med even at occurrences=1
 
+    # Phase 46: cruft-checker observations are always local-only — they
+    # carry doc names, file paths, and project structure that should never
+    # leak cross-install. target_resource is optional/encouraged on other
+    # types; deferred to a follow-up phase for cruft-checker (each heuristic
+    # has its own target shape; mapping in emit() would be brittle).
     out = {
         'pattern_id': pid,
         'source': source,
@@ -124,6 +129,7 @@ def emit(signature, notes, summary=None):
         'evidence': evidence,
         'confidence': confidence,
         'notes': prior_notes,
+        'privacy_class': 'local-only',
     }
     tmp = path + f'.tmp.{os.getpid()}'
     with open(tmp, 'w', encoding='utf-8', newline='\n') as f:

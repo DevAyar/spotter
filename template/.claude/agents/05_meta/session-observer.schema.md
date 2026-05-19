@@ -21,12 +21,14 @@ Lock the schema; extend the enums. New producers register a `source` value, new 
 | `resolved_at` | string (ISO-8601 UTC) or `null` | yes | Set by the producer when its scan no longer detects the underlying pattern. `null` = active (detected on most recent scan, or never re-scanned since first emission). Non-null timestamp = producer confirmed the pattern is gone as of that time. Reset to `null` on re-detection (regression). Consumers like `workflow-suggester` skip non-null entries when generating new captures. See "Resolution lifecycle" below. |
 | `evidence` | array of event objects | yes | Concrete instances the pattern was extracted from. Each event: `{ timestamp, kind, summary, tool_name?, args_redacted? }`. See "Evidence" below. Capped at the 20 most recent entries to bound file size. |
 | `confidence` | string enum | yes | `low` \| `med` \| `high`. Default heuristic: ≥5 occurrences → `high`; 3–4 → `med`; 2 → `low`. Producers can override when they have direct evidence (e.g. `task-watchdog` matching an exact stack trace at 2 occurrences → `high`). |
+| `privacy_class` | string enum | yes (v1.1.5+) | `local-only` \| `safe-to-share` \| `share-with-redaction`. Schema-level privacy class governing what can leave the project boundary. Set by the producer at emit time per the producer's mapping. Migrated observations (pre-v1.1.5) default to `local-only` (conservative). The `redact-observation.sh` lib reads this field — refuses `local-only`, passes `safe-to-share`, strips `share-with-redaction` to the safe-to-share field allowlist (see [`redact-observation.sh`](../../lib/redact-observation.sh)). |
 
 Optional fields per `pattern_type`:
 
 | Field | Type | Required when |
 |---|---|---|
 | `notes` | string (≤ 120 chars) | `pattern_type == "other"`. Free-text label so the consumer knows what shape the pattern is. |
+| `target_resource` | string (format `<category>:<name>`) | Optional/encouraged on all types; **required** on `pattern_type == "token_telemetry"`. Identifies the artifact the observation is about, enabling downstream stale-checker / artifact-fit-analyzer / manager-optimizer queries. Categories: `agent`, `skill`, `command`, `script`, `plugin`, `hook`, `file`, `session`. Examples: `agent:cruft-checker`, `command:goals`, `script:commit.sh`, `plugin:claude-mem`, `file:CLAUDE_MANAGER.md`, `hook:sessionend-observe.sh`, `session:<session_id>`. |
 
 ## Evidence
 
@@ -63,6 +65,30 @@ The mechanism is asymmetric by producer scope:
 
 Resolved observations stay on disk as audit trail — consumers filter them, nothing deletes them. v2.0's `manager-optimizer` is the eventual pruning surface.
 
+## Privacy class mapping
+
+`privacy_class` is **schema-level privacy enforcement** — the field governs what each observation can leak when cross-install aggregation happens. Producers set it at emit time per the table below; the `redact-observation.sh` lib enforces it on emission to any cross-install destination.
+
+| Producer | pattern_type | privacy_class | Rationale |
+|---|---|---|---|
+| session-observer | `repeated_command` | `local-only` | Command args contain project paths |
+| session-observer | `repeated_edit` | `local-only` | File paths leak project structure |
+| session-observer | `error_resolution` | `local-only` | Error context project-specific |
+| session-observer | `other` | `local-only` | Conservative catch-all |
+| task-watchdog | `recurring_failure` | `share-with-redaction` | Error signature shareable; command args redact |
+| task-watchdog | `other` (long-bash) | `share-with-redaction` | Duration + tool shareable; command args redact |
+| cruft-checker | `other` (doc_cruft) | `local-only` | Doc names + violations project-specific |
+| code-quality-auditor | `plugin_quality` | `share-with-redaction` | Plugin name + heuristic shareable; plugin paths may leak local user info |
+| (SessionEnd telemetry) | `token_telemetry` | `safe-to-share` | Only aggregate metrics; no project content |
+
+The three values:
+
+- **`local-only`** — conservative default. Observation contains project-specific content/context that can't safely leave the project boundary. The redaction lib **refuses to emit** these (exit 2). Used for anything containing file paths, doc names, or project structure.
+- **`safe-to-share`** — only structural / metadata signals safe for cross-install aggregation. Pass-through to redaction lib (no field stripping needed). Used for pure metric observations (token telemetry).
+- **`share-with-redaction`** — shareable signal + project-specific content that gets stripped on emission. The redaction lib reduces these to the safe-to-share field allowlist. Used for failure-signature observations and plugin-quality observations.
+
+The migration script `.claude/lib/migrate-observation-privacy.sh` backfills `privacy_class: "local-only"` on any pre-v1.1.5 observation lacking the field. Producers MUST set the field on all new emissions.
+
 ## Example
 
 ```json
@@ -97,11 +123,12 @@ Resolved observations stay on disk as audit trail — consumers filter them, not
       "summary": "Counting .gd files with bash-safety excludes"
     }
   ],
-  "confidence": "high"
+  "confidence": "high",
+  "privacy_class": "local-only"
 }
 ```
 
-This is a `repeated_command` pattern — the same intent (counting `.gd` files at project root) tried three different command shapes over a week. A consumer like `workflow-suggester` would draft a capture (a `count-godot-files.sh` script, or a slash command) so the canonical shape is one keystroke away next time.
+This is a `repeated_command` pattern — the same intent (counting `.gd` files at project root) tried three different command shapes over a week. `privacy_class: "local-only"` because the command args carry project-specific path shapes. A consumer like `workflow-suggester` would draft a capture (a `count-godot-files.sh` script, or a slash command) so the canonical shape is one keystroke away next time.
 
 ## Extensibility notes
 
