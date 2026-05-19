@@ -30,7 +30,7 @@ The human stays in control throughout. The system **enforces transparency, not r
 
 ## Core principles
 
-Eight principles flow from the mission. Each is non-negotiable; every roadmap decision composes against this list.
+Twelve principles flow from the mission. Each is non-negotiable; every roadmap decision composes against this list.
 
 ### Approval-gated autonomy
 
@@ -40,29 +40,45 @@ Thinking is automated; action is approved. The system can read, plan, observe, a
 
 Each install evolves its own discipline. The shared template is a seed, not a final form. Every project tunes its own audit cadence, its own approval thresholds, its own sense of when to suggest a refactor. A v1.2.0 component called the manager-optimizer (an agent that watches how the manager decides over time, one instance per project) is the mechanism that makes per-project tuning real; the full design lives in [`ROADMAP.md`](ROADMAP.md).
 
+### Empirical readiness, not the clock
+
+Every gate in the roadmap is signal-based — sessions accumulated, observation cycles closed, audit corpus large enough, install count growing, prior tier shipped. Calendar dates never lock a tier. The question is always "what's the empirical signal that says the gate is open?" — not "has enough time passed?"
+
+### Soft gates vs hard safeguards
+
+Two distinct classes of gating live in the system. Soft gates ask "should we automate this pattern?" or "should we apply this update?" — they're configurable, flippable per-install, and can loosen as trust accrues. Hard safeguards block destructive operations: destructive bash patterns, trust-tier-3 plugin gating, file ops outside the project, credential or financial or PII exposure. Hard safeguards are not configurable, not flippable, not loosened — they stay rigid forever. The two classes don't share a configuration surface.
+
 ### Multi-project graduation
 
-Patterns graduate from a single project's `.claude/` into the shared template only when they prove themselves across multiple projects. The bar is broad adoption (at least two-thirds of installs), a minimum of three projects in the sample, four weeks of stable behavior, and zero negative observations across that window. One project liking a pattern is not enough; idiosyncrasies stay local.
+Patterns graduate from a single project's `.claude/` into the shared template only when they prove themselves across multiple projects. The bar is 75%+ adoption with a 15-project floor (target 20+ projects / 90%+ adoption), stable behavior across sufficient consecutive sessions in each contributing project, and zero negative observations across that window. One project liking a pattern is not enough; idiosyncrasies stay local.
 
 ### Flow + safety, both
 
 The manager protects flow during active work — it doesn't interrupt every prompt for permission, it doesn't ask three clarifying questions before a one-line change, it doesn't surface every observation as a blocking event. Audits run on a cadence, not per-action. The architecture refuses the speed-vs-discipline tradeoff: flow + safety, both, as the default state.
 
-### Compose, don't compete
-
-claude-skeleton sits on top of Claude Code's plugin marketplace. It does not try to replicate every plugin or replace every helper. The first move when a need shows up is to look at what the ecosystem already ships — `/feature-dev`, `code-review`, `superpowers`, claude-mem, and the rest — and compose with it. Building from scratch happens only when the ecosystem doesn't serve the need; the cost of duplicating something good is much higher than the cost of pulling it in.
-
 ### Guard rails, configurable but transparent
 
 Every protection in the system can be turned off. None of them can be turned off silently. When a user crosses out of the protective shape — disabling a hook, skipping an audit, overriding a deny rule — the system says it, in plain language: **You're now outside Claude Code's jurisdiction.** The user is never trapped by the system, and the user is also never lied to about the state of the system.
 
-### Quality filter, not directory
+### Scope actively governed
 
-For plugin recommendations and ecosystem composition, the skeleton is a quality filter, not a catalog. It does not try to list every plugin available; it suggests the ones that fit this specific project's context, and explicitly flags the ones that don't. **Don't be a directory; be a quality filter** is the operating rule. Recommendations get sharper as the system gathers data about what works in each project.
+Every claude-skeleton install defines its scope explicitly through its own `CLAUDE.md`, `CLAUDE_MANAGER.md`, and locked principles. The system audits that scope continuously through the watchdog cadence. When scope erodes, the system surfaces it; the user decides what to do. This is the center of mission — scope is actively governed, not passively hoped for.
 
-### Plain English by default
+### Compose, don't compete
 
-The directive layer (`CLAUDE_MANAGER.md` and the docs that shape it) reads like a peer conversation, not a specification. Jargon gets translated inline on first use. One technical term per concept. This was codified today as a strategic-judgment H3 in the manager — user-facing prose stays digestible to project owners and peers, not portfolio voice or marketing register.
+claude-skeleton sits on top of Claude Code's plugin marketplace. It does not try to replicate every plugin or replace every helper. The first move when a need shows up is to look at what the ecosystem already ships — `/feature-dev`, `code-review`, `superpowers`, claude-mem, and the rest — and compose with it. Building from scratch happens only when the ecosystem doesn't serve the need; the cost of duplicating something good is much higher than the cost of pulling it in.
+
+### Ever-evolving being
+
+The skeleton ships a baseline; `project-tuner-helper` shapes it per-project; `workflow-suggester` catches new patterns. Not "install and forget" — the skeleton evolves with its installations. The capture/reuse loop, observation infrastructure, and meta-agents in `05_meta/` all exist to support this evolution.
+
+### Token-cost as design driver
+
+Optimize for useful output per token, not for token minimization. The user's subscription quota IS the constraint; every layer — observation, dispatch, context loading, agent output — gets measured and designed against cost. Cost optimization stops where usefulness drops. Mechanisms that minimize tokens at the cost of output quality fail design review.
+
+### Usefulness is the floor
+
+Every discipline mechanism in the skeleton — audits, observation cycles, capture lifecycles, token efficiency, plan-mode discipline — serves usefulness. None replaces it. If a mechanism makes the skeleton less useful, it gets cut or redesigned. Usefulness is empirical: did the user get more useful work done because the skeleton exists, or less? The answer must always be "more."
 
 ## How it prevents scope decay
 
