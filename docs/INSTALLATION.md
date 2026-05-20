@@ -150,6 +150,17 @@ removal is queued for a later release. Markers created before
 `update.sh` run by re-hashing the template at the recorded install
 commit.
 
+The marker also carries three **install-identity** fields (Phase 47a):
+`install_uuid` (a UUID v4 generated once at install time, immutable),
+`install_label` (human-readable, defaults to the install directory's
+basename — edit it by hand in `.skeleton-version` for now), and
+`install_created` (ISO-8601 timestamp of first write). `install.sh`
+writes all three on a fresh install; `update.sh` backfills them once,
+inline and silently, for markers created before Phase 47a, and never
+regenerates an `install_uuid` that is already present. They identify
+this install to the optional cross-project memory bus (see § Share mode
+opt-in) and are otherwise inert.
+
 The marker is JSON; parsing requires `python` (or `python3`) on
 `PATH`. Git Bash for Windows ships with Python 3 in most installs;
 if missing, install Python 3 and rerun. `jq` is **not** required by
@@ -211,6 +222,53 @@ If you have important local modifications and want to preserve
 them across the 0.8.0 migration, either commit them before
 running `update.sh` (so you can see them in the diff) or accept
 the warning and use `[R]eview individually` to spot them.
+
+## Share mode opt-in
+
+claude-skeleton can optionally feed a **cross-project git memory bus** —
+a git remote, controlled by you, that your installs push install-identity
+sentinels to. The trust model is single-user-multi-install: one person's
+installs to one of that person's own remotes. It is **off by default**;
+nothing is shared until you opt in.
+
+Phase 47a ships **infrastructure only** — identity + opt-in. No
+observation, capture, or telemetry data is pushed yet (producer
+integration + redaction land in Phase 47b; the SessionEnd push cadence
+in 47c).
+
+Three commands manage it:
+
+- `/share-enable <remote-url>` — opt in. Clones the remote, initializes
+  the shared tree if it is an empty bare repo, writes a sentinel at
+  `installs/<install_uuid>/sentinel.json`, and — after you type the
+  literal word `enable` — commits and pushes it, then writes
+  `.claude/share-config.json`. Needs `install_uuid` in the marker (run
+  `update.sh` first if it is missing).
+- `/share-disable` — stop future pushes. Flips `share-config.json` to
+  `enabled: false` and stamps `disabled_at`, preserving `remote_url` and
+  `enabled_at`. Data already on the remote is untouched (a
+  `--purge-remote` flag is deferred to 47c+).
+- `/share-status` — report current state (configured / enabled /
+  disabled, remote URL, timestamps, install UUID + label). Read-only.
+
+`.claude/share-config.json` is created on the first successful
+`/share-enable` and is **not** part of the installed template — its
+absence means "not configured." Schema:
+
+```json
+{
+  "schema_version": 1,
+  "enabled": true,
+  "remote_url": "<git-pushable-URL>",
+  "enabled_at": "2026-01-01T00:00:00Z",
+  "disabled_at": null
+}
+```
+
+The sentinel written to the remote carries `schema_version`,
+`install_uuid`, `install_label`, the skeleton `version` / `commit`
+(marker-native field names — no translation layer), and a
+`sentinel_timestamp`.
 
 ## Uninstall
 

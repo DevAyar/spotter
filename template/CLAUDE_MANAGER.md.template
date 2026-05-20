@@ -392,3 +392,13 @@ Dogfood-only artifacts explicitly scoped to dogfood per their phase brief (e.g. 
 **`LOCALLY_MODIFIED` means a file differs from the template version it was installed from, regardless of who modified it or when (project-tuner-helper, the user, or both).** `LOCALLY_MODIFIED` files are never auto-overwritten — even under `--auto-apply` — so they require a per-file keep/overwrite decision. That's what protects tuner customizations and hand edits alike from a generic template clobbering them on `[A]pply all`.
 
 The baseline is immutable per file: `install.sh` records it before `project-tuner-helper` runs, and `update.sh` re-stamps it only when a file is (re)written from the template during apply. The older `files` map is a deprecated back-compat alias — it is mutated over an install's life, so it cannot answer "what template did this come from?"; it is retained through the transition, removal queued for v1.5+. Markers predating `raw_template_baselines` are migrated once, inline, on the first post-upgrade `update.sh` run (re-hashing the template at the recorded install commit, falling back safely to the current template when that commit cannot be located). On that first run, files that diverge from their raw template — including pre-existing tuner customizations — correctly surface as `LOCALLY_MODIFIED`; reviewing and keeping them is the expected outcome.
+
+## Cross-project git memory (Phase 47, opt-in)
+
+A cross-install memory bus exists as opt-in scaffolding (Phase 47a). The trust model is **single-user-multi-install**: one person's installs push to one git remote that person controls — never a shared/public bus, never another user's data.
+
+- **Opt in** with `/share-enable <remote-url>`. It writes an identity sentinel (install UUID + label + skeleton `version`/`commit` — no project data) under `installs/<uuid>/` on the remote and records the opt-in in `.claude/share-config.json`. Confirmation requires typing the literal word `enable` (fail-closed on EOF).
+- **Escape hatches**: `/share-disable` stops future pushes (preserves the audit trail; remote data untouched), `/share-status` reports current state. Read-only status; both no-op gracefully when unconfigured.
+- **Default is off** — `share-config.json` does not exist until you opt in, and it is not part of the installed template.
+
+No observation / capture / telemetry data crosses the boundary yet. Phase 47a ships identity + opt-in only; producer integration + redaction land in 47b, and the SessionEnd push cadence in 47c. Full schema + trust model: `docs/INSTALLATION.md` § Share mode opt-in.
