@@ -35,3 +35,11 @@ Thumbs.db
 
 # Hook runtime artifacts — per-session noise, not release narrative.
 docs/SESSION_LOG.md
+
+# Phase 46 telemetry: per-session JSONL + markdown rollups are
+# per-install local data, not source-of-truth. The canonical cross-install
+# summary lives at .claude/observations/token-telemetry-<id>.json which is
+# already gitignored via .claude/observations/*.json above. .gitkeep + README
+# in each telemetry subdir stay tracked.
+.claude/telemetry/events/*.jsonl
+.claude/telemetry/sessions/*.md
