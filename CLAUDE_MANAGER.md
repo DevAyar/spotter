@@ -316,6 +316,10 @@ When a dispatch prompt sets an explicit override (e.g. `COMMITS: single commit, 
 
 Every shipped phase ships a `[Unreleased]` CHANGELOG bullet, regardless of size. Small fixes get short bullets; medium/large phases get summary bullets. The bullet is part of the phase's commit set (either in the final commit for small fixes, or in Commit C for three-commit cadence). Omitting the CHANGELOG bullet requires an explicit override in the dispatch prompt — default behavior is always to include it.
 
+### Test-fixture updates land with the file change
+
+When a phase adds or removes files under `template/`, CI fixture counts in `.github/test-fixtures/` MUST update in the same commit. The Phase 46 → 46b → 46c arc is the canonical lesson: Phase 46 added 4 install-counted files (`.gitkeep` files skip per `scripts/install.sh:357`) but the `verify_marker 45` calls in `scenarios.sh` stayed stale, CI went red on both Phase 46 and Phase 46b, and Phase 46c shipped purely to bump the count. The fixture edit is two characters; a red CI tail is a separate phase. Don't ship the file change without the fixture update.
+
 ### Co-Authored-By trailer convention
 
 Every claude-skeleton commit — phase mechanism, integration, doc-maintenance, release cut — lands with `Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>` as the final trailer. **Why:** the directive layer + skeleton design are co-authored work with Claude as collaborator; the attribution is consistent with how the meta-system is described in `STORY.md` and `docs/ROADMAP.md` (ADHD-driven design as constraint-forced discipline that generalises via LLM collaboration). **How it applies:** every commit on the skeleton carries the trailer. Locked across v1.1.x; persists through v1.2.0 and beyond unless explicitly revisited.
