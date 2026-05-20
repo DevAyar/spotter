@@ -43,6 +43,10 @@ jobs:
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh fresh-install
 
+      - name: Scenario - raw-baseline-install
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh raw-baseline-install
+
       - name: Scenario - fresh-refuse
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh fresh-refuse

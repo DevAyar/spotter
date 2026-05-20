@@ -18,7 +18,12 @@ TMP_CLONE_DIR=""
 ADDED_FILES=()
 ADDED_DIRS=()
 
-# Per-file install hashes: one "<relpath><TAB><sha256>" entry per non-top file copied/overwritten
+# Per-file install hashes: one "<relpath><TAB><sha256>" entry per non-top file copied/overwritten.
+# Feeds BOTH marker maps, which are byte-identical at install time:
+#   - raw_template_baselines : immutable "template version this file was installed from" (Phase 52).
+#     update.sh classifies against THIS field.
+#   - files                  : DEPRECATED back-compat alias (an old update.sh still reads it).
+#                              Mutated by update.sh over time; removal queued for v1.5+.
 INSTALLED_HASHES=()
 
 # JSON parsing tool (detected at startup)
@@ -89,7 +94,10 @@ record_installed_hash() {
 }
 
 # write_marker_json <file> <version> <commit> <installed_at> <mode> <claude_only> <source> <updated_at_or_empty> <cached_skeleton_head_or_empty> <cached_skeleton_head_fetched_at_or_empty>
-# Reads "<relpath>\t<hash>" lines from stdin and writes them as the files object.
+# Reads TAB-separated lines from stdin, tagged by destination map:
+#   "F<TAB><relpath><TAB><hash>"  -> files (DEPRECATED back-compat)
+#   "R<TAB><relpath><TAB><hash>"  -> raw_template_baselines (Phase 52, classification source)
+# A 2-field "<relpath><TAB><hash>" line (no tag) is treated as files for safety.
 # Atomic: writes to <file>.tmp.$$ then mv.
 write_marker_json() {
   local file="$1" version="$2" commit="$3" installed_at="$4" mode="$5" claude_only="$6" source="$7" updated_at="$8"
@@ -98,12 +106,16 @@ write_marker_json() {
   "$JSON_TOOL" -c '
 import json, sys
 files = {}
+raw = {}
 for line in sys.stdin:
     line = line.rstrip("\r\n")
     if not line: continue
-    parts = line.split("\t", 1)
-    if len(parts) != 2: continue
-    files[parts[0]] = parts[1]
+    parts = line.split("\t")
+    if len(parts) == 3:
+        tag, p, h = parts
+        (raw if tag == "R" else files)[p] = h
+    elif len(parts) == 2:
+        files[parts[0]] = parts[1]
 out = {
   "version": sys.argv[1],
   "commit": sys.argv[2],
@@ -117,6 +129,7 @@ if sys.argv[7]:
 out["cached_skeleton_head"] = sys.argv[8] if sys.argv[8] else None
 out["cached_skeleton_head_fetched_at"] = sys.argv[9] if sys.argv[9] else None
 out["files"] = files
+out["raw_template_baselines"] = raw
 with open(sys.argv[10], "w", newline="\n") as f:
     json.dump(out, f, indent=2, sort_keys=True)
     f.write("\n")
@@ -412,10 +425,15 @@ write_version_marker() {
   ensure_dir "$TARGET_PATH/.claude"
   local marker_existed=false
   [ -f "$marker" ] && marker_existed=true
+  # Emit each install hash to BOTH maps: F (files, deprecated) and R (raw_template_baselines).
+  # They are identical at install time — raw template content as just copied.
   {
-    if [ ${#INSTALLED_HASHES[@]} -gt 0 ]; then
-      printf '%s\n' "${INSTALLED_HASHES[@]}"
-    fi
+    local entry
+    for entry in "${INSTALLED_HASHES[@]:-}"; do
+      [ -z "$entry" ] && continue
+      printf 'F\t%s\n' "$entry"
+      printf 'R\t%s\n' "$entry"
+    done
   } | write_marker_json "$marker" "$version" "$commit" "$ts" "$MODE" "$CLAUDE_ONLY" "$SOURCE_PATH" "" "" ""
   if [ "$marker_existed" = false ]; then
     ADDED_FILES+=("$marker")

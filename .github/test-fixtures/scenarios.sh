@@ -101,6 +101,44 @@ scenario_fresh_install() {
   echo "PASS fresh-install"
 }
 
+# Phase 52: fresh install must record raw_template_baselines, and each hash must
+# equal the sha256 of its template source file (raw template, as shipped).
+scenario_raw_baseline_install() {
+  echo ">> raw-baseline-install: fresh install populates raw_template_baselines matching template hashes (Phase 52)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local marker="$TEST_DIR/.claude/.skeleton-version"
+  [ -f "$marker" ] || { echo "ERROR: marker not at $marker" >&2; return 1; }
+  python -c "
+import json, re, sys, hashlib, os
+with open(sys.argv[1]) as f:
+    d = json.load(f)
+raw = d.get('raw_template_baselines')
+if not isinstance(raw, dict):
+    sys.exit('ERROR: raw_template_baselines missing or not an object')
+files = d.get('files', {})
+if len(raw) != len(files):
+    sys.exit(f'ERROR: raw_template_baselines count {len(raw)} != files count {len(files)}')
+def tmpl_path(rel):
+    rel = rel[len('.claude/'):] if rel.startswith('.claude/') else rel
+    base = os.path.join(sys.argv[2], 'template', '.claude', *rel.split('/'))
+    return base if os.path.isfile(base) else base + '.template'
+for rel, h in raw.items():
+    if not re.fullmatch(r'[0-9a-f]{64}', h):
+        sys.exit(f'ERROR: bad raw hash for {rel!r}: {h!r}')
+    p = tmpl_path(rel)
+    if not os.path.isfile(p):
+        sys.exit(f'ERROR: template source not found for {rel!r} (tried {p})')
+    digest = hashlib.sha256(open(p, 'rb').read()).hexdigest()
+    if digest != h:
+        sys.exit(f'ERROR: raw baseline for {rel!r} = {h[:12]} != template sha256 {digest[:12]}')
+print(f'  raw_template_baselines OK: {len(raw)} entries, all match template sha256')
+" "$marker" "$SKELETON_DIR"
+  echo "PASS raw-baseline-install"
+}
+
 scenario_fresh_refuse() {
   echo ">> fresh-refuse: re-run --mode=fresh, expect refusal"
   init_target
@@ -426,6 +464,7 @@ scenario_hook_fp_exemption_git_commit_message() {
 # ---- dispatch ----
 case "${1:-}" in
   fresh-install)                scenario_fresh_install ;;
+  raw-baseline-install)         scenario_raw_baseline_install ;;
   fresh-refuse)                 scenario_fresh_refuse ;;
   merge-add)                    scenario_merge_add ;;
   local-mod-detect)             scenario_local_mod_detect ;;
@@ -438,6 +477,7 @@ case "${1:-}" in
   hook-fp-exemption-git-commit-message) scenario_hook_fp_exemption_git_commit_message ;;
   all)
     scenario_fresh_install
+    scenario_raw_baseline_install
     scenario_fresh_refuse
     scenario_merge_add
     scenario_local_mod_detect
@@ -456,6 +496,7 @@ Usage: bash scenarios.sh <scenario>
 
 Scenarios:
   fresh-install                Clean target → install --mode=fresh; verify JSON marker.
+  raw-baseline-install         Fresh install records raw_template_baselines matching template hashes (Phase 52).
   fresh-refuse                 Populated target → --mode=fresh exits non-zero; marker unchanged.
   merge-add                    Delete a file → --mode=merge re-adds only that file.
   local-mod-detect             Modify a file → update.sh --dry-run reports LOCALLY_MODIFIED.
