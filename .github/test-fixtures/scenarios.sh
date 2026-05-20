@@ -97,7 +97,7 @@ scenario_fresh_install() {
   bash "$SKELETON_DIR/scripts/install.sh" \
     --source "$SKELETON_DIR" --target "$TEST_DIR" \
     --mode=fresh --claude-only
-  verify_marker 49
+  verify_marker 51
   echo "PASS fresh-install"
 }
 
@@ -224,6 +224,61 @@ print(f'  backfill OK: uuid={uuid} label={label!r}; version/commit intact')
   echo "PASS install-uuid-backfill"
 }
 
+# Phase 47a: share-enable against a fresh empty bare repo writes the identity
+# sentinel into the remote history and records the opt-in in share-config.json.
+scenario_share_enable_fresh_remote() {
+  echo ">> share-enable-fresh-remote: opt-in pushes sentinel to a bare remote + writes share-config.json (Phase 47a)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local bare="$TEST_DIR/skeleton-shared-test.git"
+  git init --bare -q "$bare"
+  # Auto-confirm with the literal word "enable" on stdin.
+  printf 'enable\n' | bash "$TEST_DIR/.claude/scripts/share-enable.sh" "$bare" \
+    > "$TEST_DIR/enable.out" 2>&1 || { echo "ERROR: share-enable failed" >&2; cat "$TEST_DIR/enable.out" >&2; exit 1; }
+  # share-config.json must be written locally with enabled=true.
+  local cfg="$TEST_DIR/.claude/share-config.json"
+  [ -f "$cfg" ] || { echo "ERROR: share-config.json not written" >&2; cat "$TEST_DIR/enable.out" >&2; exit 1; }
+  python -c "
+import json, sys
+with open(sys.argv[1]) as f:
+    c = json.load(f)
+if c.get('enabled') is not True:
+    sys.exit('ERROR: share-config enabled != true')
+if c.get('disabled_at') is not None:
+    sys.exit('ERROR: share-config disabled_at != null')
+if not c.get('remote_url'):
+    sys.exit('ERROR: share-config remote_url empty')
+if not c.get('enabled_at'):
+    sys.exit('ERROR: share-config enabled_at empty')
+if c.get('schema_version') != 1:
+    sys.exit('ERROR: share-config schema_version != 1')
+print('  share-config OK: enabled=true remote=' + c['remote_url'])
+" "$cfg"
+  # Sentinel must appear in the bare repo history under installs/<uuid>/.
+  local uuid ref
+  uuid=$(python -c "import json,sys; sys.stdout.write(json.load(open(sys.argv[1]))['install_uuid'])" "$TEST_DIR/.claude/.skeleton-version")
+  ref=$(git -C "$bare" for-each-ref --format='%(refname)' refs/heads | head -1)
+  [ -n "$ref" ] || { echo "ERROR: bare repo has no branches after push" >&2; exit 1; }
+  git -C "$bare" cat-file -e "$ref:installs/$uuid/sentinel.json" 2>/dev/null \
+    || { echo "ERROR: sentinel.json missing in bare repo at installs/$uuid/sentinel.json" >&2; git -C "$bare" ls-tree -r --name-only "$ref" >&2; exit 1; }
+  # Sentinel content sanity: native version/commit keys present, schema_version 1.
+  git -C "$bare" show "$ref:installs/$uuid/sentinel.json" | python -c "
+import json, sys
+s = json.load(sys.stdin)
+for k in ('schema_version', 'install_uuid', 'install_label', 'version', 'commit', 'sentinel_timestamp'):
+    if k not in s:
+        sys.exit('ERROR: sentinel missing key: ' + k)
+if s['install_uuid'] != sys.argv[1]:
+    sys.exit('ERROR: sentinel install_uuid mismatch')
+if s['schema_version'] != 1:
+    sys.exit('ERROR: sentinel schema_version != 1')
+print('  sentinel OK: ' + s['install_uuid'])
+" "$uuid"
+  echo "PASS share-enable-fresh-remote"
+}
+
 scenario_fresh_refuse() {
   echo ">> fresh-refuse: re-run --mode=fresh, expect refusal"
   init_target
@@ -342,7 +397,7 @@ LEGACY
     cat "$TEST_DIR/.claude/.skeleton-version" >&2
     exit 1
   fi
-  verify_marker 49
+  verify_marker 51
   echo "PASS backfill-migrate"
 }
 
@@ -397,8 +452,8 @@ with open(sys.argv[1]) as f:
     d = json.load(f)
 raw = d.get('raw_template_baselines')
 n = len(raw) if isinstance(raw, dict) else None
-if n != 49:
-    sys.exit(f'ERROR: expected 49 raw_template_baselines after migration, got {n}')
+if n != 51:
+    sys.exit(f'ERROR: expected 51 raw_template_baselines after migration, got {n}')
 print(f'  raw_template_baselines present after migration: {n} entries')
 " "$marker"
   echo "PASS raw-baseline-migrate"
@@ -610,6 +665,7 @@ case "${1:-}" in
   raw-baseline-install)         scenario_raw_baseline_install ;;
   install-uuid-fresh)           scenario_install_uuid_fresh ;;
   install-uuid-backfill)        scenario_install_uuid_backfill ;;
+  share-enable-fresh-remote)    scenario_share_enable_fresh_remote ;;
   fresh-refuse)                 scenario_fresh_refuse ;;
   merge-add)                    scenario_merge_add ;;
   local-mod-detect)             scenario_local_mod_detect ;;
@@ -626,6 +682,7 @@ case "${1:-}" in
     scenario_raw_baseline_install
     scenario_install_uuid_fresh
     scenario_install_uuid_backfill
+    scenario_share_enable_fresh_remote
     scenario_fresh_refuse
     scenario_merge_add
     scenario_local_mod_detect
@@ -648,6 +705,7 @@ Scenarios:
   raw-baseline-install         Fresh install records raw_template_baselines matching template hashes (Phase 52).
   install-uuid-fresh           Fresh install records install_uuid / install_label / install_created (Phase 47a).
   install-uuid-backfill        Pre-47a marker → update.sh backfills install identity, existing fields intact (Phase 47a).
+  share-enable-fresh-remote    /share-enable to an empty bare remote pushes the identity sentinel + writes share-config.json (Phase 47a).
   fresh-refuse                 Populated target → --mode=fresh exits non-zero; marker unchanged.
   merge-add                    Delete a file → --mode=merge re-adds only that file.
   local-mod-detect             Modify a file → update.sh --dry-run reports LOCALLY_MODIFIED.

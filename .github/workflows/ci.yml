@@ -55,6 +55,10 @@ jobs:
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh install-uuid-backfill
 
+      - name: Scenario - share-enable-fresh-remote
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-enable-fresh-remote
+
       - name: Scenario - fresh-refuse
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh fresh-refuse
