@@ -72,8 +72,25 @@ encode_cwd() {
 # and match by JSONL's first event's `cwd` field — handles path-shape
 # divergence between hook context and tested env.
 find_current_jsonl() {
+  # Phase 46b: prefer env-supplied paths over mtime heuristic. The
+  # heuristic races with CC's next-session placeholder creation —
+  # find sees the just-created empty *.jsonl as newest, returns it,
+  # python parses nothing, session_id falls through to "unknown-...".
+  # sessionend-observe.sh now exports session_id + transcript_path
+  # from CC's stdin payload before invoking us.
+  if [ -n "${CLAUDE_HOOK_TRANSCRIPT_PATH:-}" ] && [ -f "$CLAUDE_HOOK_TRANSCRIPT_PATH" ]; then
+    printf '%s\n' "$CLAUDE_HOOK_TRANSCRIPT_PATH"
+    return
+  fi
   local encoded
   encoded=$(encode_cwd "$PROJECT_DIR")
+  if [ -n "${CLAUDE_HOOK_SESSION_ID:-}" ]; then
+    local path_by_id="$PROJECTS_DIR/$encoded/$CLAUDE_HOOK_SESSION_ID.jsonl"
+    if [ -f "$path_by_id" ]; then
+      printf '%s\n' "$path_by_id"
+      return
+    fi
+  fi
   local primary_dir="$PROJECTS_DIR/$encoded"
   if [ -d "$primary_dir" ]; then
     find "$primary_dir" -maxdepth 1 -type f -name '*.jsonl' -printf '%T@\t%p\n' 2>/dev/null \
@@ -134,6 +151,7 @@ python - \
   "$OBS_DIR" \
   "$CAPTURES_DIR" \
   "$PROJECT_DIR" \
+  "${CLAUDE_HOOK_SESSION_ID:-}" \
   2>/dev/null <<'PYIMPL'
 import hashlib, json, os, re, subprocess, sys
 from collections import Counter, defaultdict
@@ -145,6 +163,11 @@ sessions_dir = sys.argv[3]
 obs_dir = sys.argv[4]
 captures_dir = sys.argv[5]
 project_dir = sys.argv[6]
+# Phase 46b: hook exports CLAUDE_HOOK_SESSION_ID from CC's stdin payload;
+# bash passes it through as argv[7]. Prefer it over first-event discovery
+# below — the JSONL we're parsing might be empty (race) or, in the legacy
+# mtime-heuristic path, the wrong session entirely.
+env_session_id = sys.argv[7] if len(sys.argv) > 7 else ''
 
 def now_iso():
     return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -160,7 +183,7 @@ def parse_iso(s):
         return None
 
 # ---- discover session_id from transcript (or fall back) ----
-session_id = None
+session_id = env_session_id or None
 session_start = None
 session_end = now_iso()
 turns = []  # list of {timestamp, usage, tool_uses=[{name, input}]}

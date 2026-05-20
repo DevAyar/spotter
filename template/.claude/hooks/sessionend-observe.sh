@@ -13,6 +13,22 @@
 
 set -uo pipefail
 
+# Phase 46b: read CC's SessionEnd JSON payload from stdin once and
+# extract session_id + transcript_path. Export as namespaced env vars
+# for generate-session-telemetry.sh to consume — bypasses the racy
+# mtime heuristic in find_current_jsonl that picks the next session's
+# empty JSONL placeholder when CC creates it before this hook returns.
+# Vars stay empty if jq missing / payload absent / fields missing —
+# lib falls through to existing find_current_jsonl heuristic.
+CLAUDE_HOOK_SESSION_ID=""
+CLAUDE_HOOK_TRANSCRIPT_PATH=""
+INPUT=$(cat)
+if [ -n "$INPUT" ] && command -v jq >/dev/null 2>&1; then
+  CLAUDE_HOOK_SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+  CLAUDE_HOOK_TRANSCRIPT_PATH=$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
+fi
+export CLAUDE_HOOK_SESSION_ID CLAUDE_HOOK_TRANSCRIPT_PATH
+
 OBS_DIR="${CLAUDE_PROJECT_DIR:?CLAUDE_PROJECT_DIR not set}/.claude/observations"
 LOG_FILE="${CLAUDE_PROJECT_DIR}/docs/SESSION_LOG.md"
 TELEMETRY_LIB="${CLAUDE_PROJECT_DIR}/.claude/lib/generate-session-telemetry.sh"
