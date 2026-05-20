@@ -113,9 +113,9 @@ Each installed file is one of:
 
 | Class | Meaning | Default action |
 |---|---|---|
-| **UNCHANGED** | Recorded hash == current == template. | Skip silently. |
-| **TEMPLATE_UPDATED** | You haven't touched it; template moved on. | `[A]pply all / [R]eview / [S]kip all`. |
-| **LOCALLY_MODIFIED** | You've changed it since install. | Per-file prompt, default `[K]eep`. Never auto-updated. |
+| **UNCHANGED** | Matches its raw template baseline and the current template. | Skip silently. |
+| **TEMPLATE_UPDATED** | Matches its install baseline; template moved on. | `[A]pply all / [R]eview / [S]kip all`. |
+| **LOCALLY_MODIFIED** | Differs from the template it was installed from — whoever changed it (you, the tuner, or both). | Per-file prompt, default `[K]eep`. Never auto-updated. |
 | **NEW** | Template has it; you don't. | `Copy all? [Y/n]`. |
 | **ORPHAN** | You have it (in marker); template no longer ships it. | `Delete? [y/N]`. |
 
@@ -127,14 +127,28 @@ Top-level files (`CLAUDE.md`, etc.) are not updated by `update.sh` —
 they're project-specific. Re-run `install.sh` manually if you want
 to refresh them.
 
-### Per-file hashes in `.skeleton-version`
+### Per-file baselines in `.skeleton-version`
 
-`install.sh` records a SHA-256 hash of every `.claude/` file it
-writes into `.skeleton-version`. `update.sh` uses three hashes per
-file — recorded-at-install, current-on-disk, current-in-template —
-to distinguish your local edits from upstream changes precisely.
-That's what makes "this file is safe to update" vs "you've changed
-this, review first" a reliable distinction.
+`install.sh` records, for every `.claude/` file it writes, the SHA-256
+of the template version it was installed from — the file's **raw
+template baseline** (`raw_template_baselines` in `.skeleton-version`).
+`update.sh` compares three hashes per file — that baseline, the
+current on-disk content, and the current template — so "safe to
+update" vs "you've changed this, review first" is a reliable
+distinction.
+
+`LOCALLY_MODIFIED` therefore means a file differs from the template
+version it was installed from, regardless of who changed it
+(`project-tuner-helper`, you, or both) — which is what keeps tuner
+customizations from being overwritten by a generic template.
+
+The baseline is immutable per file (re-stamped only when a file is
+written from the template on apply). An older `files` map is retained
+as a deprecated back-compat alias, no longer used for classification;
+removal is queued for a later release. Markers created before
+`raw_template_baselines` existed are migrated once, inline, on the next
+`update.sh` run by re-hashing the template at the recorded install
+commit.
 
 The marker is JSON; parsing requires `python` (or `python3`) on
 `PATH`. Git Bash for Windows ships with Python 3 in most installs;
