@@ -13,6 +13,10 @@ CHECK_REMOTE=false
 SKELETON_REPO_URL="${SKELETON_REPO_URL:-https://github.com/DevAyar/claude-skeleton.git}"
 TMP_CLONE_DIR=""
 
+# Phase 52 one-time migration: temp git worktree pinned to the install commit.
+TMP_MIGRATE_WORKTREE=""
+TMP_MIGRATE_REPO=""
+
 # Rollback tracking
 ADDED_FILES=()
 MODIFIED=()    # entries: "<path>|<backup-path>"
@@ -40,6 +44,14 @@ MARKER_CACHED_SKELETON_HEAD_FETCHED_AT=""
 MARKER_HASH_ENTRIES=()
 MARKER_HAS_FILES_OBJECT=false
 BACKFILL_MODE=false
+
+# ---- Phase 52: raw-template baselines ----
+# Immutable per-file hashes of "the template version this file was installed
+# from." update.sh classifies against THIS map. MARKER_HASH_ENTRIES (`files`)
+# is the deprecated mutated alias kept for back-compat (removal queued v1.5+).
+RAW_BASELINE_ENTRIES=()
+MARKER_HAS_RAW_BASELINES=false
+MIGRATED=false
 
 # ---- marker_hash_* helpers (bash 3.2-compatible map emulation) ----
 marker_hash_get() {
@@ -76,6 +88,45 @@ marker_hash_unset() {
   # Re-empty the trailing placeholder, if any.
   if [ ${#MARKER_HASH_ENTRIES[@]} -eq 1 ] && [ -z "${MARKER_HASH_ENTRIES[0]}" ]; then
     MARKER_HASH_ENTRIES=()
+  fi
+}
+
+# ---- raw_baseline_* helpers (Phase 52) ----
+# Same bash-3.2 parallel-array map emulation as marker_hash_*, over
+# RAW_BASELINE_ENTRIES. Uses $'\t' via a local to avoid embedding literal tabs.
+raw_baseline_get() {
+  local key="$1" entry tab=$'\t'
+  for entry in "${RAW_BASELINE_ENTRIES[@]:-}"; do
+    [ -z "$entry" ] && continue
+    if [ "${entry%%"$tab"*}" = "$key" ]; then
+      printf '%s' "${entry#*"$tab"}"
+      return 0
+    fi
+  done
+}
+
+raw_baseline_set() {
+  local key="$1" val="$2" tab=$'\t' i
+  for ((i=0; i<${#RAW_BASELINE_ENTRIES[@]}; i++)); do
+    if [ "${RAW_BASELINE_ENTRIES[$i]%%"$tab"*}" = "$key" ]; then
+      RAW_BASELINE_ENTRIES[$i]="$key$tab$val"
+      return 0
+    fi
+  done
+  RAW_BASELINE_ENTRIES+=("$key$tab$val")
+}
+
+raw_baseline_unset() {
+  local key="$1" entry tab=$'\t' new=()
+  for entry in "${RAW_BASELINE_ENTRIES[@]:-}"; do
+    [ -z "$entry" ] && continue
+    if [ "${entry%%"$tab"*}" != "$key" ]; then
+      new+=("$entry")
+    fi
+  done
+  RAW_BASELINE_ENTRIES=("${new[@]:-}")
+  if [ ${#RAW_BASELINE_ENTRIES[@]} -eq 1 ] && [ -z "${RAW_BASELINE_ENTRIES[0]}" ]; then
+    RAW_BASELINE_ENTRIES=()
   fi
 }
 
@@ -145,6 +196,12 @@ if stripped.startswith("{"):
             print(f"HASH\t{p}\t{h}")
     else:
         print("HAS_FILES\tfalse\t")
+    if "raw_template_baselines" in d and isinstance(d["raw_template_baselines"], dict):
+        print("HAS_RAW\ttrue\t")
+        for p, h in d["raw_template_baselines"].items():
+            print(f"RAWHASH\t{p}\t{h}")
+    else:
+        print("HAS_RAW\tfalse\t")
 else:
     for line in text.split("\n"):
         line = line.strip()
@@ -153,6 +210,7 @@ else:
         k, _, v = line.partition(":")
         print(f"FIELD\t{k.strip()}\t{v.strip()}")
     print("HAS_FILES\tfalse\t")
+    print("HAS_RAW\tfalse\t")
 ' "$marker") || die "failed to parse $marker"
   # Defensive: strip CR in case Python on Windows still emitted CRLF
   dump="${dump//$'\r'/}"
@@ -173,6 +231,8 @@ else:
         ;;
       HAS_FILES) if [ "$key" = "true" ]; then MARKER_HAS_FILES_OBJECT=true; fi ;;
       HASH)      MARKER_HASH_ENTRIES+=("$key"$'\t'"$val") ;;
+      HAS_RAW)   if [ "$key" = "true" ]; then MARKER_HAS_RAW_BASELINES=true; fi ;;
+      RAWHASH)   RAW_BASELINE_ENTRIES+=("$key"$'\t'"$val") ;;
     esac
   done <<< "$dump"
   return 0
@@ -180,7 +240,12 @@ else:
 
 # write_marker_json — atomic write of new-format marker.
 # Args: <file> <version> <commit> <installed_at> <mode> <claude_only> <source> <updated_at_or_empty> <cached_skeleton_head_or_empty> <cached_skeleton_head_fetched_at_or_empty>
-# Reads "<relpath>\t<hash>" lines from stdin.
+# Reads TAB-separated lines from stdin, tagged by destination map:
+#   "F<TAB><relpath><TAB><hash>"  -> files (DEPRECATED back-compat; always written)
+#   "R<TAB><relpath><TAB><hash>"  -> raw_template_baselines (Phase 52; written only
+#                                    when non-empty, so a --check-remote on a pre-52
+#                                    marker doesn't write {} and pre-empt migration)
+# A 2-field "<relpath><TAB><hash>" line (no tag) is treated as files for safety.
 write_marker_json() {
   local file="$1" version="$2" commit="$3" installed_at="$4" mode="$5" claude_only="$6" source="$7" updated_at="$8"
   local cached_head="${9:-}" cached_fetched_at="${10:-}"
@@ -188,12 +253,16 @@ write_marker_json() {
   "$JSON_TOOL" -c '
 import json, sys
 files = {}
+raw = {}
 for line in sys.stdin:
     line = line.rstrip("\r\n")
     if not line: continue
-    parts = line.split("\t", 1)
-    if len(parts) != 2: continue
-    files[parts[0]] = parts[1]
+    parts = line.split("\t")
+    if len(parts) == 3:
+        tag, p, h = parts
+        (raw if tag == "R" else files)[p] = h
+    elif len(parts) == 2:
+        files[parts[0]] = parts[1]
 out = {
   "version": sys.argv[1],
   "commit": sys.argv[2],
@@ -207,6 +276,8 @@ if sys.argv[7]:
 out["cached_skeleton_head"] = sys.argv[8] if sys.argv[8] else None
 out["cached_skeleton_head_fetched_at"] = sys.argv[9] if sys.argv[9] else None
 out["files"] = files
+if raw:
+    out["raw_template_baselines"] = raw
 with open(sys.argv[10], "w", newline="\n") as f:
     json.dump(out, f, indent=2, sort_keys=True)
     f.write("\n")
@@ -217,6 +288,10 @@ with open(sys.argv[10], "w", newline="\n") as f:
 # ---- Cleanup / rollback ----
 cleanup() {
   local exit_code=$?
+  if [ -n "$TMP_MIGRATE_WORKTREE" ] && [ -d "$TMP_MIGRATE_WORKTREE" ]; then
+    [ -n "$TMP_MIGRATE_REPO" ] && git -C "$TMP_MIGRATE_REPO" worktree remove --force "$TMP_MIGRATE_WORKTREE" 2>/dev/null || true
+    rm -rf "$TMP_MIGRATE_WORKTREE" 2>/dev/null || true
+  fi
   if [ -n "$TMP_CLONE_DIR" ] && [ -d "$TMP_CLONE_DIR" ]; then
     rm -rf "$TMP_CLONE_DIR"
   fi
@@ -306,6 +381,14 @@ Backfill (one-time):
   and prints a prominent warning. After this run, the marker is
   upgraded to JSON with per-file hashes; subsequent runs use precise
   classification.
+
+Baseline (raw-template, Phase 52):
+  Each file is classified against the template version it was installed
+  from (raw_template_baselines in .skeleton-version). A file that differs
+  from that baseline is LOCALLY_MODIFIED — whoever changed it
+  (project-tuner-helper, you, or both) — and is never auto-overwritten.
+  Markers created before this field are migrated once, inline, by
+  re-hashing the template at the recorded install commit.
 EOF
 }
 
@@ -398,11 +481,91 @@ src_for_rel() {
   fi
 }
 
+# ---- Phase 52: one-time raw-baseline migration ----
+# Runs when a JSON marker has a `files` object but no `raw_template_baselines`
+# (a pre-Phase-52 install). Recovers each file's TRUE template-origin hash by
+# hashing the template at the recorded install commit, then fills
+# RAW_BASELINE_ENTRIES. Files absent at that commit are left to classify()'s
+# per-file fallback (baseline = current template = safe). Never hard-fails: if
+# the commit can't be located, classification falls back safely and tuner/user
+# customizations still surface as LOCALLY_MODIFIED (never silently overwritten).
+migrate_raw_baselines() {
+  [ "$MARKER_HAS_FILES_OBJECT" = true ]   || return 0
+  [ "$MARKER_HAS_RAW_BASELINES" = false ] || return 0
+
+  info "Migrating baseline scheme to raw-template hashes (one-time)…"
+
+  local commit="${MARKER_COMMIT:-}"
+  if [ -z "$commit" ] || [ "$commit" = "unknown" ]; then
+    warn "marker has no usable install commit — classifying against the current template"
+    warn "(safe: tuner/user customizations surface as LOCALLY_MODIFIED, never auto-overwritten)."
+    MIGRATED=true
+    return 0
+  fi
+
+  # Locate a skeleton git repo that contains <commit>.
+  local repo=""
+  if git -C "$SOURCE_PATH" cat-file -e "${commit}^{commit}" 2>/dev/null; then
+    repo="$SOURCE_PATH"
+  elif [ -n "${MARKER_SOURCE:-}" ] && [ -d "$MARKER_SOURCE/.git" ] \
+       && git -C "$MARKER_SOURCE" cat-file -e "${commit}^{commit}" 2>/dev/null; then
+    repo="$MARKER_SOURCE"
+  elif git -C "$SOURCE_PATH" fetch --quiet --depth 1 origin "$commit" 2>/dev/null \
+       && git -C "$SOURCE_PATH" cat-file -e "${commit}^{commit}" 2>/dev/null; then
+    repo="$SOURCE_PATH"
+  fi
+
+  if [ -z "$repo" ]; then
+    warn "install commit ${commit:0:12}… not found in any skeleton checkout;"
+    warn "classifying against the current template (safe: customizations surface as LOCALLY_MODIFIED)."
+    MIGRATED=true
+    return 0
+  fi
+
+  # Pin a detached worktree at the install commit.
+  local wt
+  wt=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-migrate)
+  if ! git -C "$repo" worktree add --quiet --detach "$wt" "$commit" 2>/dev/null; then
+    rm -rf "$wt" 2>/dev/null || true
+    warn "could not check out the install commit; classifying against the current template (safe)."
+    MIGRATED=true
+    return 0
+  fi
+  TMP_MIGRATE_REPO="$repo"
+  TMP_MIGRATE_WORKTREE="$wt"
+
+  # Hash each recorded file's template source as it stood at the install commit.
+  local tmpl_root="$wt/template/.claude"
+  local tab=$'\t'
+  local entry rel sub cand h count=0
+  for entry in "${MARKER_HASH_ENTRIES[@]:-}"; do
+    [ -z "$entry" ] && continue
+    rel="${entry%%"$tab"*}"          # ".claude/<sub>"
+    sub="${rel#.claude/}"
+    cand="$tmpl_root/$sub"
+    [ -f "$cand" ] || cand="$tmpl_root/$sub.template"
+    if [ -f "$cand" ]; then
+      h=$(hash_file "$cand")
+      [ -n "$h" ] && { raw_baseline_set "$rel" "$h"; count=$((count + 1)); }
+    fi
+  done
+
+  # Worktree no longer needed — hashes captured in memory.
+  git -C "$repo" worktree remove --force "$wt" 2>/dev/null || true
+  rm -rf "$wt" 2>/dev/null || true
+  TMP_MIGRATE_WORKTREE=""
+  TMP_MIGRATE_REPO=""
+
+  MARKER_HAS_RAW_BASELINES=true
+  MIGRATED=true
+  printf '  recovered %d raw template baseline(s) from commit %s\n' "$count" "${commit:0:12}"
+}
+
 classify() {
   local skel_claude="$SOURCE_PATH/template/.claude"
   local tgt_claude="$TARGET_PATH/.claude"
   local src rel mapped tgt full_rel
-  local hash_recorded hash_current hash_template
+  local hash_baseline hash_current hash_template
   local in_template=()
 
   while IFS= read -r src; do
@@ -426,23 +589,30 @@ classify() {
 
     hash_template=$(hash_file "$src")
     hash_current=$(hash_file "$tgt")
-    hash_recorded=$(marker_hash_get "$full_rel")
+    hash_baseline=$(raw_baseline_get "$full_rel")
 
-    if [ -z "$hash_recorded" ]; then
-      # No recorded hash → per-file backfill.
-      BACKFILL_MODE=true
+    # Keep the deprecated `files` map populated (back-compat + marker file count);
+    # it no longer drives classification.
+    if [ -z "$(marker_hash_get "$full_rel")" ]; then
       marker_hash_set "$full_rel" "$hash_current"
-      hash_recorded="$hash_current"
     fi
 
-    if [ "$hash_recorded" = "$hash_current" ] && [ "$hash_recorded" = "$hash_template" ]; then
+    if [ -z "$hash_baseline" ]; then
+      # No raw baseline (migration blind spot / file added pre-Phase-52). Treat the
+      # CURRENT template as the baseline: tuned files (current != template) then
+      # surface as LOCALLY_MODIFIED (protected); pristine files as UNCHANGED.
+      hash_baseline="$hash_template"
+      raw_baseline_set "$full_rel" "$hash_baseline"
+    fi
+
+    if [ "$hash_baseline" = "$hash_current" ] && [ "$hash_baseline" = "$hash_template" ]; then
       UNCHANGED_FILES+=("$full_rel")
-    elif [ "$hash_recorded" = "$hash_current" ] && [ "$hash_recorded" != "$hash_template" ]; then
+    elif [ "$hash_baseline" = "$hash_current" ] && [ "$hash_baseline" != "$hash_template" ]; then
       TEMPLATE_UPDATED_FILES+=("$full_rel")
-    elif [ "$hash_recorded" != "$hash_current" ] && [ "$hash_current" != "$hash_template" ]; then
+    elif [ "$hash_baseline" != "$hash_current" ] && [ "$hash_current" != "$hash_template" ]; then
       LOCALLY_MODIFIED_FILES+=("$full_rel")
     else
-      # recorded != current AND current == template
+      # baseline != current AND current == template
       LOCAL_MATCHES_TEMPLATE_FILES+=("$full_rel")
     fi
   done < <(find "$skel_claude" -type f 2>/dev/null)
@@ -543,7 +713,11 @@ print(tags[-1][1])
     local entry
     for entry in "${MARKER_HASH_ENTRIES[@]:-}"; do
       [ -z "$entry" ] && continue
-      printf '%s\n' "$entry"
+      printf 'F\t%s\n' "$entry"
+    done
+    for entry in "${RAW_BASELINE_ENTRIES[@]:-}"; do
+      [ -z "$entry" ] && continue
+      printf 'R\t%s\n' "$entry"
     done
   } | write_marker_json "$marker" \
         "$MARKER_VERSION" "$MARKER_COMMIT" "$MARKER_INSTALLED_AT" \
@@ -654,6 +828,7 @@ apply_new() {
     ADDED_FILES+=("$tgt")
     h=$(hash_file "$tgt")
     marker_hash_set "$rel" "$h"
+    raw_baseline_set "$rel" "$h"
     APPLIED=$((APPLIED+1))
   done
   ok "applied ${#NEW_FILES[@]} new file(s)"
@@ -694,6 +869,7 @@ apply_all_template_updates() {
       backup_then_overwrite "$src" "$tgt"
       h=$(hash_file "$tgt")
       marker_hash_set "$rel" "$h"
+      raw_baseline_set "$rel" "$h"
     fi
     APPLIED=$((APPLIED+1))
   done
@@ -716,6 +892,7 @@ review_template_updates() {
             backup_then_overwrite "$src" "$tgt"
             h=$(hash_file "$tgt")
             marker_hash_set "$rel" "$h"
+            raw_baseline_set "$rel" "$h"
           fi
           APPLIED=$((APPLIED+1))
           break
@@ -766,6 +943,7 @@ apply_local_modifications() {
             backup_then_overwrite "$src" "$tgt"
             h=$(hash_file "$tgt")
             marker_hash_set "$rel" "$h"
+            raw_baseline_set "$rel" "$h"
           fi
           APPLIED=$((APPLIED+1))
           break
@@ -804,6 +982,7 @@ apply_orphans() {
         tgt="$TARGET_PATH/$rel"
         [ -f "$tgt" ] && backup_then_delete "$tgt"
         marker_hash_unset "$rel"
+        raw_baseline_unset "$rel"
         APPLIED=$((APPLIED+1))
       done
       ok "deleted ${#ORPHAN_FILES[@]} orphan(s)"
@@ -818,8 +997,8 @@ apply_orphans() {
 # ---- Version marker ----
 write_version_marker() {
   [ "$DRY_RUN" = true ] && return 0
-  # Write if anything was applied OR if backfill happened (schema migration).
-  if [ "$APPLIED" -eq 0 ] && [ "$BACKFILL_MODE" = false ]; then
+  # Write if anything was applied, or if backfill / raw-baseline migration happened.
+  if [ "$APPLIED" -eq 0 ] && [ "$BACKFILL_MODE" = false ] && [ "$MIGRATED" = false ]; then
     return 0
   fi
   local marker="$TARGET_PATH/.claude/.skeleton-version"
@@ -834,7 +1013,11 @@ write_version_marker() {
     local entry
     for entry in "${MARKER_HASH_ENTRIES[@]:-}"; do
       [ -z "$entry" ] && continue
-      printf '%s\n' "$entry"
+      printf 'F\t%s\n' "$entry"
+    done
+    for entry in "${RAW_BASELINE_ENTRIES[@]:-}"; do
+      [ -z "$entry" ] && continue
+      printf 'R\t%s\n' "$entry"
     done
   } | write_marker_json "$marker" "$version" "$commit" "$installed_at" "$prev_mode" "$prev_claude_only" "$SOURCE_PATH" "$ts" "$MARKER_CACHED_SKELETON_HEAD" "$MARKER_CACHED_SKELETON_HEAD_FETCHED_AT"
 }
@@ -868,6 +1051,7 @@ resolve_skeleton_root
 resolve_target_root
 preflight
 dump_marker
+migrate_raw_baselines
 maybe_announce_backfill
 classify
 print_findings
@@ -876,9 +1060,10 @@ if [ ${#NEW_FILES[@]} -eq 0 ] \
    && [ ${#LOCALLY_MODIFIED_FILES[@]} -eq 0 ] \
    && [ ${#ORPHAN_FILES[@]} -eq 0 ]; then
   ok "everything up to date"
-  if [ "$BACKFILL_MODE" = true ] && [ "$DRY_RUN" = false ]; then
+  if { [ "$BACKFILL_MODE" = true ] || [ "$MIGRATED" = true ]; } && [ "$DRY_RUN" = false ]; then
     write_version_marker
-    ok "marker migrated to per-file-hash schema (0.8.0)"
+    [ "$BACKFILL_MODE" = true ] && ok "marker migrated to per-file-hash schema (0.8.0)"
+    [ "$MIGRATED" = true ] && ok "marker upgraded with raw-template baselines (Phase 52)"
   fi
   exit 0
 fi

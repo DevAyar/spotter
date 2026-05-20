@@ -67,6 +67,10 @@ jobs:
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh backfill-migrate
 
+      - name: Scenario - raw-baseline-migrate
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh raw-baseline-migrate
+
       - name: Scenario - check-remote-cached
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh check-remote-cached

@@ -261,6 +261,64 @@ LEGACY
   echo "PASS backfill-migrate"
 }
 
+# Phase 52: a pre-Phase-52 JSON marker (has `files`, no `raw_template_baselines`)
+# triggers the inline one-time migration. A tuner-style edit made after install
+# must surface as LOCALLY_MODIFIED (NOT TEMPLATE_UPDATED) and survive [K]eep —
+# this is the regression that silently overwrote tuner customizations.
+scenario_raw_baseline_migrate() {
+  echo ">> raw-baseline-migrate: pre-Phase-52 marker migrates inline; tuner edit -> LOCALLY_MODIFIED + kept (Phase 52)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local marker="$TEST_DIR/.claude/.skeleton-version"
+  local target_file="$TEST_DIR/.claude/agents/01_research/research-helper.md"
+  # Simulate a project-tuner-helper customization landing after install.
+  printf '\n# CI tuner-style customization\n' >> "$target_file"
+  local hash_tuned
+  hash_tuned=$(sha256_of "$target_file")
+  # Simulate a pre-Phase-52 marker: drop raw_template_baselines, keep files + commit.
+  python -c "
+import json, sys
+with open(sys.argv[1]) as f:
+    d = json.load(f)
+d.pop('raw_template_baselines', None)
+with open(sys.argv[1], 'w', newline='\n') as f:
+    json.dump(d, f, indent=2, sort_keys=True)
+    f.write('\n')
+" "$marker"
+  # Real update: migration recovers raw baselines from the install commit; the
+  # tuner-edited file must surface as LOCALLY_MODIFIED and be KEEPable.
+  printf 'k\n' | bash "$SKELETON_DIR/scripts/update.sh" \
+                   --source "$SKELETON_DIR" --target "$TEST_DIR" \
+                   > "$TEST_DIR/update.out" 2>&1 || true
+  local out
+  out=$(cat "$TEST_DIR/update.out")
+  assert_contains "$out" "Migrating baseline scheme"
+  assert_contains "$out" "locally modified files:       1"
+  assert_contains "$out" ".claude/agents/01_research/research-helper.md"
+  # KEEP must preserve the tuner edit.
+  local hash_after
+  hash_after=$(sha256_of "$target_file")
+  if [ "$hash_after" != "$hash_tuned" ]; then
+    echo "ERROR: tuner-edited file changed despite migration + [K]eep" >&2
+    cat "$TEST_DIR/update.out" >&2
+    exit 1
+  fi
+  # Marker must now carry raw_template_baselines.
+  python -c "
+import json, sys
+with open(sys.argv[1]) as f:
+    d = json.load(f)
+raw = d.get('raw_template_baselines')
+n = len(raw) if isinstance(raw, dict) else None
+if n != 49:
+    sys.exit(f'ERROR: expected 49 raw_template_baselines after migration, got {n}')
+print(f'  raw_template_baselines present after migration: {n} entries')
+" "$marker"
+  echo "PASS raw-baseline-migrate"
+}
+
 # ---- Phase 30b scenarios (audit findings H5 + H7) ----
 
 scenario_check_remote_cached() {
@@ -470,6 +528,7 @@ case "${1:-}" in
   local-mod-detect)             scenario_local_mod_detect ;;
   local-mod-preserve)           scenario_local_mod_preserve ;;
   backfill-migrate)             scenario_backfill_migrate ;;
+  raw-baseline-migrate)         scenario_raw_baseline_migrate ;;
   check-remote-cached)              scenario_check_remote_cached ;;
   hook-fail-closed-bash-safety)     scenario_hook_fail_closed_bash_safety ;;
   cruft-check-fixture)              scenario_cruft_check_fixture ;;
@@ -483,6 +542,7 @@ case "${1:-}" in
     scenario_local_mod_detect
     scenario_local_mod_preserve
     scenario_backfill_migrate
+    scenario_raw_baseline_migrate
     scenario_check_remote_cached
     scenario_hook_fail_closed_bash_safety
     scenario_cruft_check_fixture
@@ -502,6 +562,7 @@ Scenarios:
   local-mod-detect             Modify a file → update.sh --dry-run reports LOCALLY_MODIFIED.
   local-mod-preserve           Modify a file → update.sh with [K]eep leaves it intact.
   backfill-migrate             Legacy shell marker → update.sh migrates to JSON.
+  raw-baseline-migrate         Pre-Phase-52 marker → inline migration; tuner edit stays LOCALLY_MODIFIED (Phase 52).
   check-remote-cached          --check-remote against mock bare repo populates cached_skeleton_head (Phase 30b H5).
   hook-fail-closed-bash-safety Missing lib → PreToolUse hook emits deny JSON (Phase 30b H5).
   cruft-check-fixture          Broken markdown link → cruft-check.sh heuristic-i observation (Phase 30b H5).
