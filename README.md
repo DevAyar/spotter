@@ -2,68 +2,68 @@
 
 [![CI](https://github.com/DevAyar/claude-skeleton/actions/workflows/ci.yml/badge.svg)](https://github.com/DevAyar/claude-skeleton/actions/workflows/ci.yml)
 
-> A battle-tested orchestration skeleton for Claude Code projects.
+claude-skeleton is a **structural immune system** for Claude Code projects — a
+governance layer that watches a project for scope decay, drift, and the silent
+erosion of the principles it was built on. It sits on top of the Claude Code
+ecosystem and orchestrates the moving parts (agents, skills, scripts, slash
+commands, hooks) so the project stays coherent as it grows.
 
-<!-- cruft-check:exempt-historical -->
-**Status:** v1.1.4 — plugin-verification surface open: `code-quality-auditor` lands as the first plugin-audit component, composing with `cruft-checker` + `drift-checker` as the project-level audit triad. On top of v1.1.3's operational-friction relief, v1.1.2's captures-surface enum completion, v1.1.1's hook infrastructure correctness, and v1.1.0's capture/reuse loop. Used in production on Trainer-View (Flutter + Firebase) and Echoes-Of-Gill (Godot). See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next.
+## The 30-second version
 
-## What it is
+**The problem.** Projects decay structurally over time. The original logic of
+why each piece exists fades — and AI-assisted coding makes the decay faster,
+because it's easy to generate volume and hard to keep that volume coherent. What
+lands is *slop*: code that compiles and passes tests but doesn't fit the
+project's shape. Linters check syntax; nothing checks "does this still belong
+here?"
 
-A standalone meta-system that lets you bootstrap Claude Code orchestration into any project. Install it once into a project, and that project inherits a working setup of agents, skills, scripts, commands, and hooks — already tuned, already documented, already non-destructive.
+**Who it's for.** Solo developers and small teams shipping projects worth
+maintaining longer than three months — games, frameworks, mobile apps, deployed
+services. The overhead pays back the moment you return to a project six months
+later. Not for throwaway scripts or single-session experiments.
 
-## The problem it solves
+**What makes it different.** Three things. *Per-project governance* — each
+install evolves its own discipline from a shared seed; pinball governs pinball,
+Trainer-View governs TV. *Approval-gated autonomy* — thinking is automated (read,
+plan, observe, audit, draft), but anything that changes the project waits for
+you. *Scope actively governed, not passively hoped for* — a watchdog triad fires
+on a cadence to catch drift while it's still a five-minute fix, not a six-month
+rewrite.
 
-Every serious Claude Code project ends up reinventing the same scaffolding: a managing agent, a routing table, skill conventions, hooks for safety, scripts for mechanical work, docs that don't drift. Doing this from scratch each time is slow and error-prone. Doing it well requires patterns most teams discover only after months of friction.
+## Where it is now
 
-`claude-skeleton` extracts those patterns into something importable.
+- **Version:** v1.1.4. The substrate has shipped — observation layer,
+  capture/reuse loop, audit triad, vetted plugin bundle, and hook infrastructure
+  all live and stable.
+- **Latest:** the closed-loop tuner-baseline fix landed at `789d2cd` —
+  per-project tuner customizations now survive `update.sh` byte-identical.
+- **In production:** Trainer-View (Flutter + Firebase), Echoes-Of-Gill (Godot),
+  Pinball (starting up), plus the skeleton's own dogfood install.
+- **Forward direction:** compose with the ecosystem, don't compete with it. See
+  [`docs/ROADMAP.md`](docs/ROADMAP.md) for the readiness-gated sequence.
 
-## Concept
+## Install
 
-The project ships two things side-by-side:
+Non-destructive install into any project — missing files are added, existing
+files are left alone, versions tracked per-project so updates stay safe. See
+[`docs/INSTALLATION.md`](docs/INSTALLATION.md) for install + update mechanics.
 
-- **`.claude/`** — what's used to develop the meta-system itself.
-- **`template/`** — the skeleton that gets installed into target projects.
+## Read more
 
-Target projects pull `template/` into their own `.claude/` (and docs, root config) via a non-destructive install: missing files are added, existing files are left alone. Versions are tracked per-project so updates are safe.
-
-Influences: Jake Van Clief's MWP/ICM patterns (canonical sources, one-way dependencies, section-routing, scripts for mechanical work) and field-tested patterns from the Trainer-View project's Phases 1-3.
-
-## Design principles
-
-See [`docs/PHILOSOPHY.md`](docs/PHILOSOPHY.md) for the full design philosophy.
-
-Quick summary:
-- Manager + helper architecture (one agent runs the project, helpers handle specialized work).
-- Tiered skills: T1 always-on, T2 escalation, T3 on-demand.
-- Plugin evaluation discipline — every dependency passes an integration check before adoption.
-- Non-destructive install — the target project's existing structure always wins.
-- "Not every task is an AI task" — scripts for mechanical work.
-
-## What ships at v1.1.4
-
-- **Orchestration discipline** — directive layer in `template/CLAUDE_MANAGER.md.template` (strategic judgment patterns, dispatch mechanics, plugin marketplace composition, three-commit cadence, recursive ownership L0/L1/L2).
-<!-- cruft-check:exempt-historical -->
-- **Capture/reuse loop (v1.1.0)** — five-component pipeline that turns recurring patterns into reusable artefacts, user-approval-gated at every stage:
-  - `session-observer` — emits structured observations from `SESSION_LOG.md` at session end.
-  - `workflow-suggester` — drafts capture markdown from observations into `.claude/captures/`.
-  - `script-builder` — drafts bash scripts under `.claude/scripts/drafts/` from approved captures.
-  - `drift-checker` — surfaces version drift between the installed skeleton and the latest released tag at session start (read-only, no network at session start; `update.sh --check-remote` refreshes the cache).
-  - `task-watchdog` — retrospective scan of the prior session's tool-call transcript for long-running bash calls and recurring failures.
-<!-- cruft-check:exempt-historical -->
-- **Baseline tooling** — 15 agents (9 baseline + 5 capture/reuse loop + 1 plugin-verification), 6 skills, 5 scripts (`commit.sh`, `deploy.sh`, `drift-check.sh`, `task-watchdog.sh`, `plugin-quality-check.sh`), 4 slash commands (`/commit`, `/audit`, `/deploy`, `/smoke-test`), 5 hooks across 4 event types (`SessionStart`, `PreCompact`, `SessionEnd`, `PreToolUse` — `PreToolUse` has separate bash + PowerShell safety hooks as of v1.1.3).
-- **Install / update infrastructure** — `install.sh` (three modes), `update.sh` (six-way classification using per-file SHA-256 hashes with backfill for legacy markers, plus `--check-remote` for drift-cache refresh), atomic JSON `.skeleton-version` marker.
-- **CI** — three-platform matrix (Ubuntu, Windows, macOS) running six install/update scenarios on every push and PR.
-
-For phase-by-phase history see [`docs/CHANGELOG.md`](docs/CHANGELOG.md). For what's coming next — v1.2+ `manager-optimizer` and meta-evolution tier, v2.0 plugin recommendation system — see [`docs/ROADMAP.md`](docs/ROADMAP.md).
-
-## Documentation
-
-- [`docs/PHILOSOPHY.md`](docs/PHILOSOPHY.md) — design principles.
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — project layout and install flow.
-- [`docs/INSTALLATION.md`](docs/INSTALLATION.md) — install / update, including the per-file-hash mechanism.
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — v1.1+ / v1.2+ / v2.0 sequencing.
-- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — version history.
+- [`docs/STORY.md`](docs/STORY.md) — the full pitch: mission, the core
+  principles, how the loop prevents scope decay.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — versioning and readiness-gated
+  sequencing.
+- [`CLAUDE_MANAGER.md`](CLAUDE_MANAGER.md) — the manager directive surface
+  installed projects inherit.
+- [`docs/INSTALLATION.md`](docs/INSTALLATION.md) — install + update mechanics.
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+*Written for peers and informed devs familiar with Claude Code's plugin
+marketplace, agents, hooks, and slash commands. Not a portfolio piece — useful
+first, philosophy second.*
