@@ -59,6 +59,10 @@ jobs:
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh share-enable-fresh-remote
 
+      - name: Scenario - share-status-disabled-default
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-status-disabled-default
+
       - name: Scenario - fresh-refuse
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh fresh-refuse

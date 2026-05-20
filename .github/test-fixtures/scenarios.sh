@@ -97,7 +97,7 @@ scenario_fresh_install() {
   bash "$SKELETON_DIR/scripts/install.sh" \
     --source "$SKELETON_DIR" --target "$TEST_DIR" \
     --mode=fresh --claude-only
-  verify_marker 51
+  verify_marker 55
   echo "PASS fresh-install"
 }
 
@@ -279,6 +279,24 @@ print('  sentinel OK: ' + s['install_uuid'])
   echo "PASS share-enable-fresh-remote"
 }
 
+# Phase 47a: share-status on a fresh install (no share-config.json) reports
+# "not configured" cleanly; the default state is opt-out (file absent).
+scenario_share_status_disabled_default() {
+  echo ">> share-status-disabled-default: fresh install (no share-config) reports not configured (Phase 47a)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  if [ -f "$TEST_DIR/.claude/share-config.json" ]; then
+    echo "ERROR: share-config.json must NOT exist on a fresh install" >&2
+    exit 1
+  fi
+  local out
+  out=$(bash "$TEST_DIR/.claude/scripts/share-status.sh")
+  assert_contains "$out" "not configured"
+  echo "PASS share-status-disabled-default"
+}
+
 scenario_fresh_refuse() {
   echo ">> fresh-refuse: re-run --mode=fresh, expect refusal"
   init_target
@@ -397,7 +415,7 @@ LEGACY
     cat "$TEST_DIR/.claude/.skeleton-version" >&2
     exit 1
   fi
-  verify_marker 51
+  verify_marker 55
   echo "PASS backfill-migrate"
 }
 
@@ -452,8 +470,8 @@ with open(sys.argv[1]) as f:
     d = json.load(f)
 raw = d.get('raw_template_baselines')
 n = len(raw) if isinstance(raw, dict) else None
-if n != 51:
-    sys.exit(f'ERROR: expected 51 raw_template_baselines after migration, got {n}')
+if n != 55:
+    sys.exit(f'ERROR: expected 55 raw_template_baselines after migration, got {n}')
 print(f'  raw_template_baselines present after migration: {n} entries')
 " "$marker"
   echo "PASS raw-baseline-migrate"
@@ -666,6 +684,7 @@ case "${1:-}" in
   install-uuid-fresh)           scenario_install_uuid_fresh ;;
   install-uuid-backfill)        scenario_install_uuid_backfill ;;
   share-enable-fresh-remote)    scenario_share_enable_fresh_remote ;;
+  share-status-disabled-default) scenario_share_status_disabled_default ;;
   fresh-refuse)                 scenario_fresh_refuse ;;
   merge-add)                    scenario_merge_add ;;
   local-mod-detect)             scenario_local_mod_detect ;;
@@ -683,6 +702,7 @@ case "${1:-}" in
     scenario_install_uuid_fresh
     scenario_install_uuid_backfill
     scenario_share_enable_fresh_remote
+    scenario_share_status_disabled_default
     scenario_fresh_refuse
     scenario_merge_add
     scenario_local_mod_detect
@@ -706,6 +726,7 @@ Scenarios:
   install-uuid-fresh           Fresh install records install_uuid / install_label / install_created (Phase 47a).
   install-uuid-backfill        Pre-47a marker → update.sh backfills install identity, existing fields intact (Phase 47a).
   share-enable-fresh-remote    /share-enable to an empty bare remote pushes the identity sentinel + writes share-config.json (Phase 47a).
+  share-status-disabled-default share-status on a fresh install (no share-config.json) reports "not configured" (Phase 47a).
   fresh-refuse                 Populated target → --mode=fresh exits non-zero; marker unchanged.
   merge-add                    Delete a file → --mode=merge re-adds only that file.
   local-mod-detect             Modify a file → update.sh --dry-run reports LOCALLY_MODIFIED.
