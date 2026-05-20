@@ -41,6 +41,9 @@ MARKER_SOURCE=""
 MARKER_UPDATED_AT=""
 MARKER_CACHED_SKELETON_HEAD=""
 MARKER_CACHED_SKELETON_HEAD_FETCHED_AT=""
+MARKER_INSTALL_UUID=""
+MARKER_INSTALL_LABEL=""
+MARKER_INSTALL_CREATED=""
 MARKER_HASH_ENTRIES=()
 MARKER_HAS_FILES_OBJECT=false
 BACKFILL_MODE=false
@@ -52,6 +55,9 @@ BACKFILL_MODE=false
 RAW_BASELINE_ENTRIES=()
 MARKER_HAS_RAW_BASELINES=false
 MIGRATED=false
+
+# ---- Phase 47a: install identity backfill ----
+IDENTITY_BACKFILLED=false
 
 # ---- marker_hash_* helpers (bash 3.2-compatible map emulation) ----
 marker_hash_get() {
@@ -171,6 +177,11 @@ detect_json_tool() {
   fi
 }
 
+# gen_uuid → a UUID v4 on stdout (Python stdlib; no new dependency).
+gen_uuid() {
+  "$JSON_TOOL" -c 'import uuid; print(uuid.uuid4())'
+}
+
 # dump_marker: read .skeleton-version (JSON or legacy shell format) and
 # populate MARKER_* scalars, MARKER_HASH_ENTRIES, and MARKER_HAS_FILES_OBJECT.
 dump_marker() {
@@ -184,7 +195,7 @@ with open(sys.argv[1]) as f:
 stripped = text.lstrip()
 if stripped.startswith("{"):
     d = json.loads(text)
-    for k in ("version","commit","installed_at","mode","claude_only","source","updated_at","cached_skeleton_head","cached_skeleton_head_fetched_at"):
+    for k in ("version","commit","installed_at","mode","claude_only","source","updated_at","cached_skeleton_head","cached_skeleton_head_fetched_at","install_uuid","install_label","install_created"):
         if k in d and d[k] is not None:
             v = d[k]
             if isinstance(v, bool):
@@ -227,6 +238,9 @@ else:
           updated_at)                       MARKER_UPDATED_AT="$val" ;;
           cached_skeleton_head)             MARKER_CACHED_SKELETON_HEAD="$val" ;;
           cached_skeleton_head_fetched_at)  MARKER_CACHED_SKELETON_HEAD_FETCHED_AT="$val" ;;
+          install_uuid)                     MARKER_INSTALL_UUID="$val" ;;
+          install_label)                    MARKER_INSTALL_LABEL="$val" ;;
+          install_created)                  MARKER_INSTALL_CREATED="$val" ;;
         esac
         ;;
       HAS_FILES) if [ "$key" = "true" ]; then MARKER_HAS_FILES_OBJECT=true; fi ;;
@@ -249,6 +263,7 @@ else:
 write_marker_json() {
   local file="$1" version="$2" commit="$3" installed_at="$4" mode="$5" claude_only="$6" source="$7" updated_at="$8"
   local cached_head="${9:-}" cached_fetched_at="${10:-}"
+  local install_uuid="${11:-}" install_label="${12:-}" install_created="${13:-}"
   local tmp="${file}.tmp.$$"
   "$JSON_TOOL" -c '
 import json, sys
@@ -275,13 +290,19 @@ if sys.argv[7]:
     out["updated_at"] = sys.argv[7]
 out["cached_skeleton_head"] = sys.argv[8] if sys.argv[8] else None
 out["cached_skeleton_head_fetched_at"] = sys.argv[9] if sys.argv[9] else None
+if sys.argv[10]:
+    out["install_uuid"] = sys.argv[10]
+if sys.argv[11]:
+    out["install_label"] = sys.argv[11]
+if sys.argv[12]:
+    out["install_created"] = sys.argv[12]
 out["files"] = files
 if raw:
     out["raw_template_baselines"] = raw
-with open(sys.argv[10], "w", newline="\n") as f:
+with open(sys.argv[13], "w", newline="\n") as f:
     json.dump(out, f, indent=2, sort_keys=True)
     f.write("\n")
-' "$version" "$commit" "$installed_at" "$mode" "$claude_only" "$source" "$updated_at" "$cached_head" "$cached_fetched_at" "$tmp" || { rm -f "$tmp"; return 1; }
+' "$version" "$commit" "$installed_at" "$mode" "$claude_only" "$source" "$updated_at" "$cached_head" "$cached_fetched_at" "$install_uuid" "$install_label" "$install_created" "$tmp" || { rm -f "$tmp"; return 1; }
   mv -f "$tmp" "$file"
 }
 
@@ -559,6 +580,20 @@ migrate_raw_baselines() {
   MARKER_HAS_RAW_BASELINES=true
   MIGRATED=true
   printf '  recovered %d raw template baseline(s) from commit %s\n' "$count" "${commit:0:12}"
+}
+
+# ---- Phase 47a: one-time install-identity backfill ----
+# Adds install_uuid / install_label / install_created to markers created before
+# Phase 47a. Pure local state — no boundary crossing, silent, idempotent. The
+# uuid is immutable: never regenerated once present. Modeled on the
+# migrate_raw_baselines gate (run once; set a flag so write_version_marker fires
+# even on an otherwise-clean update).
+migrate_install_identity() {
+  [ -z "$MARKER_INSTALL_UUID" ] || return 0
+  MARKER_INSTALL_UUID=$(gen_uuid)
+  [ -n "$MARKER_INSTALL_LABEL" ]   || MARKER_INSTALL_LABEL=$(basename "$TARGET_PATH")
+  [ -n "$MARKER_INSTALL_CREATED" ] || MARKER_INSTALL_CREATED=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  IDENTITY_BACKFILLED=true
 }
 
 classify() {
@@ -997,8 +1032,8 @@ apply_orphans() {
 # ---- Version marker ----
 write_version_marker() {
   [ "$DRY_RUN" = true ] && return 0
-  # Write if anything was applied, or if backfill / raw-baseline migration happened.
-  if [ "$APPLIED" -eq 0 ] && [ "$BACKFILL_MODE" = false ] && [ "$MIGRATED" = false ]; then
+  # Write if anything was applied, or if backfill / raw-baseline / identity migration happened.
+  if [ "$APPLIED" -eq 0 ] && [ "$BACKFILL_MODE" = false ] && [ "$MIGRATED" = false ] && [ "$IDENTITY_BACKFILLED" = false ]; then
     return 0
   fi
   local marker="$TARGET_PATH/.claude/.skeleton-version"
@@ -1019,7 +1054,7 @@ write_version_marker() {
       [ -z "$entry" ] && continue
       printf 'R\t%s\n' "$entry"
     done
-  } | write_marker_json "$marker" "$version" "$commit" "$installed_at" "$prev_mode" "$prev_claude_only" "$SOURCE_PATH" "$ts" "$MARKER_CACHED_SKELETON_HEAD" "$MARKER_CACHED_SKELETON_HEAD_FETCHED_AT"
+  } | write_marker_json "$marker" "$version" "$commit" "$installed_at" "$prev_mode" "$prev_claude_only" "$SOURCE_PATH" "$ts" "$MARKER_CACHED_SKELETON_HEAD" "$MARKER_CACHED_SKELETON_HEAD_FETCHED_AT" "$MARKER_INSTALL_UUID" "$MARKER_INSTALL_LABEL" "$MARKER_INSTALL_CREATED"
 }
 
 summary() {
@@ -1052,6 +1087,7 @@ resolve_target_root
 preflight
 dump_marker
 migrate_raw_baselines
+migrate_install_identity
 maybe_announce_backfill
 classify
 print_findings
@@ -1060,10 +1096,11 @@ if [ ${#NEW_FILES[@]} -eq 0 ] \
    && [ ${#LOCALLY_MODIFIED_FILES[@]} -eq 0 ] \
    && [ ${#ORPHAN_FILES[@]} -eq 0 ]; then
   ok "everything up to date"
-  if { [ "$BACKFILL_MODE" = true ] || [ "$MIGRATED" = true ]; } && [ "$DRY_RUN" = false ]; then
+  if { [ "$BACKFILL_MODE" = true ] || [ "$MIGRATED" = true ] || [ "$IDENTITY_BACKFILLED" = true ]; } && [ "$DRY_RUN" = false ]; then
     write_version_marker
     [ "$BACKFILL_MODE" = true ] && ok "marker migrated to per-file-hash schema (0.8.0)"
     [ "$MIGRATED" = true ] && ok "marker upgraded with raw-template baselines (Phase 52)"
+    [ "$IDENTITY_BACKFILLED" = true ] && ok "marker backfilled with install identity (Phase 47a)"
   fi
   exit 0
 fi

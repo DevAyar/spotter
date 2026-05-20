@@ -66,6 +66,11 @@ detect_json_tool() {
   fi
 }
 
+# gen_uuid → a UUID v4 on stdout (Python stdlib; no new dependency).
+gen_uuid() {
+  "$JSON_TOOL" -c 'import uuid; print(uuid.uuid4())'
+}
+
 # ---- SHA-256 helpers ----
 detect_sha256() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -102,6 +107,7 @@ record_installed_hash() {
 write_marker_json() {
   local file="$1" version="$2" commit="$3" installed_at="$4" mode="$5" claude_only="$6" source="$7" updated_at="$8"
   local cached_head="${9:-}" cached_fetched_at="${10:-}"
+  local install_uuid="${11:-}" install_label="${12:-}" install_created="${13:-}"
   local tmp="${file}.tmp.$$"
   "$JSON_TOOL" -c '
 import json, sys
@@ -128,12 +134,18 @@ if sys.argv[7]:
     out["updated_at"] = sys.argv[7]
 out["cached_skeleton_head"] = sys.argv[8] if sys.argv[8] else None
 out["cached_skeleton_head_fetched_at"] = sys.argv[9] if sys.argv[9] else None
+if sys.argv[10]:
+    out["install_uuid"] = sys.argv[10]
+if sys.argv[11]:
+    out["install_label"] = sys.argv[11]
+if sys.argv[12]:
+    out["install_created"] = sys.argv[12]
 out["files"] = files
 out["raw_template_baselines"] = raw
-with open(sys.argv[10], "w", newline="\n") as f:
+with open(sys.argv[13], "w", newline="\n") as f:
     json.dump(out, f, indent=2, sort_keys=True)
     f.write("\n")
-' "$version" "$commit" "$installed_at" "$mode" "$claude_only" "$source" "$updated_at" "$cached_head" "$cached_fetched_at" "$tmp" || { rm -f "$tmp"; return 1; }
+' "$version" "$commit" "$installed_at" "$mode" "$claude_only" "$source" "$updated_at" "$cached_head" "$cached_fetched_at" "$install_uuid" "$install_label" "$install_created" "$tmp" || { rm -f "$tmp"; return 1; }
   mv -f "$tmp" "$file"
 }
 
@@ -422,6 +434,14 @@ write_version_marker() {
   version=$(tr -d '[:space:]' < "$SOURCE_PATH/VERSION")
   commit=$(git -C "$SOURCE_PATH" rev-parse HEAD 2>/dev/null || echo "unknown")
   ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  # Install identity (Phase 47a): generated once at fresh install, immutable
+  # thereafter. install_label defaults to the target dir basename (user-editable
+  # later); install_created stamps the first write. update.sh backfills these for
+  # pre-47a markers and never regenerates them.
+  local install_uuid install_label install_created
+  install_uuid=$(gen_uuid)
+  install_label=$(basename "$TARGET_PATH")
+  install_created="$ts"
   ensure_dir "$TARGET_PATH/.claude"
   local marker_existed=false
   [ -f "$marker" ] && marker_existed=true
@@ -434,7 +454,7 @@ write_version_marker() {
       printf 'F\t%s\n' "$entry"
       printf 'R\t%s\n' "$entry"
     done
-  } | write_marker_json "$marker" "$version" "$commit" "$ts" "$MODE" "$CLAUDE_ONLY" "$SOURCE_PATH" "" "" ""
+  } | write_marker_json "$marker" "$version" "$commit" "$ts" "$MODE" "$CLAUDE_ONLY" "$SOURCE_PATH" "" "" "" "$install_uuid" "$install_label" "$install_created"
   if [ "$marker_existed" = false ]; then
     ADDED_FILES+=("$marker")
   fi

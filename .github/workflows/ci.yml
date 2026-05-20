@@ -47,6 +47,14 @@ jobs:
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh raw-baseline-install
 
+      - name: Scenario - install-uuid-fresh
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh install-uuid-fresh
+
+      - name: Scenario - install-uuid-backfill
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh install-uuid-backfill
+
       - name: Scenario - fresh-refuse
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh fresh-refuse

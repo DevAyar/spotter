@@ -139,6 +139,91 @@ print(f'  raw_template_baselines OK: {len(raw)} entries, all match template sha2
   echo "PASS raw-baseline-install"
 }
 
+# Phase 47a: a fresh install must record install_uuid (UUID v4), a non-empty
+# install_label, and an ISO8601 install_created.
+scenario_install_uuid_fresh() {
+  echo ">> install-uuid-fresh: fresh install records install_uuid / install_label / install_created (Phase 47a)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local marker="$TEST_DIR/.claude/.skeleton-version"
+  [ -f "$marker" ] || { echo "ERROR: marker not at $marker" >&2; return 1; }
+  python -c "
+import json, re, sys
+with open(sys.argv[1]) as f:
+    d = json.load(f)
+uuid = d.get('install_uuid')
+if not isinstance(uuid, str) or not re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}', uuid):
+    sys.exit(f'ERROR: install_uuid missing or not UUID v4: {uuid!r}')
+label = d.get('install_label')
+if not isinstance(label, str) or not label.strip():
+    sys.exit(f'ERROR: install_label missing or empty: {label!r}')
+created = d.get('install_created')
+if not isinstance(created, str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z', created):
+    sys.exit(f'ERROR: install_created missing or not ISO8601: {created!r}')
+print(f'  identity OK: uuid={uuid} label={label!r} created={created}')
+" "$marker"
+  echo "PASS install-uuid-fresh"
+}
+
+# Phase 47a: a pre-47a marker (no identity fields) gains install_uuid /
+# install_label / install_created on the next update.sh run, without disturbing
+# existing fields. Models the Phase 52 raw-baseline migration gate.
+scenario_install_uuid_backfill() {
+  echo ">> install-uuid-backfill: update.sh backfills install identity into a pre-47a marker (Phase 47a)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local marker="$TEST_DIR/.claude/.skeleton-version"
+  # Simulate a pre-47a marker: drop the three identity fields, recording the
+  # pre-existing version/commit so we can prove they survive the backfill.
+  python -c "
+import json, sys
+sys.stdout.reconfigure(newline='\n')
+with open(sys.argv[1]) as f:
+    d = json.load(f)
+for k in ('install_uuid', 'install_label', 'install_created'):
+    d.pop(k, None)
+with open(sys.argv[1], 'w', newline='\n') as f:
+    json.dump(d, f, indent=2, sort_keys=True)
+    f.write('\n')
+sys.stdout.write(d['version'] + '\t' + d['commit'] + '\n')
+" "$marker" > "$TEST_DIR/pre.tsv"
+  local pre_version pre_commit
+  IFS=$'\t' read -r pre_version pre_commit < "$TEST_DIR/pre.tsv"
+  pre_version="${pre_version%$'\r'}"
+  pre_commit="${pre_commit%$'\r'}"
+  # Decline template updates (S) and orphans (n): only the identity backfill
+  # should drive the marker rewrite.
+  printf 'S\nn\n' | bash "$SKELETON_DIR/scripts/update.sh" \
+                      --source "$SKELETON_DIR" --target "$TEST_DIR" \
+                      > "$TEST_DIR/update.out" 2>&1 || { cat "$TEST_DIR/update.out" >&2; exit 1; }
+  assert_contains "$(cat "$TEST_DIR/update.out")" "install identity (Phase 47a)"
+  python -c "
+import json, re, sys
+with open(sys.argv[1]) as f:
+    d = json.load(f)
+uuid = d.get('install_uuid')
+if not isinstance(uuid, str) or not re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}', uuid):
+    sys.exit(f'ERROR: install_uuid not backfilled as UUID v4: {uuid!r}')
+label = d.get('install_label')
+if not isinstance(label, str) or not label.strip():
+    sys.exit(f'ERROR: install_label not backfilled: {label!r}')
+created = d.get('install_created')
+if not isinstance(created, str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z', created):
+    sys.exit(f'ERROR: install_created not backfilled ISO8601: {created!r}')
+ver, com = d.get('version'), d.get('commit')
+if ver != sys.argv[2]:
+    sys.exit(f'ERROR: version disturbed: {ver!r} != {sys.argv[2]!r}')
+if com != sys.argv[3]:
+    sys.exit(f'ERROR: commit disturbed: {com!r} != {sys.argv[3]!r}')
+print(f'  backfill OK: uuid={uuid} label={label!r}; version/commit intact')
+" "$marker" "$pre_version" "$pre_commit"
+  echo "PASS install-uuid-backfill"
+}
+
 scenario_fresh_refuse() {
   echo ">> fresh-refuse: re-run --mode=fresh, expect refusal"
   init_target
@@ -523,6 +608,8 @@ scenario_hook_fp_exemption_git_commit_message() {
 case "${1:-}" in
   fresh-install)                scenario_fresh_install ;;
   raw-baseline-install)         scenario_raw_baseline_install ;;
+  install-uuid-fresh)           scenario_install_uuid_fresh ;;
+  install-uuid-backfill)        scenario_install_uuid_backfill ;;
   fresh-refuse)                 scenario_fresh_refuse ;;
   merge-add)                    scenario_merge_add ;;
   local-mod-detect)             scenario_local_mod_detect ;;
@@ -537,6 +624,8 @@ case "${1:-}" in
   all)
     scenario_fresh_install
     scenario_raw_baseline_install
+    scenario_install_uuid_fresh
+    scenario_install_uuid_backfill
     scenario_fresh_refuse
     scenario_merge_add
     scenario_local_mod_detect
@@ -557,6 +646,8 @@ Usage: bash scenarios.sh <scenario>
 Scenarios:
   fresh-install                Clean target → install --mode=fresh; verify JSON marker.
   raw-baseline-install         Fresh install records raw_template_baselines matching template hashes (Phase 52).
+  install-uuid-fresh           Fresh install records install_uuid / install_label / install_created (Phase 47a).
+  install-uuid-backfill        Pre-47a marker → update.sh backfills install identity, existing fields intact (Phase 47a).
   fresh-refuse                 Populated target → --mode=fresh exits non-zero; marker unchanged.
   merge-add                    Delete a file → --mode=merge re-adds only that file.
   local-mod-detect             Modify a file → update.sh --dry-run reports LOCALLY_MODIFIED.
