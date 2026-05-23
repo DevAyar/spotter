@@ -112,6 +112,22 @@ jobs:
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh share-preview-disabled
 
+      - name: Scenario - share-purge-remote
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-purge-remote
+
+      - name: Scenario - share-purge-nothing
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-purge-nothing
+
+      - name: Scenario - share-purge-confirm-eof
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-purge-confirm-eof
+
+      - name: Scenario - share-disable-plain
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-disable-plain
+
       - name: Scenario - fresh-refuse
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh fresh-refuse

@@ -773,6 +773,131 @@ scenario_share_preview_disabled() {
   echo "PASS share-preview-disabled"
 }
 
+# Phase 47c-2: --purge-remote removes THIS install's uuid-keyed paths from the
+# remote (per-producer subtrees + installs/<uuid>/), leaves other installs' data,
+# and ends disabled. Typed 'purge' confirmation supplied on stdin.
+scenario_share_purge_remote() {
+  echo ">> share-purge-remote: --purge-remote removes this install's files; a 2nd install's stay; ends disabled (Phase 47c-2)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local bare="$TEST_DIR/sm.git"
+  git init --bare -q "$bare"
+  printf 'enable\n' | bash "$TEST_DIR/.claude/scripts/share-enable.sh" "$bare" >/dev/null 2>&1 \
+    || { echo "ERROR: share-enable failed" >&2; exit 1; }
+  local uuid
+  uuid=$(python -c "import json,sys; sys.stdout.write(json.load(open(sys.argv[1]))['install_uuid'])" "$TEST_DIR/.claude/.skeleton-version")
+  cat > "$TEST_DIR/.claude/captures/capR.md" <<'CAP'
+---
+capture_id: capR
+source_pattern_id: capR
+source_pattern_type: other
+status: shipped
+confidence: high
+suggested_artifact_type: script
+created_at: 2026-05-10T00:00:00Z
+---
+body
+CAP
+  bash "$TEST_DIR/.claude/scripts/shared-memory-push.sh" >/dev/null 2>&1 \
+    || { echo "ERROR: initial push failed" >&2; exit 1; }
+  # Seed a SECOND install's paths directly into the remote.
+  local other="$TEST_DIR/other" ouid="22222222-2222-4222-8222-222222222222"
+  git clone -q "$bare" "$other"
+  git -C "$other" config user.email o@t.local; git -C "$other" config user.name other
+  mkdir -p "$other/captures/$ouid/2026-05-23" "$other/installs/$ouid"
+  printf '{"x":1}\n' > "$other/captures/$ouid/2026-05-23/o.json"
+  printf '{"s":1}\n' > "$other/installs/$ouid/sentinel.json"
+  git -C "$other" add -A; git -C "$other" commit -q -m "second install"; git -C "$other" push -q origin HEAD
+  # Purge THIS install (typed confirmation on stdin).
+  printf 'purge\n' | bash "$TEST_DIR/.claude/scripts/share-disable.sh" --purge-remote >"$TEST_DIR/purge.out" 2>&1 \
+    || { echo "ERROR: purge failed" >&2; cat "$TEST_DIR/purge.out" >&2; exit 1; }
+  local ref tree
+  ref=$(git -C "$bare" for-each-ref --format='%(refname)' refs/heads | head -1)
+  tree=$(git -C "$bare" ls-tree -r --name-only "$ref")
+  if printf '%s\n' "$tree" | grep -q "/$uuid/"; then
+    echo "ERROR: this install's paths still on remote after purge" >&2; printf '%s\n' "$tree" >&2; exit 1
+  fi
+  printf '%s\n' "$tree" | grep -q "$ouid" \
+    || { echo "ERROR: second install's paths were removed by the purge" >&2; printf '%s\n' "$tree" >&2; exit 1; }
+  python -c "import json,sys; c=json.load(open(sys.argv[1])); sys.exit(0 if c.get('enabled') is False else 1)" \
+    "$TEST_DIR/.claude/share-config.json" || { echo "ERROR: share mode not disabled after purge" >&2; exit 1; }
+  echo "PASS share-purge-remote"
+}
+
+# Phase 47c-2: --purge-remote when this install never pushed → clean no-op, disables.
+scenario_share_purge_nothing() {
+  echo ">> share-purge-nothing: --purge-remote with nothing pushed → no-op, disables (Phase 47c-2)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local bare="$TEST_DIR/sm.git"
+  git init --bare -q "$bare"
+  # Enable via a manual config pointing at the empty bare — no sentinel, no events.
+  printf '{"schema_version":1,"enabled":true,"remote_url":"%s","enabled_at":"2026-05-22T00:00:00Z","disabled_at":null}\n' \
+    "$bare" > "$TEST_DIR/.claude/share-config.json"
+  printf 'purge\n' | bash "$TEST_DIR/.claude/scripts/share-disable.sh" --purge-remote >"$TEST_DIR/p.out" 2>&1 \
+    || { echo "ERROR: purge-nothing failed" >&2; cat "$TEST_DIR/p.out" >&2; exit 1; }
+  assert_contains "$(cat "$TEST_DIR/p.out")" "nothing to remove"
+  python -c "import json,sys; c=json.load(open(sys.argv[1])); sys.exit(0 if c.get('enabled') is False else 1)" \
+    "$TEST_DIR/.claude/share-config.json" || { echo "ERROR: not disabled after no-op purge" >&2; exit 1; }
+  echo "PASS share-purge-nothing"
+}
+
+# Phase 47c-2: --purge-remote with no confirmation (EOF) fails closed; the
+# feature stays ENABLED and remote data is untouched.
+scenario_share_purge_confirm_eof() {
+  echo ">> share-purge-confirm-eof: EOF confirmation fails closed; stays enabled; remote intact (Phase 47c-2)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local bare="$TEST_DIR/sm.git"
+  git init --bare -q "$bare"
+  printf 'enable\n' | bash "$TEST_DIR/.claude/scripts/share-enable.sh" "$bare" >/dev/null 2>&1 \
+    || { echo "ERROR: share-enable failed" >&2; exit 1; }
+  set +e
+  bash "$TEST_DIR/.claude/scripts/share-disable.sh" --purge-remote </dev/null >"$TEST_DIR/e.out" 2>&1
+  local rc=$?
+  set -e
+  [ "$rc" -ne 0 ] || { echo "ERROR: expected non-zero exit on EOF confirmation" >&2; cat "$TEST_DIR/e.out" >&2; exit 1; }
+  python -c "import json,sys; c=json.load(open(sys.argv[1])); sys.exit(0 if c.get('enabled') is True else 1)" \
+    "$TEST_DIR/.claude/share-config.json" || { echo "ERROR: share mode disabled despite cancelled purge" >&2; exit 1; }
+  local ref uuid
+  ref=$(git -C "$bare" for-each-ref --format='%(refname)' refs/heads | head -1)
+  uuid=$(python -c "import json,sys; sys.stdout.write(json.load(open(sys.argv[1]))['install_uuid'])" "$TEST_DIR/.claude/.skeleton-version")
+  git -C "$bare" cat-file -e "$ref:installs/$uuid/sentinel.json" 2>/dev/null \
+    || { echo "ERROR: remote data was touched on a cancelled purge" >&2; exit 1; }
+  echo "PASS share-purge-confirm-eof"
+}
+
+# Phase 47c-2: plain /share-disable (no flag) stops pushing, leaves remote data,
+# needs no confirmation.
+scenario_share_disable_plain() {
+  echo ">> share-disable-plain: plain disable stops pushing, leaves remote data, no confirmation (Phase 47c-2)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local bare="$TEST_DIR/sm.git"
+  git init --bare -q "$bare"
+  printf 'enable\n' | bash "$TEST_DIR/.claude/scripts/share-enable.sh" "$bare" >/dev/null 2>&1 \
+    || { echo "ERROR: share-enable failed" >&2; exit 1; }
+  local uuid
+  uuid=$(python -c "import json,sys; sys.stdout.write(json.load(open(sys.argv[1]))['install_uuid'])" "$TEST_DIR/.claude/.skeleton-version")
+  bash "$TEST_DIR/.claude/scripts/share-disable.sh" >"$TEST_DIR/d.out" 2>&1 \
+    || { echo "ERROR: plain disable failed" >&2; cat "$TEST_DIR/d.out" >&2; exit 1; }
+  python -c "import json,sys; c=json.load(open(sys.argv[1])); sys.exit(0 if c.get('enabled') is False else 1)" \
+    "$TEST_DIR/.claude/share-config.json" || { echo "ERROR: not disabled" >&2; exit 1; }
+  local ref
+  ref=$(git -C "$bare" for-each-ref --format='%(refname)' refs/heads | head -1)
+  git -C "$bare" cat-file -e "$ref:installs/$uuid/sentinel.json" 2>/dev/null \
+    || { echo "ERROR: plain disable removed remote data" >&2; exit 1; }
+  echo "PASS share-disable-plain"
+}
+
 scenario_fresh_refuse() {
   echo ">> fresh-refuse: re-run --mode=fresh, expect refusal"
   init_target
@@ -1173,6 +1298,10 @@ case "${1:-}" in
   share-push-manual)            scenario_share_push_manual ;;
   share-preview-enabled)        scenario_share_preview_enabled ;;
   share-preview-disabled)       scenario_share_preview_disabled ;;
+  share-purge-remote)           scenario_share_purge_remote ;;
+  share-purge-nothing)          scenario_share_purge_nothing ;;
+  share-purge-confirm-eof)      scenario_share_purge_confirm_eof ;;
+  share-disable-plain)          scenario_share_disable_plain ;;
   fresh-refuse)                 scenario_fresh_refuse ;;
   merge-add)                    scenario_merge_add ;;
   local-mod-detect)             scenario_local_mod_detect ;;
@@ -1203,6 +1332,10 @@ case "${1:-}" in
     scenario_share_push_manual
     scenario_share_preview_enabled
     scenario_share_preview_disabled
+    scenario_share_purge_remote
+    scenario_share_purge_nothing
+    scenario_share_purge_confirm_eof
+    scenario_share_disable_plain
     scenario_fresh_refuse
     scenario_merge_add
     scenario_local_mod_detect
@@ -1239,6 +1372,10 @@ Scenarios:
   share-push-manual            /share-push pushes on-change; reports nothing-to-push when clean (Phase 47c-1).
   share-preview-enabled        --preview reports the would-include set; remote untouched (Phase 47c-2).
   share-preview-disabled       --preview with share off reports not-enabled, exits 0 (Phase 47c-2).
+  share-purge-remote           --purge-remote removes this install's files; a 2nd install's stay; ends disabled (Phase 47c-2).
+  share-purge-nothing          --purge-remote with nothing pushed → no-op, disables (Phase 47c-2).
+  share-purge-confirm-eof      --purge-remote EOF confirmation fails closed; stays enabled (Phase 47c-2).
+  share-disable-plain          Plain disable stops pushing, leaves remote data, no confirmation (Phase 47c-2).
   fresh-refuse                 Populated target → --mode=fresh exits non-zero; marker unchanged.
   merge-add                    Delete a file → --mode=merge re-adds only that file.
   local-mod-detect             Modify a file → update.sh --dry-run reports LOCALLY_MODIFIED.
