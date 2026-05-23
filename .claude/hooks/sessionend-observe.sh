@@ -55,4 +55,11 @@ if [ -x "$TELEMETRY_LIB" ] || [ -f "$TELEMETRY_LIB" ]; then
   bash "$TELEMETRY_LIB" 2>/dev/null || true
 fi
 
+# Phase 47c-1: cross-project shared-memory push. Pure git/bash, fail-soft —
+# a failed push MUST NOT block session end. No-op unless share mode is enabled.
+SHARED_MEMORY_PUSH="${CLAUDE_PROJECT_DIR}/.claude/scripts/shared-memory-push.sh"
+if [ -f "$SHARED_MEMORY_PUSH" ]; then
+  bash "$SHARED_MEMORY_PUSH" 2>/dev/null || true
+fi
+
 exit 0

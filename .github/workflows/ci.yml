@@ -88,6 +88,22 @@ jobs:
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh share-push-race
 
+      - name: Scenario - share-push-enabled
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-push-enabled
+
+      - name: Scenario - share-push-failsoft
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-push-failsoft
+
+      - name: Scenario - share-push-disabled
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-push-disabled
+
+      - name: Scenario - share-push-manual
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-push-manual
+
       - name: Scenario - fresh-refuse
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh fresh-refuse

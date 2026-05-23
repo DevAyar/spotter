@@ -107,7 +107,7 @@ scenario_fresh_install() {
   bash "$SKELETON_DIR/scripts/install.sh" \
     --source "$SKELETON_DIR" --target "$TEST_DIR" \
     --mode=fresh --claude-only
-  verify_marker 60
+  verify_marker 62
   echo "PASS fresh-install"
 }
 
@@ -579,6 +579,142 @@ scenario_share_push_race() {
   echo "PASS share-push-race"
 }
 
+# Phase 47c-1: the SessionEnd orchestrator clones the remote, runs the producer,
+# and pushes; events land in the remote and /share-status reports the last push.
+scenario_share_push_enabled() {
+  echo ">> share-push-enabled: orchestrator clones, produces, pushes; files land; share-status reports (Phase 47c-1)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local bare="$TEST_DIR/sm.git"
+  git init --bare -q "$bare"
+  printf 'enable\n' | bash "$TEST_DIR/.claude/scripts/share-enable.sh" "$bare" >/dev/null 2>&1 \
+    || { echo "ERROR: share-enable failed" >&2; exit 1; }
+  local uuid
+  uuid=$(python -c "import json,sys; sys.stdout.write(json.load(open(sys.argv[1]))['install_uuid'])" "$TEST_DIR/.claude/.skeleton-version")
+  cat > "$TEST_DIR/.claude/captures/capQ.md" <<'CAP'
+---
+capture_id: capQ
+source_pattern_id: capQ
+source_pattern_type: other
+status: shipped
+confidence: high
+suggested_artifact_type: script
+created_at: 2026-05-10T00:00:00Z
+---
+body
+CAP
+  bash "$TEST_DIR/.claude/scripts/shared-memory-push.sh" \
+    || { echo "ERROR: orchestrator exit != 0" >&2; exit 1; }
+  [ -d "$TEST_DIR/.claude/shared-memory/.git" ] \
+    || { echo "ERROR: shared-memory is not a working clone" >&2; exit 1; }
+  local ref
+  ref=$(git -C "$bare" for-each-ref --format='%(refname)' refs/heads | head -1)
+  [ -n "$ref" ] || { echo "ERROR: remote has no branch after push" >&2; exit 1; }
+  git -C "$bare" ls-tree -r --name-only "$ref" | grep -q "captures/$uuid/.*/capQ.json" \
+    || { echo "ERROR: capture event not in remote" >&2; git -C "$bare" ls-tree -r --name-only "$ref" >&2; exit 1; }
+  git -C "$bare" cat-file -e "$ref:version/$uuid/version.json" 2>/dev/null \
+    || { echo "ERROR: version event not in remote" >&2; exit 1; }
+  local out
+  out=$(bash "$TEST_DIR/.claude/scripts/share-status.sh")
+  assert_contains "$out" "Last push:"
+  assert_contains "$out" "Files pushed:"
+  echo "PASS share-push-enabled"
+}
+
+# Phase 47c-1: an unreachable remote must not block session end (exit 0, no clone
+# left as a working tree); a later run with the remote present catches up.
+scenario_share_push_failsoft() {
+  echo ">> share-push-failsoft: unreachable remote → exit 0; later run catches up (Phase 47c-1)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local bare="$TEST_DIR/later.git"
+  printf '{"schema_version":1,"enabled":true,"remote_url":"%s","enabled_at":"2026-05-22T00:00:00Z","disabled_at":null}\n' \
+    "$bare" > "$TEST_DIR/.claude/share-config.json"
+  cat > "$TEST_DIR/.claude/captures/capF.md" <<'CAP'
+---
+capture_id: capF
+source_pattern_id: capF
+source_pattern_type: other
+status: shipped
+confidence: high
+suggested_artifact_type: script
+created_at: 2026-05-10T00:00:00Z
+---
+body
+CAP
+  GIT_TERMINAL_PROMPT=0 bash "$TEST_DIR/.claude/scripts/shared-memory-push.sh" \
+    || { echo "ERROR: orchestrator must exit 0 when remote unreachable" >&2; exit 1; }
+  if [ -d "$TEST_DIR/.claude/shared-memory/.git" ]; then
+    echo "ERROR: a working clone should not exist after a failed first run" >&2
+    exit 1
+  fi
+  echo "  unreachable remote tolerated (exit 0, no clone)"
+  git init --bare -q "$bare"
+  GIT_TERMINAL_PROMPT=0 bash "$TEST_DIR/.claude/scripts/shared-memory-push.sh" \
+    || { echo "ERROR: catch-up run failed" >&2; exit 1; }
+  local ref
+  ref=$(git -C "$bare" for-each-ref --format='%(refname)' refs/heads | head -1)
+  [ -n "$ref" ] && git -C "$bare" ls-tree -r --name-only "$ref" | grep -q "capF.json" \
+    || { echo "ERROR: catch-up did not land capF" >&2; exit 1; }
+  echo "PASS share-push-failsoft"
+}
+
+# Phase 47c-1: with share mode not configured, the orchestrator no-ops — exit 0,
+# no clone created.
+scenario_share_push_disabled() {
+  echo ">> share-push-disabled: no share-config → orchestrator no-op, no clone (Phase 47c-1)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  bash "$TEST_DIR/.claude/scripts/shared-memory-push.sh" \
+    || { echo "ERROR: orchestrator should exit 0 when disabled" >&2; exit 1; }
+  if [ -d "$TEST_DIR/.claude/shared-memory" ]; then
+    echo "ERROR: clone/dir created while share disabled" >&2
+    exit 1
+  fi
+  echo "PASS share-push-disabled"
+}
+
+# Phase 47c-1: /share-push (shared-memory-push.sh --manual) pushes on-change with
+# user-facing output, and reports "Nothing to push" when the tree is clean.
+scenario_share_push_manual() {
+  echo ">> share-push-manual: manual trigger pushes on-change; reports nothing-to-push when clean (Phase 47c-1)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local bare="$TEST_DIR/sm.git"
+  git init --bare -q "$bare"
+  printf 'enable\n' | bash "$TEST_DIR/.claude/scripts/share-enable.sh" "$bare" >/dev/null 2>&1 \
+    || { echo "ERROR: share-enable failed" >&2; exit 1; }
+  cat > "$TEST_DIR/.claude/captures/capM.md" <<'CAP'
+---
+capture_id: capM
+source_pattern_id: capM
+source_pattern_type: other
+status: shipped
+confidence: high
+suggested_artifact_type: script
+created_at: 2026-05-10T00:00:00Z
+---
+body
+CAP
+  local out1
+  out1=$(bash "$TEST_DIR/.claude/scripts/shared-memory-push.sh" --manual) \
+    || { echo "ERROR: manual push exit != 0" >&2; exit 1; }
+  assert_contains "$out1" "Pushed"
+  local out2
+  out2=$(bash "$TEST_DIR/.claude/scripts/shared-memory-push.sh" --manual) \
+    || { echo "ERROR: second manual push exit != 0" >&2; exit 1; }
+  assert_contains "$out2" "Nothing to push"
+  echo "PASS share-push-manual"
+}
+
 scenario_fresh_refuse() {
   echo ">> fresh-refuse: re-run --mode=fresh, expect refusal"
   init_target
@@ -697,7 +833,7 @@ LEGACY
     cat "$TEST_DIR/.claude/.skeleton-version" >&2
     exit 1
   fi
-  verify_marker 60
+  verify_marker 62
   echo "PASS backfill-migrate"
 }
 
@@ -973,6 +1109,10 @@ case "${1:-}" in
   share-produce-disabled)       scenario_share_produce_disabled ;;
   share-push-empty-remote)      scenario_share_push_empty_remote ;;
   share-push-race)              scenario_share_push_race ;;
+  share-push-enabled)           scenario_share_push_enabled ;;
+  share-push-failsoft)          scenario_share_push_failsoft ;;
+  share-push-disabled)          scenario_share_push_disabled ;;
+  share-push-manual)            scenario_share_push_manual ;;
   fresh-refuse)                 scenario_fresh_refuse ;;
   merge-add)                    scenario_merge_add ;;
   local-mod-detect)             scenario_local_mod_detect ;;
@@ -997,6 +1137,10 @@ case "${1:-}" in
     scenario_share_produce_disabled
     scenario_share_push_empty_remote
     scenario_share_push_race
+    scenario_share_push_enabled
+    scenario_share_push_failsoft
+    scenario_share_push_disabled
+    scenario_share_push_manual
     scenario_fresh_refuse
     scenario_merge_add
     scenario_local_mod_detect
@@ -1027,6 +1171,10 @@ Scenarios:
   share-produce-disabled       No share-config → producers no-op, no tree created (Phase 47b).
   share-push-empty-remote      Git layer: first push to an empty bare remote establishes the branch (Phase 47c-1).
   share-push-race              Two clones push disjoint files; pull-rebase-retry lands both (Phase 47c-1).
+  share-push-enabled           SessionEnd orchestrator clones, produces, pushes; files land; status reports (Phase 47c-1).
+  share-push-failsoft          Unreachable remote → orchestrator exits 0; a later run catches up (Phase 47c-1).
+  share-push-disabled          No share-config → orchestrator no-op, no clone created (Phase 47c-1).
+  share-push-manual            /share-push pushes on-change; reports nothing-to-push when clean (Phase 47c-1).
   fresh-refuse                 Populated target → --mode=fresh exits non-zero; marker unchanged.
   merge-add                    Delete a file → --mode=merge re-adds only that file.
   local-mod-detect             Modify a file → update.sh --dry-run reports LOCALLY_MODIFIED.

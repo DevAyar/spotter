@@ -23,8 +23,12 @@ SMG_NOTICE="[shared-memory-git]"
 # ---- helpers ----
 smg_log() { printf '%s %s\n' "$SMG_NOTICE" "$*" >&2; }
 
-# smg_is_clone <dir> → 0 if <dir> is inside a git working tree.
-smg_is_clone() { git -C "$1" rev-parse --is-inside-work-tree >/dev/null 2>&1; }
+# smg_is_clone <dir> → 0 if <dir> is itself a clone root (owns a .git dir).
+# Deliberately checks <dir>/.git rather than `rev-parse --is-inside-work-tree`:
+# the latter returns true for a plain/empty <dir> nested inside a PARENT repo
+# (e.g. the project itself), which would make ensure_clone skip cloning and let
+# later git ops fall through to the parent repo — catastrophic.
+smg_is_clone() { [ -d "$1/.git" ]; }
 
 # smg_remote_has_commits <dir> → 0 if origin has at least one branch (non-empty).
 smg_remote_has_commits() { git -C "$1" ls-remote --heads origin 2>/dev/null | grep -q .; }
@@ -72,6 +76,9 @@ smg_pull_rebase() {
 smg_push() {
   local d="$1" msg="$2" attempt=1
   smg_is_clone "$d" || { smg_log "not a clone: $d"; return 1; }
+  # Ensure a commit identity exists in the clone (CI runners have none global).
+  git -C "$d" config user.email >/dev/null 2>&1 || git -C "$d" config user.email "share@claude-skeleton.local"
+  git -C "$d" config user.name  >/dev/null 2>&1 || git -C "$d" config user.name  "claude-skeleton share"
   git -C "$d" add -A 2>/dev/null || return 1
   if ! git -C "$d" diff --cached --quiet 2>/dev/null; then
     git -C "$d" commit --quiet -m "$msg" 2>/dev/null || { smg_log "commit failed"; return 1; }

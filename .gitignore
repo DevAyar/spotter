@@ -49,3 +49,7 @@ docs/SESSION_LOG.md
 # layout; Phase 47c clones the remote and pushes from it. Per-install runtime
 # state, not source-of-truth — same rationale as observations/ + telemetry/.
 .claude/shared-memory/
+
+# Phase 47c-1 push layer: last successful push marker (timestamp + file count),
+# surfaced by /share-status. Per-install runtime state, not source-of-truth.
+.claude/.last-shared-push

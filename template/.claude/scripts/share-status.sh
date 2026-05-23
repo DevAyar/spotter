@@ -8,6 +8,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." 2>/dev/null && pwd)"
 SHARE_CONFIG="$ROOT/.claude/share-config.json"
 MARKER="$ROOT/.claude/.skeleton-version"
+LAST_PUSH="$ROOT/.claude/.last-shared-push"
 PY=""
 
 # ---- helpers ----
@@ -31,7 +32,7 @@ fi
 "$PY" -c "
 import json, sys
 sys.stdout.reconfigure(newline='\n')
-cfg_path, marker_path = sys.argv[1], sys.argv[2]
+cfg_path, marker_path, last_push_path = sys.argv[1], sys.argv[2], sys.argv[3]
 with open(cfg_path) as f:
     c = json.load(f)
 uuid = label = ''
@@ -50,4 +51,14 @@ if not enabled:
     print('  Disabled at:   ' + str(c.get('disabled_at') or '(unknown)'))
 print('  Install UUID:  ' + (uuid or '(missing)'))
 print('  Install label: ' + (label or '(missing)'))
-" "$SHARE_CONFIG" "$MARKER"
+if enabled:
+    try:
+        with open(last_push_path) as f:
+            lp = json.load(f)
+        print('  Last push:     ' + str(lp.get('last_push_at') or '(never)'))
+        fp = lp.get('files_pushed')
+        print('  Files pushed:  ' + (str(fp) if fp is not None else '(unknown)'))
+    except Exception:
+        print('  Last push:     (never)')
+        print('  Files pushed:  0')
+" "$SHARE_CONFIG" "$MARKER" "$LAST_PUSH"
