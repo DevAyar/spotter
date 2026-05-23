@@ -43,3 +43,9 @@ docs/SESSION_LOG.md
 # in each telemetry subdir stay tracked.
 .claude/telemetry/events/*.jsonl
 .claude/telemetry/sessions/*.md
+
+# Phase 47b shared-memory: the LOCAL staging tree of redacted cross-install
+# events (producer/install/date). A plain mirror of the share remote's
+# layout; Phase 47c clones the remote and pushes from it. Per-install runtime
+# state, not source-of-truth — same rationale as observations/ + telemetry/.
+.claude/shared-memory/

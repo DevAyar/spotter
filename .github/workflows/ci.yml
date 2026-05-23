@@ -29,6 +29,7 @@ jobs:
           python --version
           command -v sha256sum >/dev/null 2>&1 && echo "sha256sum: yes" || echo "sha256sum: no"
           command -v shasum     >/dev/null 2>&1 && echo "shasum: yes"     || echo "shasum: no"
+          command -v jq         >/dev/null 2>&1 && echo "jq: yes ($(jq --version))" || echo "jq: no"
           bash --version | head -1
 
       - name: install.sh --help
@@ -62,6 +63,22 @@ jobs:
       - name: Scenario - share-status-disabled-default
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh share-status-disabled-default
+
+      - name: Scenario - share-capture-redact
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-capture-redact
+
+      - name: Scenario - share-produce-enabled
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-produce-enabled
+
+      - name: Scenario - share-produce-idempotent
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-produce-idempotent
+
+      - name: Scenario - share-produce-disabled
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-produce-disabled
 
       - name: Scenario - fresh-refuse
         shell: bash

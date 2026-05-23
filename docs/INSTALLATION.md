@@ -231,10 +231,13 @@ sentinels to. The trust model is single-user-multi-install: one person's
 installs to one of that person's own remotes. It is **off by default**;
 nothing is shared until you opt in.
 
-Phase 47a ships **infrastructure only** — identity + opt-in. No
-observation, capture, or telemetry data is pushed yet (producer
-integration + redaction land in Phase 47b; the SessionEnd push cadence
-in 47c).
+Phase 47a shipped identity + opt-in; **Phase 47b** adds the producers.
+When share is enabled, `.claude/scripts/shared-memory-produce.sh` writes
+redacted JSON events into a local staging tree at `.claude/shared-memory/`
+(`<producer>/<install_uuid>/<date>/`) for captures, observations,
+telemetry, and version. Nothing is **pushed** yet — 47b writes locally
+only; the SessionEnd push cadence + git push land in 47c. Envelope
+contract: `.claude/lib/shared-memory.schema.md`.
 
 Three commands manage it:
 

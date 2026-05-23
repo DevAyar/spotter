@@ -89,6 +89,16 @@ assert_contains() {
   fi
 }
 
+# have_glob: 0 if at least one path matches any given glob (expanded by the
+# shell). Avoids `find | grep -q` SIGPIPE flakiness under pipefail.
+have_glob() {
+  local g
+  for g in "$@"; do
+    [ -e "$g" ] && return 0
+  done
+  return 1
+}
+
 # ---- scenarios ----
 
 scenario_fresh_install() {
@@ -97,7 +107,7 @@ scenario_fresh_install() {
   bash "$SKELETON_DIR/scripts/install.sh" \
     --source "$SKELETON_DIR" --target "$TEST_DIR" \
     --mode=fresh --claude-only
-  verify_marker 58
+  verify_marker 59
   echo "PASS fresh-install"
 }
 
@@ -375,6 +385,141 @@ CAP
   echo "PASS share-capture-redact"
 }
 
+# Phase 47b: with share enabled (via the real 47a opt-in), producers write
+# redacted envelopes into producer/install/date; local-only is refused;
+# telemetry routes to telemetry/ (not double-emitted under observations);
+# version is current-state (no date dir, no created_at).
+scenario_share_produce_enabled() {
+  echo ">> share-produce-enabled: producers write redacted envelopes; local-only refused; telemetry routed (Phase 47b)"
+  command -v jq >/dev/null 2>&1 || { echo "ERROR: jq is required (redact-observation.sh)" >&2; exit 1; }
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local bare="$TEST_DIR/skeleton-shared-test.git"
+  git init --bare -q "$bare"
+  printf 'enable\n' | bash "$TEST_DIR/.claude/scripts/share-enable.sh" "$bare" >/dev/null 2>&1 \
+    || { echo "ERROR: share-enable failed" >&2; exit 1; }
+  local uuid
+  uuid=$(python -c "import json,sys; sys.stdout.write(json.load(open(sys.argv[1]))['install_uuid'])" "$TEST_DIR/.claude/.skeleton-version")
+  [ -n "$uuid" ] || { echo "ERROR: no install_uuid" >&2; exit 1; }
+
+  # Seed one artifact of each input class.
+  cat > "$TEST_DIR/.claude/captures/capX.md" <<'CAP'
+---
+capture_id: capX
+source_pattern_id: capX
+source_pattern_type: other
+status: rejected
+confidence: high
+suggested_artifact_type: script
+created_at: 2026-05-10T00:00:00Z
+---
+body referencing /Users/me/secret and TOKEN=longsecretvalue here
+CAP
+  cat > "$TEST_DIR/.claude/observations/obs-local.json" <<'J'
+{"pattern_id":"localpid","source":"session-observer","pattern_type":"repeated_command","occurrences":3,"first_seen":"2026-05-10T00:00:00Z","last_seen":"2026-05-11T00:00:00Z","resolved_at":null,"evidence":[],"confidence":"high","privacy_class":"local-only"}
+J
+  cat > "$TEST_DIR/.claude/observations/obs-safe.json" <<'J'
+{"pattern_id":"safepid","source":"task-watchdog","pattern_type":"recurring_failure","occurrences":4,"first_seen":"2026-05-09T00:00:00Z","last_seen":"2026-05-11T00:00:00Z","resolved_at":null,"evidence":[],"confidence":"high","privacy_class":"safe-to-share"}
+J
+  cat > "$TEST_DIR/.claude/observations/token-telemetry-sessZ.json" <<'J'
+{"pattern_id":"telpid","source":"session-end-telemetry","pattern_type":"token_telemetry","occurrences":1,"first_seen":"2026-05-08T00:00:00Z","last_seen":"2026-05-08T01:00:00Z","resolved_at":"2026-05-08T01:00:00Z","evidence":[],"confidence":"high","privacy_class":"safe-to-share","target_resource":"session:sessZ"}
+J
+  bash "$TEST_DIR/.claude/scripts/shared-memory-produce.sh" \
+    || { echo "ERROR: produce exit != 0" >&2; exit 1; }
+
+  local tree="$TEST_DIR/.claude/shared-memory"
+  have_glob "$tree/captures/$uuid"/*/capX.json        || { echo "ERROR: capture event missing" >&2; exit 1; }
+  have_glob "$tree/observations/$uuid"/*/safepid.json || { echo "ERROR: safe-to-share observation event missing" >&2; exit 1; }
+  have_glob "$tree/telemetry/$uuid"/*/sessZ.json      || { echo "ERROR: telemetry event missing" >&2; exit 1; }
+  [ -f "$tree/version/$uuid/version.json" ]            || { echo "ERROR: version event missing" >&2; exit 1; }
+  if have_glob "$tree/observations/$uuid"/*/localpid.json; then echo "ERROR: local-only observation leaked" >&2; exit 1; fi
+  if have_glob "$tree/observations/$uuid"/*/sessZ.json;    then echo "ERROR: telemetry double-emitted under observations" >&2; exit 1; fi
+
+  local capfiles=( "$tree/captures/$uuid"/*/capX.json )
+  python -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert d['producer'] == 'captures', 'producer'
+assert d['schema_version'] == 1, 'schema_version'
+assert d['install_uuid'] == sys.argv[2], 'install_uuid mismatch'
+blob = json.dumps(d)
+assert 'longsecretvalue' not in blob, 'token leaked'
+assert '/Users/me' not in blob, 'abs path leaked'
+v = json.load(open(sys.argv[3]))
+assert 'created_at' not in v, 'version envelope must omit created_at'
+assert v['payload']['version'], 'version payload missing version'
+print('  envelopes OK: capture redacted; version current-state (no created_at)')
+" "${capfiles[0]}" "$uuid" "$tree/version/$uuid/version.json"
+  echo "PASS share-produce-enabled"
+}
+
+# Phase 47b: re-running the producers adds no duplicate events (append-only
+# producers skip existing keys; version overwrites in place).
+scenario_share_produce_idempotent() {
+  echo ">> share-produce-idempotent: second producer run adds zero events (Phase 47b)"
+  command -v jq >/dev/null 2>&1 || { echo "ERROR: jq is required (redact-observation.sh)" >&2; exit 1; }
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  printf '{"schema_version":1,"enabled":true,"remote_url":"x","enabled_at":"2026-05-22T00:00:00Z","disabled_at":null}\n' \
+    > "$TEST_DIR/.claude/share-config.json"
+  cat > "$TEST_DIR/.claude/captures/capY.md" <<'CAP'
+---
+capture_id: capY
+source_pattern_id: capY
+source_pattern_type: other
+status: shipped
+confidence: high
+suggested_artifact_type: script
+created_at: 2026-05-10T00:00:00Z
+---
+body
+CAP
+  cat > "$TEST_DIR/.claude/observations/obs-safe.json" <<'J'
+{"pattern_id":"safepid","source":"task-watchdog","pattern_type":"recurring_failure","occurrences":4,"first_seen":"2026-05-09T00:00:00Z","last_seen":"2026-05-11T00:00:00Z","resolved_at":null,"evidence":[],"confidence":"high","privacy_class":"safe-to-share"}
+J
+  bash "$TEST_DIR/.claude/scripts/shared-memory-produce.sh"
+  local n1 n2
+  n1=$(find "$TEST_DIR/.claude/shared-memory" -type f | wc -l | tr -d ' ')
+  bash "$TEST_DIR/.claude/scripts/shared-memory-produce.sh"
+  n2=$(find "$TEST_DIR/.claude/shared-memory" -type f | wc -l | tr -d ' ')
+  assert_eq "$n2" "$n1"
+  [ "$n1" -ge 3 ] || { echo "ERROR: expected >=3 events, got $n1" >&2; exit 1; }
+  echo "  idempotent OK: $n1 events on both runs"
+  echo "PASS share-produce-idempotent"
+}
+
+# Phase 47b: with share mode not configured, producers no-op — no tree, exit 0.
+scenario_share_produce_disabled() {
+  echo ">> share-produce-disabled: no share-config → producers no-op, no tree (Phase 47b)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  cat > "$TEST_DIR/.claude/captures/capZ.md" <<'CAP'
+---
+capture_id: capZ
+source_pattern_id: capZ
+source_pattern_type: other
+status: shipped
+confidence: high
+suggested_artifact_type: script
+created_at: 2026-05-10T00:00:00Z
+---
+body
+CAP
+  bash "$TEST_DIR/.claude/scripts/shared-memory-produce.sh" \
+    || { echo "ERROR: produce should exit 0 when share disabled" >&2; exit 1; }
+  if [ -d "$TEST_DIR/.claude/shared-memory" ]; then
+    echo "ERROR: shared-memory tree created while share disabled" >&2
+    exit 1
+  fi
+  echo "PASS share-produce-disabled"
+}
+
 scenario_fresh_refuse() {
   echo ">> fresh-refuse: re-run --mode=fresh, expect refusal"
   init_target
@@ -493,7 +638,7 @@ LEGACY
     cat "$TEST_DIR/.claude/.skeleton-version" >&2
     exit 1
   fi
-  verify_marker 58
+  verify_marker 59
   echo "PASS backfill-migrate"
 }
 
@@ -548,8 +693,8 @@ with open(sys.argv[1]) as f:
     d = json.load(f)
 raw = d.get('raw_template_baselines')
 n = len(raw) if isinstance(raw, dict) else None
-if n != 55:
-    sys.exit(f'ERROR: expected 55 raw_template_baselines after migration, got {n}')
+if n != 59:
+    sys.exit(f'ERROR: expected 59 raw_template_baselines after migration, got {n}')
 print(f'  raw_template_baselines present after migration: {n} entries')
 " "$marker"
   echo "PASS raw-baseline-migrate"
@@ -764,6 +909,9 @@ case "${1:-}" in
   share-enable-fresh-remote)    scenario_share_enable_fresh_remote ;;
   share-status-disabled-default) scenario_share_status_disabled_default ;;
   share-capture-redact)         scenario_share_capture_redact ;;
+  share-produce-enabled)        scenario_share_produce_enabled ;;
+  share-produce-idempotent)     scenario_share_produce_idempotent ;;
+  share-produce-disabled)       scenario_share_produce_disabled ;;
   fresh-refuse)                 scenario_fresh_refuse ;;
   merge-add)                    scenario_merge_add ;;
   local-mod-detect)             scenario_local_mod_detect ;;
@@ -783,6 +931,9 @@ case "${1:-}" in
     scenario_share_enable_fresh_remote
     scenario_share_status_disabled_default
     scenario_share_capture_redact
+    scenario_share_produce_enabled
+    scenario_share_produce_idempotent
+    scenario_share_produce_disabled
     scenario_fresh_refuse
     scenario_merge_add
     scenario_local_mod_detect
@@ -808,6 +959,9 @@ Scenarios:
   share-enable-fresh-remote    /share-enable to an empty bare remote pushes the identity sentinel + writes share-config.json (Phase 47a).
   share-status-disabled-default share-status on a fresh install (no share-config.json) reports "not configured" (Phase 47a).
   share-capture-redact         redact-capture.sh: terminal capture → redacted envelope; draft skipped; malformed refused (Phase 47b).
+  share-produce-enabled        Producers write redacted envelopes to producer/install/date; local-only refused; telemetry routed (Phase 47b).
+  share-produce-idempotent     Second producer run adds zero duplicate events (Phase 47b).
+  share-produce-disabled       No share-config → producers no-op, no tree created (Phase 47b).
   fresh-refuse                 Populated target → --mode=fresh exits non-zero; marker unchanged.
   merge-add                    Delete a file → --mode=merge re-adds only that file.
   local-mod-detect             Modify a file → update.sh --dry-run reports LOCALLY_MODIFIED.
