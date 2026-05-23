@@ -97,7 +97,7 @@ scenario_fresh_install() {
   bash "$SKELETON_DIR/scripts/install.sh" \
     --source "$SKELETON_DIR" --target "$TEST_DIR" \
     --mode=fresh --claude-only
-  verify_marker 55
+  verify_marker 58
   echo "PASS fresh-install"
 }
 
@@ -297,6 +297,84 @@ scenario_share_status_disabled_default() {
   echo "PASS share-status-disabled-default"
 }
 
+# Phase 47b: redact-capture.sh converts a terminal-state capture to a redacted
+# envelope (exit 0), skips draft/approved (exit 2), and refuses malformed
+# frontmatter (exit 3).
+scenario_share_capture_redact() {
+  echo ">> share-capture-redact: terminal capture → redacted envelope; draft skipped; malformed refused (Phase 47b)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local cap_redact="$TEST_DIR/.claude/lib/redact-capture.sh"
+  local capdir="$TEST_DIR/.claude/captures"
+  mkdir -p "$capdir"
+
+  # Terminal capture (shipped) carrying a secret + an absolute path in the body.
+  cat > "$capdir/shipped.md" <<'CAP'
+---
+capture_id: a3f5b2e1c4d8f7a9b6c2e5d4f8a1b3c7e9d6f2a4b8c1e3d5f7a9c2b4e6d8f0a2
+source_pattern_id: a3f5b2e1c4d8f7a9b6c2e5d4f8a1b3c7e9d6f2a4b8c1e3d5f7a9c2b4e6d8f0a2
+source_pattern_type: repeated_command
+status: shipped
+confidence: high
+suggested_artifact_type: script
+created_at: 2026-05-15T12:00:00Z
+---
+Ran at /Users/secret/path and used API_TOKEN=hunter2longtokenvalue to auth.
+CAP
+  local out
+  out=$(bash "$cap_redact" "$capdir/shipped.md") \
+    || { echo "ERROR: redact-capture exit != 0 on terminal capture" >&2; exit 1; }
+  printf '%s' "$out" | python -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['producer'] == 'captures', 'producer != captures'
+assert d['schema_version'] == 1, 'schema_version != 1'
+assert d['install_uuid'], 'install_uuid empty'
+assert d.get('created_at') == '2026-05-15T12:00:00Z', 'envelope created_at: ' + repr(d.get('created_at'))
+p = d['payload']
+for k in ('status','confidence','suggested_artifact_type','created_at','body_redacted'):
+    assert k in p, 'payload missing ' + k
+assert p['status'] == 'shipped', 'payload status'
+b = p['body_redacted']
+assert 'hunter2longtokenvalue' not in b, 'token leaked: ' + b
+assert '/Users/secret' not in b, 'abs path leaked: ' + b
+print('  capture envelope OK: redacted; install_uuid=' + d['install_uuid'][:8])
+"
+
+  # Draft capture → skipped (exit 2).
+  cat > "$capdir/draft.md" <<'CAP'
+---
+capture_id: bbbbbbbbccccddddeeeeffff0000111122223333444455556666777788889999
+source_pattern_id: bbbbbbbbccccddddeeeeffff0000111122223333444455556666777788889999
+source_pattern_type: other
+status: draft
+confidence: med
+suggested_artifact_type: script
+created_at: 2026-05-15T12:00:00Z
+---
+nothing terminal here
+CAP
+  set +e
+  bash "$cap_redact" "$capdir/draft.md" >/dev/null 2>&1
+  local draft_rc=$?
+  set -e
+  [ "$draft_rc" -eq 2 ] || { echo "ERROR: draft capture expected exit 2, got $draft_rc" >&2; exit 1; }
+  echo "  draft skipped (exit 2) OK"
+
+  # Malformed (no frontmatter) → refused (exit 3).
+  printf 'plain text\nno frontmatter here\n' > "$capdir/bad.md"
+  set +e
+  bash "$cap_redact" "$capdir/bad.md" >/dev/null 2>&1
+  local bad_rc=$?
+  set -e
+  [ "$bad_rc" -eq 3 ] || { echo "ERROR: malformed capture expected exit 3, got $bad_rc" >&2; exit 1; }
+  echo "  malformed refused (exit 3) OK"
+
+  echo "PASS share-capture-redact"
+}
+
 scenario_fresh_refuse() {
   echo ">> fresh-refuse: re-run --mode=fresh, expect refusal"
   init_target
@@ -415,7 +493,7 @@ LEGACY
     cat "$TEST_DIR/.claude/.skeleton-version" >&2
     exit 1
   fi
-  verify_marker 55
+  verify_marker 58
   echo "PASS backfill-migrate"
 }
 
@@ -685,6 +763,7 @@ case "${1:-}" in
   install-uuid-backfill)        scenario_install_uuid_backfill ;;
   share-enable-fresh-remote)    scenario_share_enable_fresh_remote ;;
   share-status-disabled-default) scenario_share_status_disabled_default ;;
+  share-capture-redact)         scenario_share_capture_redact ;;
   fresh-refuse)                 scenario_fresh_refuse ;;
   merge-add)                    scenario_merge_add ;;
   local-mod-detect)             scenario_local_mod_detect ;;
@@ -703,6 +782,7 @@ case "${1:-}" in
     scenario_install_uuid_backfill
     scenario_share_enable_fresh_remote
     scenario_share_status_disabled_default
+    scenario_share_capture_redact
     scenario_fresh_refuse
     scenario_merge_add
     scenario_local_mod_detect
@@ -727,6 +807,7 @@ Scenarios:
   install-uuid-backfill        Pre-47a marker → update.sh backfills install identity, existing fields intact (Phase 47a).
   share-enable-fresh-remote    /share-enable to an empty bare remote pushes the identity sentinel + writes share-config.json (Phase 47a).
   share-status-disabled-default share-status on a fresh install (no share-config.json) reports "not configured" (Phase 47a).
+  share-capture-redact         redact-capture.sh: terminal capture → redacted envelope; draft skipped; malformed refused (Phase 47b).
   fresh-refuse                 Populated target → --mode=fresh exits non-zero; marker unchanged.
   merge-add                    Delete a file → --mode=merge re-adds only that file.
   local-mod-detect             Modify a file → update.sh --dry-run reports LOCALLY_MODIFIED.
