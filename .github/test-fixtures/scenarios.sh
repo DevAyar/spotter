@@ -888,8 +888,8 @@ with open(sys.argv[1]) as f:
     d = json.load(f)
 raw = d.get('raw_template_baselines')
 n = len(raw) if isinstance(raw, dict) else None
-if n != 59:
-    sys.exit(f'ERROR: expected 59 raw_template_baselines after migration, got {n}')
+if n != 62:
+    sys.exit(f'ERROR: expected 62 raw_template_baselines after migration, got {n}')
 print(f'  raw_template_baselines present after migration: {n} entries')
 " "$marker"
   echo "PASS raw-baseline-migrate"
