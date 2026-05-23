@@ -17,6 +17,9 @@ PY=""
 TMP_CLONE=""
 export GIT_TERMINAL_PROMPT=0
 
+# Phase 47c-1: shared push mechanic (bounded pull-rebase retry, fail-soft).
+. "$ROOT/.claude/lib/shared-memory-git.sh"
+
 # ---- helpers ----
 err() { printf '%s\n' "$*" >&2; }
 die() { err "share-enable: error: $*"; exit 1; }
@@ -116,11 +119,8 @@ read -r CONFIRM || CONFIRM=""
 CONFIRM="${CONFIRM%$'\r'}"
 [ "$CONFIRM" = "enable" ] || die "cancelled — share mode NOT enabled, nothing was pushed"
 
-# Commit + push the sentinel.
-git add -A >/dev/null 2>&1 || die "git add failed — nothing was pushed"
-git commit --quiet -m "$INSTALL_LABEL opt-in sentinel $TS" \
-  || die "git commit failed in the share clone — nothing was pushed"
-git push --quiet origin HEAD 2>/dev/null \
+# Commit + push the sentinel via the shared push mechanic (bounded retry).
+smg_push "$TMP_CLONE" "$INSTALL_LABEL opt-in sentinel $TS" \
   || die "git push to '$REMOTE_URL' failed — the sentinel was committed in a local temp clone but did NOT reach the remote; retry when the remote is reachable"
 
 # Push succeeded → record the opt-in locally.

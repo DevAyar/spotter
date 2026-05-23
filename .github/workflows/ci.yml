@@ -80,6 +80,14 @@ jobs:
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh share-produce-disabled
 
+      - name: Scenario - share-push-empty-remote
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-push-empty-remote
+
+      - name: Scenario - share-push-race
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-push-race
+
       - name: Scenario - fresh-refuse
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh fresh-refuse

@@ -107,7 +107,7 @@ scenario_fresh_install() {
   bash "$SKELETON_DIR/scripts/install.sh" \
     --source "$SKELETON_DIR" --target "$TEST_DIR" \
     --mode=fresh --claude-only
-  verify_marker 59
+  verify_marker 60
   echo "PASS fresh-install"
 }
 
@@ -520,6 +520,65 @@ CAP
   echo "PASS share-produce-disabled"
 }
 
+# Phase 47c-1: the git layer's first push to a freshly init --bare'd remote
+# establishes the branch (no unrelated-histories) and the event lands.
+scenario_share_push_empty_remote() {
+  echo ">> share-push-empty-remote: git layer first push to an empty bare remote establishes the branch (Phase 47c-1)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local bare="$TEST_DIR/sm.git"
+  git init --bare -q "$bare"
+  local dir="$TEST_DIR/.claude/shared-memory"
+  . "$TEST_DIR/.claude/lib/shared-memory-git.sh"
+  smg_ensure_clone "$bare" "$dir" || { echo "ERROR: ensure_clone failed" >&2; exit 1; }
+  [ -d "$dir/.git" ] || { echo "ERROR: shared-memory is not a working clone" >&2; exit 1; }
+  mkdir -p "$dir/captures/uuidX/2026-05-23"
+  printf '{"k":1}\n' > "$dir/captures/uuidX/2026-05-23/evt.json"
+  smg_push "$dir" "first push" || { echo "ERROR: smg_push failed on empty remote" >&2; exit 1; }
+  local ref
+  ref=$(git -C "$bare" for-each-ref --format='%(refname)' refs/heads | head -1)
+  [ -n "$ref" ] || { echo "ERROR: no branch established on empty remote" >&2; exit 1; }
+  git -C "$bare" cat-file -e "$ref:captures/uuidX/2026-05-23/evt.json" 2>/dev/null \
+    || { echo "ERROR: event not in remote after first push" >&2; exit 1; }
+  echo "PASS share-push-empty-remote"
+}
+
+# Phase 47c-1: two clones of one remote push disjoint files; the second push is
+# rejected (non-fast-forward), pull --rebase + retry lands it. Both files end up
+# in the remote — the thin race net resolves the push-vs-push race.
+scenario_share_push_race() {
+  echo ">> share-push-race: two clones push disjoint files; pull-rebase-retry lands both (Phase 47c-1)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local bare="$TEST_DIR/sm.git"
+  git init --bare -q "$bare"
+  . "$TEST_DIR/.claude/lib/shared-memory-git.sh"
+  local a="$TEST_DIR/cloneA" b="$TEST_DIR/cloneB"
+  # Seed the remote with a base commit from cloneA.
+  smg_ensure_clone "$bare" "$a" || { echo "ERROR: cloneA ensure failed" >&2; exit 1; }
+  mkdir -p "$a/x"; printf 'a\n' > "$a/x/a.json"
+  smg_push "$a" "seed a" || { echo "ERROR: seed push failed" >&2; exit 1; }
+  # cloneB starts from the seeded remote.
+  smg_ensure_clone "$bare" "$b" || { echo "ERROR: cloneB ensure failed" >&2; exit 1; }
+  # cloneA advances the remote; cloneB is now behind.
+  printf 'a2\n' > "$a/x/a2.json"
+  smg_push "$a" "A adds a2" || { echo "ERROR: A second push failed" >&2; exit 1; }
+  # cloneB pushes a disjoint file → rejected → pull --rebase → retry → lands.
+  mkdir -p "$b/x"; printf 'b\n' > "$b/x/b.json"
+  smg_push "$b" "B adds b" || { echo "ERROR: race push (B) failed" >&2; exit 1; }
+  local ref f
+  ref=$(git -C "$bare" for-each-ref --format='%(refname)' refs/heads | head -1)
+  for f in x/a.json x/a2.json x/b.json; do
+    git -C "$bare" cat-file -e "$ref:$f" 2>/dev/null \
+      || { echo "ERROR: $f missing in remote after race" >&2; exit 1; }
+  done
+  echo "PASS share-push-race"
+}
+
 scenario_fresh_refuse() {
   echo ">> fresh-refuse: re-run --mode=fresh, expect refusal"
   init_target
@@ -638,7 +697,7 @@ LEGACY
     cat "$TEST_DIR/.claude/.skeleton-version" >&2
     exit 1
   fi
-  verify_marker 59
+  verify_marker 60
   echo "PASS backfill-migrate"
 }
 
@@ -912,6 +971,8 @@ case "${1:-}" in
   share-produce-enabled)        scenario_share_produce_enabled ;;
   share-produce-idempotent)     scenario_share_produce_idempotent ;;
   share-produce-disabled)       scenario_share_produce_disabled ;;
+  share-push-empty-remote)      scenario_share_push_empty_remote ;;
+  share-push-race)              scenario_share_push_race ;;
   fresh-refuse)                 scenario_fresh_refuse ;;
   merge-add)                    scenario_merge_add ;;
   local-mod-detect)             scenario_local_mod_detect ;;
@@ -934,6 +995,8 @@ case "${1:-}" in
     scenario_share_produce_enabled
     scenario_share_produce_idempotent
     scenario_share_produce_disabled
+    scenario_share_push_empty_remote
+    scenario_share_push_race
     scenario_fresh_refuse
     scenario_merge_add
     scenario_local_mod_detect
@@ -962,6 +1025,8 @@ Scenarios:
   share-produce-enabled        Producers write redacted envelopes to producer/install/date; local-only refused; telemetry routed (Phase 47b).
   share-produce-idempotent     Second producer run adds zero duplicate events (Phase 47b).
   share-produce-disabled       No share-config → producers no-op, no tree created (Phase 47b).
+  share-push-empty-remote      Git layer: first push to an empty bare remote establishes the branch (Phase 47c-1).
+  share-push-race              Two clones push disjoint files; pull-rebase-retry lands both (Phase 47c-1).
   fresh-refuse                 Populated target → --mode=fresh exits non-zero; marker unchanged.
   merge-add                    Delete a file → --mode=merge re-adds only that file.
   local-mod-detect             Modify a file → update.sh --dry-run reports LOCALLY_MODIFIED.
