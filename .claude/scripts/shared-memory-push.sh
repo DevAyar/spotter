@@ -23,12 +23,15 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
 PRODUCE="$SCRIPT_DIR/shared-memory-produce.sh"
 LAST_PUSH="$SM_ROOT/.claude/.last-shared-push"
 NOTICE="[shared-memory-push]"
-MANUAL=0
-[ "${1:-}" = "--manual" ] && MANUAL=1
+MODE="auto"
+case "${1:-}" in
+  --manual)  MODE="manual" ;;
+  --preview) MODE="preview" ;;
+esac
 
 # ---- helpers ----
 log() { printf '%s %s\n' "$NOTICE" "$*" >&2; }
-say() { [ "$MANUAL" -eq 1 ] && printf '%s\n' "$*"; return 0; }
+say() { [ "$MODE" != "auto" ] && printf '%s\n' "$*"; return 0; }
 
 # remote_url: print the configured remote when share is enabled; non-zero else.
 remote_url() {
@@ -86,6 +89,27 @@ main() {
   fi
   smg_pull_rebase "$SM_TREE" || true
   bash "$PRODUCE" >/dev/null 2>&1 || true   # 47b producer writes into the clone
+
+  # --preview (dry-run): report what the next push would include — the same flow
+  # as a real push, minus the commit/push. Mirrors the on-change gate below so the
+  # report is exact by construction; discards version churn to leave the tree clean.
+  if [ "$MODE" = "preview" ]; then
+    local changed
+    changed="$(git -C "$SM_TREE" status --porcelain 2>/dev/null | grep -v '^.. version/' || true)"
+    if [ -z "$changed" ]; then
+      git -C "$SM_TREE" checkout -- . 2>/dev/null || true
+      printf 'Preview: nothing to push — shared memory unchanged since last push.\n'
+      return 0
+    fi
+    local total
+    total="$(git -C "$SM_TREE" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
+    printf 'Preview: the next push would include %s file(s):\n' "$total"
+    git -C "$SM_TREE" status --porcelain 2>/dev/null | sed 's/^...//' \
+      | awk -F/ '{c[$1]++} END {for (d in c) printf "  %s: %d\n", d, c[d]}' | sort
+    printf '  e.g. %s\n' "$(git -C "$SM_TREE" status --porcelain 2>/dev/null | head -1 | sed 's/^...//')"
+    git -C "$SM_TREE" checkout -- . 2>/dev/null || true
+    return 0
+  fi
 
   # On-change gate: push only when a NON-version event changed. version.json is
   # current-state — the 47b producer rewrites it with a fresh event_timestamp on

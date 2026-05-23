@@ -107,7 +107,7 @@ scenario_fresh_install() {
   bash "$SKELETON_DIR/scripts/install.sh" \
     --source "$SKELETON_DIR" --target "$TEST_DIR" \
     --mode=fresh --claude-only
-  verify_marker 62
+  verify_marker 63
   echo "PASS fresh-install"
 }
 
@@ -715,6 +715,64 @@ CAP
   echo "PASS share-push-manual"
 }
 
+# Phase 47c-2: --preview reports what the next push would include (count + per-
+# producer breakdown) and pushes/commits NOTHING — the remote is untouched.
+scenario_share_preview_enabled() {
+  echo ">> share-preview-enabled: --preview reports the would-include set; remote untouched (Phase 47c-2)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local bare="$TEST_DIR/sm.git"
+  git init --bare -q "$bare"
+  printf 'enable\n' | bash "$TEST_DIR/.claude/scripts/share-enable.sh" "$bare" >/dev/null 2>&1 \
+    || { echo "ERROR: share-enable failed" >&2; exit 1; }
+  cat > "$TEST_DIR/.claude/captures/capP.md" <<'CAP'
+---
+capture_id: capP
+source_pattern_id: capP
+source_pattern_type: other
+status: shipped
+confidence: high
+suggested_artifact_type: script
+created_at: 2026-05-10T00:00:00Z
+---
+body
+CAP
+  local out
+  out="$(bash "$TEST_DIR/.claude/scripts/shared-memory-push.sh" --preview)" \
+    || { echo "ERROR: preview exit != 0" >&2; exit 1; }
+  assert_contains "$out" "Preview:"
+  assert_contains "$out" "captures"
+  # Remote must carry NO capture data — preview commits/pushes nothing.
+  local ref
+  ref=$(git -C "$bare" for-each-ref --format='%(refname)' refs/heads | head -1)
+  if [ -n "$ref" ] && git -C "$bare" ls-tree -r --name-only "$ref" | grep -q '^captures/'; then
+    echo "ERROR: preview pushed capture data to the remote" >&2
+    git -C "$bare" ls-tree -r --name-only "$ref" >&2
+    exit 1
+  fi
+  echo "PASS share-preview-enabled"
+}
+
+# Phase 47c-2: --preview with share off reports not-enabled, exits 0, no clone.
+scenario_share_preview_disabled() {
+  echo ">> share-preview-disabled: --preview with share off reports not-enabled, exits 0, no clone (Phase 47c-2)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local out
+  out="$(bash "$TEST_DIR/.claude/scripts/shared-memory-push.sh" --preview)" \
+    || { echo "ERROR: preview should exit 0 when disabled" >&2; exit 1; }
+  assert_contains "$out" "not enabled"
+  if [ -d "$TEST_DIR/.claude/shared-memory" ]; then
+    echo "ERROR: clone created while share disabled" >&2
+    exit 1
+  fi
+  echo "PASS share-preview-disabled"
+}
+
 scenario_fresh_refuse() {
   echo ">> fresh-refuse: re-run --mode=fresh, expect refusal"
   init_target
@@ -833,7 +891,7 @@ LEGACY
     cat "$TEST_DIR/.claude/.skeleton-version" >&2
     exit 1
   fi
-  verify_marker 62
+  verify_marker 63
   echo "PASS backfill-migrate"
 }
 
@@ -888,8 +946,8 @@ with open(sys.argv[1]) as f:
     d = json.load(f)
 raw = d.get('raw_template_baselines')
 n = len(raw) if isinstance(raw, dict) else None
-if n != 62:
-    sys.exit(f'ERROR: expected 62 raw_template_baselines after migration, got {n}')
+if n != 63:
+    sys.exit(f'ERROR: expected 63 raw_template_baselines after migration, got {n}')
 print(f'  raw_template_baselines present after migration: {n} entries')
 " "$marker"
   echo "PASS raw-baseline-migrate"
@@ -1113,6 +1171,8 @@ case "${1:-}" in
   share-push-failsoft)          scenario_share_push_failsoft ;;
   share-push-disabled)          scenario_share_push_disabled ;;
   share-push-manual)            scenario_share_push_manual ;;
+  share-preview-enabled)        scenario_share_preview_enabled ;;
+  share-preview-disabled)       scenario_share_preview_disabled ;;
   fresh-refuse)                 scenario_fresh_refuse ;;
   merge-add)                    scenario_merge_add ;;
   local-mod-detect)             scenario_local_mod_detect ;;
@@ -1141,6 +1201,8 @@ case "${1:-}" in
     scenario_share_push_failsoft
     scenario_share_push_disabled
     scenario_share_push_manual
+    scenario_share_preview_enabled
+    scenario_share_preview_disabled
     scenario_fresh_refuse
     scenario_merge_add
     scenario_local_mod_detect
@@ -1175,6 +1237,8 @@ Scenarios:
   share-push-failsoft          Unreachable remote → orchestrator exits 0; a later run catches up (Phase 47c-1).
   share-push-disabled          No share-config → orchestrator no-op, no clone created (Phase 47c-1).
   share-push-manual            /share-push pushes on-change; reports nothing-to-push when clean (Phase 47c-1).
+  share-preview-enabled        --preview reports the would-include set; remote untouched (Phase 47c-2).
+  share-preview-disabled       --preview with share off reports not-enabled, exits 0 (Phase 47c-2).
   fresh-refuse                 Populated target → --mode=fresh exits non-zero; marker unchanged.
   merge-add                    Delete a file → --mode=merge re-adds only that file.
   local-mod-detect             Modify a file → update.sh --dry-run reports LOCALLY_MODIFIED.

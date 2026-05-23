@@ -104,6 +104,14 @@ jobs:
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh share-push-manual
 
+      - name: Scenario - share-preview-enabled
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-preview-enabled
+
+      - name: Scenario - share-preview-disabled
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-preview-disabled
+
       - name: Scenario - fresh-refuse
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh fresh-refuse
