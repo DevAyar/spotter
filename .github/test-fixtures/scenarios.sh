@@ -898,6 +898,90 @@ scenario_share_disable_plain() {
   echo "PASS share-disable-plain"
 }
 
+# Phase 47d: graduation-review (dogfood-only maintainer tool) groups captures by
+# suggested_artifact_type and observations by pattern_type across installs, with
+# overlap stated vs the 15/75 threshold; telemetry events are excluded.
+scenario_graduation_review_report() {
+  echo ">> graduation-review-report: grouped multi-install report; telemetry excluded (Phase 47d)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  # graduation-review is dogfood-only (not installed by install.sh) — copy it in.
+  cp "$SKELETON_DIR/.claude/scripts/graduation-review.sh" "$TEST_DIR/.claude/scripts/graduation-review.sh"
+  local bare="$TEST_DIR/sm.git"
+  git init --bare -q "$bare"
+  local side="$TEST_DIR/seed"
+  git clone -q "$bare" "$side"
+  git -C "$side" config user.email s@t.local; git -C "$side" config user.name seed
+  python - "$side" <<'PY'
+import json, os, sys
+seed = sys.argv[1]
+DATE = "2026-05-23"
+def write(rel, obj):
+    path = os.path.join(seed, rel)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", newline="\n") as f:
+        json.dump(obj, f, sort_keys=True); f.write("\n")
+def env(producer, uuid, label, payload):
+    return {"schema_version":1,"producer":producer,"install_uuid":uuid,"install_label":label,
+            "version":"1.1.4","commit":"abc123","event_timestamp":"2026-05-23T00:00:00Z","payload":payload}
+def cap(status, at):
+    return {"status":status,"confidence":"high","suggested_artifact_type":at,"created_at":"2026-05-10T00:00:00Z","body_redacted":"x"}
+def obs(pt):
+    return {"pattern_id":"x","source":"session-observer","pattern_type":pt,"occurrences":3,"first_seen":"2026-05-10T00:00:00Z","last_seen":"2026-05-11T00:00:00Z","resolved_at":None,"confidence":"high","privacy_class":"share-with-redaction"}
+inst = [("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","alpha"),
+        ("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","bravo"),
+        ("cccccccc-cccc-4ccc-8ccc-cccccccccccc","charlie")]
+# captures: script shipped in all 3; skill shipped in alpha only; bravo also has a script DRAFT (must not count)
+write(f"captures/{inst[0][0]}/{DATE}/cap-script.json",       env("captures",*inst[0],cap("shipped","script")))
+write(f"captures/{inst[0][0]}/{DATE}/cap-skill.json",        env("captures",*inst[0],cap("shipped","skill")))
+write(f"captures/{inst[1][0]}/{DATE}/cap-script.json",       env("captures",*inst[1],cap("shipped","script")))
+write(f"captures/{inst[1][0]}/{DATE}/cap-script-draft.json", env("captures",*inst[1],cap("draft","script")))
+write(f"captures/{inst[2][0]}/{DATE}/cap-script.json",       env("captures",*inst[2],cap("shipped","script")))
+# observations: recurring_failure in alpha+bravo; plugin_quality in bravo; repeated_command in charlie
+write(f"observations/{inst[0][0]}/{DATE}/obs-rf.json", env("observations",*inst[0],obs("recurring_failure")))
+write(f"observations/{inst[1][0]}/{DATE}/obs-rf.json", env("observations",*inst[1],obs("recurring_failure")))
+write(f"observations/{inst[1][0]}/{DATE}/obs-pq.json", env("observations",*inst[1],obs("plugin_quality")))
+write(f"observations/{inst[2][0]}/{DATE}/obs-rc.json", env("observations",*inst[2],obs("repeated_command")))
+# version: one per install (no date dir)
+for u,l in inst:
+    write(f"version/{u}/version.json", env("version",u,l,{"version":"1.1.4","commit":"abc123","install_uuid":u,"install_label":l,"install_created":"2026-05-01T00:00:00Z"}))
+# telemetry: alpha has one — must be EXCLUDED from the report
+write(f"telemetry/{inst[0][0]}/{DATE}/sess1.json", env("telemetry",*inst[0],{"k":1}))
+PY
+  git -C "$side" add -A; git -C "$side" commit -q -m "seed multi-install"; git -C "$side" push -q origin HEAD
+  printf '{"schema_version":1,"enabled":true,"remote_url":"%s","enabled_at":"2026-05-22T00:00:00Z","disabled_at":null}\n' \
+    "$bare" > "$TEST_DIR/.claude/share-config.json"
+  local out
+  out="$(bash "$TEST_DIR/.claude/scripts/graduation-review.sh")" \
+    || { echo "ERROR: graduation-review exit != 0" >&2; exit 1; }
+  assert_contains "$out" "Installs seen: 3"
+  assert_contains "$out" "script: shipped in 3 of 3"
+  assert_contains "$out" "skill: shipped in 1 of 3"
+  assert_contains "$out" "recurring_failure: observed in 2 of 3"
+  assert_contains "$out" "graduation threshold 15 installs / 75%; not yet"
+  if printf '%s' "$out" | grep -qi "telemetry"; then
+    echo "ERROR: telemetry leaked into the report" >&2; printf '%s\n' "$out" >&2; exit 1
+  fi
+  echo "PASS graduation-review-report"
+}
+
+# Phase 47d: with share off, graduation-review prints a clean message and exits 0.
+scenario_graduation_review_disabled() {
+  echo ">> graduation-review-disabled: share off → nothing to review, exit 0 (Phase 47d)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  cp "$SKELETON_DIR/.claude/scripts/graduation-review.sh" "$TEST_DIR/.claude/scripts/graduation-review.sh"
+  local out
+  out="$(bash "$TEST_DIR/.claude/scripts/graduation-review.sh")" \
+    || { echo "ERROR: should exit 0 when share disabled" >&2; exit 1; }
+  assert_contains "$out" "nothing to review"
+  echo "PASS graduation-review-disabled"
+}
+
 scenario_fresh_refuse() {
   echo ">> fresh-refuse: re-run --mode=fresh, expect refusal"
   init_target
@@ -1302,6 +1386,8 @@ case "${1:-}" in
   share-purge-nothing)          scenario_share_purge_nothing ;;
   share-purge-confirm-eof)      scenario_share_purge_confirm_eof ;;
   share-disable-plain)          scenario_share_disable_plain ;;
+  graduation-review-report)     scenario_graduation_review_report ;;
+  graduation-review-disabled)   scenario_graduation_review_disabled ;;
   fresh-refuse)                 scenario_fresh_refuse ;;
   merge-add)                    scenario_merge_add ;;
   local-mod-detect)             scenario_local_mod_detect ;;
@@ -1336,6 +1422,8 @@ case "${1:-}" in
     scenario_share_purge_nothing
     scenario_share_purge_confirm_eof
     scenario_share_disable_plain
+    scenario_graduation_review_report
+    scenario_graduation_review_disabled
     scenario_fresh_refuse
     scenario_merge_add
     scenario_local_mod_detect
@@ -1376,6 +1464,8 @@ Scenarios:
   share-purge-nothing          --purge-remote with nothing pushed → no-op, disables (Phase 47c-2).
   share-purge-confirm-eof      --purge-remote EOF confirmation fails closed; stays enabled (Phase 47c-2).
   share-disable-plain          Plain disable stops pushing, leaves remote data, no confirmation (Phase 47c-2).
+  graduation-review-report     graduation-review groups captures/observations across installs vs the 15/75 threshold; telemetry excluded (Phase 47d).
+  graduation-review-disabled   graduation-review with share off → nothing to review, exits 0 (Phase 47d).
   fresh-refuse                 Populated target → --mode=fresh exits non-zero; marker unchanged.
   merge-add                    Delete a file → --mode=merge re-adds only that file.
   local-mod-detect             Modify a file → update.sh --dry-run reports LOCALLY_MODIFIED.

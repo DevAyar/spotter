@@ -128,6 +128,14 @@ jobs:
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh share-disable-plain
 
+      - name: Scenario - graduation-review-report
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh graduation-review-report
+
+      - name: Scenario - graduation-review-disabled
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh graduation-review-disabled
+
       - name: Scenario - fresh-refuse
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh fresh-refuse
