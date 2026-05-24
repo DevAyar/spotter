@@ -383,7 +383,7 @@ Mechanical stubs in this file (resolved at install by `project-tuner-helper`):
 
 Skeleton repo root acts as the skeleton's own first installed project. Template-root files (`CLAUDE.md.template`, `CLAUDE_MANAGER.md.template`, `ROUTING.md.template`) have byte-identical dogfood mirrors at skeleton repo root, differing ONLY in resolved placeholder values (skeleton-as-project values). When editing any template-root file, the resolved dogfood mirror MUST be updated in the same commit.
 
-Dogfood-only artifacts explicitly scoped to dogfood per their phase brief (e.g. `cruft-checker`, which audits the skeleton's own roadmap and would have no analogue in target projects) are EXEMPT from template parity — this is a scoping decision, not a mirror gap. The phase brief that introduced the artifact records the dogfood-only scoping; absent that explicit scoping, mirror parity is the default.
+Dogfood-only artifacts explicitly scoped to dogfood per their phase brief (e.g. `cruft-checker`, which audits the skeleton's own roadmap; or `/graduation-review` (Phase 47d), the cross-install shared-memory maintainer report — neither has an analogue in target projects) are EXEMPT from template parity — this is a scoping decision, not a mirror gap. The phase brief that introduced the artifact records the dogfood-only scoping; absent that explicit scoping, mirror parity is the default.
 
 ## Baseline semantics under update.sh
 
