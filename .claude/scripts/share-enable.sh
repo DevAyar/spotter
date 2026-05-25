@@ -115,7 +115,18 @@ printf '  Install UUID:     %s\n' "$INSTALL_UUID"
 printf '  Install label:    %s\n' "$INSTALL_LABEL"
 printf '  Skeleton version: %s (commit %s)\n' "$SK_VERSION" "${SK_COMMIT:0:12}"
 printf "Type 'enable' to confirm or anything else to cancel: "
-read -r CONFIRM || CONFIRM=""
+# Read the confirmation from wherever the human's answer actually arrives:
+# stdin when it is the keyboard (interactive) or a pipe (the /share-enable slash
+# command pipes 'enable\n'); else the controlling terminal /dev/tty when stdin is
+# redirected/disconnected but a terminal exists; else stdin → EOF → fail-closed.
+if [ -t 0 ] || [ -p /dev/stdin ]; then
+  read -r CONFIRM || CONFIRM=""
+elif { exec 3</dev/tty; } 2>/dev/null; then
+  read -r CONFIRM <&3 || CONFIRM=""
+  exec 3<&-
+else
+  read -r CONFIRM || CONFIRM=""
+fi
 CONFIRM="${CONFIRM%$'\r'}"
 [ "$CONFIRM" = "enable" ] || die "cancelled — share mode NOT enabled, nothing was pushed"
 

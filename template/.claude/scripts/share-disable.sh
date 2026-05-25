@@ -66,7 +66,17 @@ if [ "$PURGE" -eq 1 ]; then
   # Typed confirmation, EOF-fail-closed (modeled on /share-enable).
   printf "About to permanently remove THIS install's files from %s, then disable.\n" "$REMOTE"
   printf "Other installs' data is untouched. Type 'purge' to confirm: "
-  read -r CONFIRM || CONFIRM=""
+  # Read from stdin (keyboard, or the slash command's piped answer) or the
+  # controlling terminal /dev/tty when stdin is redirected/disconnected — same
+  # rationale as /share-enable.
+  if [ -t 0 ] || [ -p /dev/stdin ]; then
+    read -r CONFIRM || CONFIRM=""
+  elif { exec 3</dev/tty; } 2>/dev/null; then
+    read -r CONFIRM <&3 || CONFIRM=""
+    exec 3<&-
+  else
+    read -r CONFIRM || CONFIRM=""
+  fi
   CONFIRM="${CONFIRM%$'\r'}"
   [ "$CONFIRM" = "purge" ] || die "cancelled — nothing removed, share mode unchanged"
   TMP_CLONE="$(mktemp -d 2>/dev/null || mktemp -d -t skeleton-purge)"
