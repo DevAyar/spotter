@@ -73,7 +73,7 @@ The bar separation matters: v1.2.0 design start is per-project mechanism design 
 
 Components in scope (per-project class):
 
-- **Per-project manager-optimizer (centerpiece)** — one instance per installed project; watches that project's pattern of decisions; drafts refinement suggestions for that project's `CLAUDE_MANAGER.md`.
+- **Per-project manager-optimizer (centerpiece)** — one instance per installed project; watches two layers: the project's pattern of *AI decisions* and the *human's* pattern of interaction at the gates (rushing, rubber-stamping, overriding). Routing splits by layer. AI-decision findings draft refinements to that project's `CLAUDE_MANAGER.md` (the AI-facing directive surface). Human-interaction findings draft adjustments to that project's **gate/friction config** (the operation-tier surface — § Appendix; Phase 48 implements), surfaced for the user's approval on the human-facing side (your-view, forthcoming) — never written into `CLAUDE_MANAGER.md`. Both layers draft only; approval-gated autonomy holds across both. This names the mechanism behind a promise STORY already makes: the gate getting smarter, not more annoying, as it watches what the user keeps saying yes and no to.
 - **`artifact-fit-analyzer`** — surfaces redundancy, inefficiency, and missing combinations across the project's agents / skills / scripts / commands / hooks. Drafts consolidation, missing-coverage, or removal captures.
 - **Loop pruning (via manager-optimizer)** — retires captures that never get approved and scripts that never get dispatched.
 - **`token-efficiency-monitor` proactive upgrade** — flags before dispatch when planned scope smells over-budget, not just after the fact.
