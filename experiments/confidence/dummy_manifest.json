@@ -29,9 +29,9 @@
   {
     "task_id": "dummy_ambiguous_variance",
     "task_type": "variance_probe",
-    "context": "Respond with exactly one integer and nothing else — digits only, no words or punctuation.",
-    "prompt": "Reply with a random integer from 1 to 100.",
-    "extractor": { "kind": "integer" },
+    "context": "Output only what is asked, with no extra words or punctuation.",
+    "prompt": "Output exactly 8 random lowercase letters and nothing else.",
+    "extractor": { "kind": "exact" },
     "cheap_check_settles": false,
     "cheap_check_result": null,
     "notes": "Apparatus check — expect a SPREAD across 7 runs, not 7/7 identical. Confirms the harness captures disagreement."
