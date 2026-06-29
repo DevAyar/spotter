@@ -1,0 +1,4 @@
+# Throwaway run artifacts — never commit these.
+results.json
+__pycache__/
+*.pyc
