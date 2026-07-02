@@ -3,7 +3,7 @@
     "experiment_question": "Does resampling-agreement correlate with correctness on real skeleton tasks?",
     "gate_language": "A clean structured result means: the signal CAN exist — proceed to a prose stress-test. It does NOT mean: build the engine. The prose stress-test is the next gate, not an optional follow-up.",
     "api_direct_caveat": "This experiment is API-direct (raw model + constitution context, no Claude Code orchestration). A green result means the signal is real IN PRINCIPLE — not that it is real inside CC specifically. That jump is untested here; do not over-generalize a green result to CC-in-the-loop behavior.",
-    "build_status": "Incrementally built. This scaffold holds 6 control + 5 stress tasks (authorable without live repo artifacts). The 19 gap-pool tasks are appended in later commits as real artifacts are sourced. Target: 30 tasks.",
+    "build_status": "Complete: 31 tasks (6 control / 5 stress / 20 gap). Capture pending.",
     "schema_note": "harness.py reads context/prompt/extractor and copies task_id/task_type/cheap_check_settles/cheap_check_result into results.json; it does NOT propagate task_class/source/canonical_answers/ground_truth (output dict is fixed, ground_truth hardcoded null). Join results.json back to this manifest by task_id at analysis time — the manifest holds the labels and ground truth.",
     "extractor_note": "choice extractor returns the first option that appears as a substring, so extractor.options is ordered superstring-first where one option contains another (e.g. INVALID before VALID). canonical_answers keeps the natural documented order.",
     "throwaway": "Throwaway research code; not a skeleton feature. See MANIFEST_HEADER.md for the gate that governs how these results may be read."
