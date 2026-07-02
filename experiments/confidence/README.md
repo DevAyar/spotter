@@ -1,6 +1,6 @@
-# confidence experiment — replay harness (step 1)
+# confidence experiment — replay harness
 
-Throwaway research code (not a skeleton feature; ships nothing, propagates nowhere). `harness.py` reads a tiny task manifest (`dummy_manifest.json`) and, for each task, calls the Anthropic API `N=7` times against **identical frozen input** with no state carried between runs, then writes the extracted structured answer plus the full raw response for every run to `results.json`. Step 1 proves only that the frozen-input identical-replay mechanism works — there is no agreement scoring or analysis here (that is a later script operating over the saved JSON).
+Throwaway research code (not a skeleton feature; ships nothing, propagates nowhere). `harness.py` reads a task manifest (`real_manifest.json` by default; `--manifest` overrides the path, `--model` overrides the model and suffixes the output name) and, for each task, calls the Anthropic API `N=7` times against **identical frozen input** with no state carried between runs, writing the extracted structured answers, the full raw responses, and the manifest's metadata + ground truth to `results_<name>.json` (gitignored). Capture only — analysis lives in `analysis.py`, and the experiment's result record is [`ANALYSIS.md`](ANALYSIS.md): the resampling-agreement leg resolved **RED** on structured tasks (zero agreement variance; resampling drops per the pre-committed gate).
 
 ## Run
 
@@ -10,6 +10,4 @@ Requires `ANTHROPIC_API_KEY` in the environment and the `anthropic` package (`py
 python harness.py
 ```
 
-Expect 3 task objects in `results.json`, each with 7 `raw_answers` and 7 `raw_responses`; the `dummy_green_deterministic` task should be 7/7 identical (stable replay — the core thing step 1 proves).
-
-See [`MANIFEST_HEADER.md`](MANIFEST_HEADER.md) for the gate language that governs how a clean result may — and may not — be read.
+See [`MANIFEST_HEADER.md`](MANIFEST_HEADER.md) for the gate language that governs how results may — and may not — be read.

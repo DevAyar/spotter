@@ -17,7 +17,6 @@ only. It is never written to a file, hardcoded, or passed as an argument.
 import argparse
 import json
 import os
-import re
 import sys
 from pathlib import Path
 
@@ -36,8 +35,7 @@ DEFAULT_MANIFEST = HERE / "real_manifest.json"
 # --- manifest / output wiring -------------------------------------------------
 def load_tasks(manifest_path):
     """Accept both manifest shapes: the {_meta, tasks} object (real_manifest.json)
-    or a bare task list (dummy_manifest.json, kept runnable for apparatus
-    re-checks)."""
+    or a bare task list."""
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
     return data["tasks"] if isinstance(data, dict) else data
 
@@ -60,7 +58,6 @@ def extract_answer(rule, text):
 
     kinds:
       exact  -> the trimmed response verbatim (e.g. "GREEN")
-      integer -> the first run of digits in the response, else "<unparsed>"
       yes_no -> "yes" / "no" if present, else "<unparsed>"
       choice -> the first rule["options"] value that appears, else "<unparsed>"
     """
@@ -68,9 +65,6 @@ def extract_answer(rule, text):
     stripped = text.strip()
     if kind == "exact":
         return stripped
-    if kind == "integer":
-        match = re.search(r"\d+", stripped)
-        return match.group(0) if match else "<unparsed>"
     if kind == "yes_no":
         low = stripped.lower()
         for token in ("yes", "no"):
