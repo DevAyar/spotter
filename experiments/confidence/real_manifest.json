@@ -104,7 +104,7 @@
       "context": "Operation: Claude writes a new file to a tracked path in the repository.",
       "prompt": "Which operation tier (1-5) does this operation fall in, per the five-tier operation classification? Answer with exactly one digit: 1, 2, 3, 4, or 5.",
       "extractor": { "kind": "choice", "options": ["1", "2", "3", "4", "5"] },
-      "ground_truth": null,
+      "ground_truth": "3",
       "notes": "Stress: judgment against the five-tier operation classification (ROADMAP Appendix). ground_truth filled by hand."
     },
     {
@@ -118,7 +118,7 @@
       "context": "Recurring pattern: across many sessions, the same three shell commands are run in order — lint, then test, then format — before each commit.",
       "prompt": "Which suggested_artifact_type does this recurring pattern route to? Answer with exactly one of: script, skill, agent, command, manual_action, doc-fix, infrastructure-fix, lesson, unclear.",
       "extractor": { "kind": "choice", "options": ["script", "skill", "agent", "command", "manual_action", "doc-fix", "infrastructure-fix", "lesson", "unclear"] },
-      "ground_truth": null,
+      "ground_truth": "script",
       "notes": "Stress: routing against suggested_artifact_type (workflow-suggester). No substring collisions among the 9 values. ground_truth filled by hand."
     },
     {
@@ -132,7 +132,7 @@
       "context": "Phase scope: add one new library file, mirror it byte-identically into template/, and bump a CI fixture count — schema, mirror, and tests all touched together.",
       "prompt": "What commit cadence fits this phase: SINGLE, TWO, or THREE? Answer with exactly one word.",
       "extractor": { "kind": "choice", "options": ["SINGLE", "TWO", "THREE"] },
-      "ground_truth": null,
+      "ground_truth": "THREE",
       "notes": "Stress: judgment against the three-commit cadence discipline. ground_truth filled by hand."
     },
     {
@@ -146,7 +146,7 @@
       "context": "Protection: the PreToolUse hook that blocks rm -rf against unguarded paths and tells the user to run it manually outside Claude Code.",
       "prompt": "Is this protection a soft discipline gate or a hard safety safeguard? Answer with exactly one word: SOFT or HARD.",
       "extractor": { "kind": "choice", "options": ["SOFT", "HARD"] },
-      "ground_truth": null,
+      "ground_truth": "HARD",
       "notes": "Stress: judgment against soft-gates-vs-hard-safeguards. ground_truth filled by hand."
     },
     {
@@ -160,7 +160,7 @@
       "context": "Phase: adds a new hook under template/.claude/hooks/ and mirrors it into the dogfood .claude/ hooks directory.",
       "prompt": "Does this phase require update.sh propagation to installs? Answer with exactly one word: YES or NO.",
       "extractor": { "kind": "choice", "options": ["YES", "NO"] },
-      "ground_truth": null,
+      "ground_truth": "YES",
       "notes": "Stress: judgment against update.sh propagation rules. YES-first guards against 'NO' matching inside words like KNOWN/NOT. ground_truth filled by hand."
     },
     {
@@ -187,6 +187,527 @@
       },
       "ground_truth": "UNCHANGED",
       "notes": "Format-template gap task #1. Near-obvious UNCHANGED case — the two embedded versions are byte-identical. difficulty:easy means calibration anchor, not representative gap-signal; analysis should not let its agreement inflate the gap pool."
+    },
+    {
+      "task_id": "gap_range_01",
+      "task_type": "git_range_membership",
+      "task_class": "gap",
+      "source": "real",
+      "framing": "git_range_reasoning",
+      "difficulty": "easy",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "YES",
+        "NO"
+      ],
+      "context": "A git range-membership question against a real repository's history.\nRange expression: 55d96ab..5630caa\nProbe commit: 462d9fb (\"Phase 4c: install.sh + update.sh\")\nThe question concerns git's A..B range semantics: exactly the commits that `git rev-list 55d96ab..5630caa` would list (reachable from B but not from A).",
+      "prompt": "Is the probe commit included in the range 55d96ab..5630caa? Answer with exactly one word: YES or NO.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "YES",
+          "NO"
+        ]
+      },
+      "ground_truth": "YES",
+      "notes": "Harvest-verified clear-inside case (32/32 blind double-derivation)."
+    },
+    {
+      "task_id": "gap_range_02",
+      "task_type": "git_range_membership",
+      "task_class": "gap",
+      "source": "real",
+      "framing": "git_range_reasoning",
+      "difficulty": "ambiguous",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "YES",
+        "NO"
+      ],
+      "context": "A git range-membership question against a real repository's history.\nRange expression: 7018115..f30b4c1\nProbe commit: 7018115 (\"Phase 4b: baseline CLAUDE / CLAUDE_MANAGER / ROUTING / settings templates\")\nThe question concerns git's A..B range semantics: exactly the commits that `git rev-list 7018115..f30b4c1` would list (reachable from B but not from A).",
+      "prompt": "Is the probe commit included in the range 7018115..f30b4c1? Answer with exactly one word: YES or NO.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "YES",
+          "NO"
+        ]
+      },
+      "ground_truth": "NO",
+      "notes": "Excluded left endpoint: probe IS commit A of A..B; git excludes A. Harvest-verified."
+    },
+    {
+      "task_id": "gap_range_03",
+      "task_type": "git_range_membership",
+      "task_class": "gap",
+      "source": "real",
+      "framing": "git_range_reasoning",
+      "difficulty": "ambiguous",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "YES",
+        "NO"
+      ],
+      "context": "A git range-membership question against a real repository's history.\nRange expression: 35fe5f4..fd85f12\nProbe commit: fd85f12 (\"Phase 4b: bump to 0.2.0\")\nThe question concerns git's A..B range semantics: exactly the commits that `git rev-list 35fe5f4..fd85f12` would list (reachable from B but not from A).",
+      "prompt": "Is the probe commit included in the range 35fe5f4..fd85f12? Answer with exactly one word: YES or NO.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "YES",
+          "NO"
+        ]
+      },
+      "ground_truth": "YES",
+      "notes": "Included right endpoint: probe IS commit B of A..B; git includes B. Harvest-verified."
+    },
+    {
+      "task_id": "gap_range_04",
+      "task_type": "git_range_membership",
+      "task_class": "gap",
+      "source": "real",
+      "framing": "git_range_reasoning",
+      "difficulty": "ambiguous",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "YES",
+        "NO"
+      ],
+      "context": "A git range-membership question against a real repository's history.\nRange expression: v1.1.4..HEAD\nProbe commit: 2a0caf6 (\"release: v1.1.4 — plugin-verification surface open\")\nThe question concerns git's A..B range semantics: exactly the commits that `git rev-list v1.1.4..HEAD` would list (reachable from B but not from A).",
+      "prompt": "Is the probe commit included in the range v1.1.4..HEAD? Answer with exactly one word: YES or NO.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "YES",
+          "NO"
+        ]
+      },
+      "ground_truth": "NO",
+      "notes": "Tag-anchored excluded left endpoint: probe is the commit tag v1.1.4 points to. Harvest-verified."
+    },
+    {
+      "task_id": "gap_range_05",
+      "task_type": "git_range_membership",
+      "task_class": "gap",
+      "source": "real",
+      "framing": "git_range_reasoning",
+      "difficulty": "ambiguous",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "YES",
+        "NO"
+      ],
+      "context": "A git range-membership question against a real repository's history.\nRange expression: dd77973..d5a4d5e\nProbe commit: 4bff438 (\"Phase 6 release cut: v1.1.0 — the capture/reuse loop\")\nThe question concerns git's A..B range semantics: exactly the commits that `git rev-list dd77973..d5a4d5e` would list (reachable from B but not from A).",
+      "prompt": "Is the probe commit included in the range dd77973..d5a4d5e? Answer with exactly one word: YES or NO.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "YES",
+          "NO"
+        ]
+      },
+      "ground_truth": "NO",
+      "notes": "Descendant beyond the right endpoint (3 commits after B) - near-the-range reasoning misfires. Harvest-verified."
+    },
+    {
+      "task_id": "gap_prop_01",
+      "task_type": "template_propagation",
+      "task_class": "gap",
+      "source": "real",
+      "framing": "propagation_reasoning",
+      "difficulty": "easy",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "YES",
+        "NO"
+      ],
+      "context": "A commit from a real repository. Below is its `git show --stat` output - the subject line and the full list of files it touched.\n\ncommit 444e8e5\nsubject: feat(share): /graduation-review maintainer report — dogfood only (Phase 47d)\n\n .claude/commands/graduation-review.md |  17 ++++++\n .claude/scripts/graduation-review.sh  | 110 ++++++++++++++++++++++++++++++++++\n .github/test-fixtures/scenarios.sh    |  90 ++++++++++++++++++++++++++++\n .github/workflows/ci.yml              |   8 +++\n 4 files changed, 225 insertions(+)",
+      "prompt": "Based on the paths this commit touched, did it modify anything under template/? Answer with exactly one word: YES or NO.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "YES",
+          "NO"
+        ]
+      },
+      "ground_truth": "NO",
+      "notes": "Subject self-declares dogfood-only; paths agree. Harvest-verified."
+    },
+    {
+      "task_id": "gap_prop_02",
+      "task_type": "template_propagation",
+      "task_class": "gap",
+      "source": "real",
+      "framing": "propagation_reasoning",
+      "difficulty": "ambiguous",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "YES",
+        "NO"
+      ],
+      "context": "A commit from a real repository. Below is its `git show --stat` output - the subject line and the full list of files it touched.\n\ncommit fef54ef\nsubject: doc(manager): halt-on-uncertainty directive (anti-fabrication, MATERIAL-scoped)\n\n CLAUDE_MANAGER.md                   | 8 ++++++++\n docs/CHANGELOG.md                   | 1 +\n template/CLAUDE_MANAGER.md.template | 8 ++++++++\n 3 files changed, 17 insertions(+)",
+      "prompt": "Based on the paths this commit touched, did it modify anything under template/? Answer with exactly one word: YES or NO.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "YES",
+          "NO"
+        ]
+      },
+      "ground_truth": "YES",
+      "notes": "Doc-sounding subject, but one template mirror (CLAUDE_MANAGER.md.template) is touched. Harvest-verified."
+    },
+    {
+      "task_id": "gap_prop_03",
+      "task_type": "template_propagation",
+      "task_class": "gap",
+      "source": "real",
+      "framing": "propagation_reasoning",
+      "difficulty": "ambiguous",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "YES",
+        "NO"
+      ],
+      "context": "A commit from a real repository. Below is its `git show --stat` output - the subject line and the full list of files it touched.\n\ncommit 7be698e\nsubject: fix(ci): bump verify_marker fixture 45->49 + codify same-commit rule (Phase 46c)\n\n .github/test-fixtures/scenarios.sh  | 4 ++--\n CLAUDE_MANAGER.md                   | 4 ++++\n docs/CHANGELOG.md                   | 1 +\n template/CLAUDE_MANAGER.md.template | 4 ++++\n 4 files changed, 11 insertions(+), 2 deletions(-)",
+      "prompt": "Based on the paths this commit touched, did it modify anything under template/? Answer with exactly one word: YES or NO.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "YES",
+          "NO"
+        ]
+      },
+      "ground_truth": "YES",
+      "notes": "CI-sounding subject, but the same-commit rule codification touched the template mirror. Harvest-verified."
+    },
+    {
+      "task_id": "gap_prop_04",
+      "task_type": "template_propagation",
+      "task_class": "gap",
+      "source": "real",
+      "framing": "propagation_reasoning",
+      "difficulty": "ambiguous",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "YES",
+        "NO"
+      ],
+      "context": "A commit from a real repository. Below is its `git show --stat` output - the subject line and the full list of files it touched.\n\ncommit 5e2fa6f\nsubject: feat(update): switch to raw-template baseline + one-time migration\n\n .github/test-fixtures/scenarios.sh |  61 ++++++++++\n .github/workflows/ci.yml           |   4 +\n scripts/update.sh                  | 225 +++++++++++++++++++++++++++++++++----\n 3 files changed, 270 insertions(+), 20 deletions(-)",
+      "prompt": "Based on the paths this commit touched, did it modify anything under template/? Answer with exactly one word: YES or NO.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "YES",
+          "NO"
+        ]
+      },
+      "ground_truth": "NO",
+      "notes": "Subject literally says 'raw-template baseline' but paths are scripts/CI/docs only. Harvest-verified."
+    },
+    {
+      "task_id": "gap_prop_05",
+      "task_type": "template_propagation",
+      "task_class": "gap",
+      "source": "real",
+      "framing": "propagation_reasoning",
+      "difficulty": "ambiguous",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "YES",
+        "NO"
+      ],
+      "context": "A commit from a real repository. Below is its `git show --stat` output - the subject line and the full list of files it touched.\n\ncommit e7dcd55\nsubject: feat(install): record raw template hashes before tuner runs\n\n .github/test-fixtures/scenarios.sh | 41 ++++++++++++++++++++++++++++++++++++++\n .github/workflows/ci.yml           |  4 ++++\n scripts/install.sh                 | 34 +++++++++++++++++++++++--------\n 3 files changed, 71 insertions(+), 8 deletions(-)",
+      "prompt": "Based on the paths this commit touched, did it modify anything under template/? Answer with exactly one word: YES or NO.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "YES",
+          "NO"
+        ]
+      },
+      "ground_truth": "NO",
+      "notes": "Same trap: 'raw template hashes' wording, scripts-only paths. Harvest-verified."
+    },
+    {
+      "task_id": "gap_route_01",
+      "task_type": "artifact_routing",
+      "task_class": "gap",
+      "source": "real",
+      "framing": "observation_routing",
+      "difficulty": "easy",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "script",
+        "skill",
+        "agent",
+        "command",
+        "manual_action",
+        "doc-fix",
+        "infrastructure-fix",
+        "lesson",
+        "unclear"
+      ],
+      "context": "An observation record from the skeleton's observation pipeline:\n  source: cruft-checker\n  pattern_type: other\n  notes (first line): viii: .claude/settings.json hooks.PreCompact[0].hooks[0] missing \"type\" (expected \"command\")",
+      "prompt": "Per the skeleton's routing rules, which suggested_artifact_type does this observation route to? Answer with exactly one value: script, skill, agent, command, manual_action, doc-fix, infrastructure-fix, lesson, or unclear.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "script",
+          "skill",
+          "agent",
+          "command",
+          "manual_action",
+          "doc-fix",
+          "infrastructure-fix",
+          "lesson",
+          "unclear"
+        ]
+      },
+      "ground_truth": "infrastructure-fix",
+      "notes": "Real observation af971beb (cruft-checker heuristic viii, hook-entry config-schema violation). Rule: viii routes to infrastructure-fix. Harvest-verified."
+    },
+    {
+      "task_id": "gap_route_02",
+      "task_type": "artifact_routing",
+      "task_class": "gap",
+      "source": "real",
+      "framing": "observation_routing",
+      "difficulty": "ambiguous",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "script",
+        "skill",
+        "agent",
+        "command",
+        "manual_action",
+        "doc-fix",
+        "infrastructure-fix",
+        "lesson",
+        "unclear"
+      ],
+      "context": "An observation record from the skeleton's observation pipeline:\n  source: cruft-checker\n  pattern_type: other\n  notes (first line): vii: template/.claude/agents/05_meta/task-watchdog.md:70 claims session-observer is 9-field; actual 10",
+      "prompt": "Per the skeleton's routing rules, which suggested_artifact_type does this observation route to? Answer with exactly one value: script, skill, agent, command, manual_action, doc-fix, infrastructure-fix, lesson, or unclear.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "script",
+          "skill",
+          "agent",
+          "command",
+          "manual_action",
+          "doc-fix",
+          "infrastructure-fix",
+          "lesson",
+          "unclear"
+        ]
+      },
+      "ground_truth": "doc-fix",
+      "notes": "Real observation 592e37a0 (cruft-checker heuristic vii, stale field-count claim). Rule: catch-all - only 'viii:' and 'lesson:' prefixes divert; all other cruft-checker observations route to doc-fix. Harvest-verified; flagged ambiguous (catch-all reasoning)."
+    },
+    {
+      "task_id": "gap_route_03",
+      "task_type": "artifact_routing",
+      "task_class": "gap",
+      "source": "synthetic",
+      "framing": "observation_routing",
+      "difficulty": "easy",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "script",
+        "skill",
+        "agent",
+        "command",
+        "manual_action",
+        "doc-fix",
+        "infrastructure-fix",
+        "lesson",
+        "unclear"
+      ],
+      "context": "An observation record from the skeleton's observation pipeline:\n  source: code-quality-auditor\n  pattern_type: plugin_quality\n  notes (first line): installed plugin declares a PreToolUse hook whose matcher never fires",
+      "prompt": "Per the skeleton's routing rules, which suggested_artifact_type does this observation route to? Answer with exactly one value: script, skill, agent, command, manual_action, doc-fix, infrastructure-fix, lesson, or unclear.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "script",
+          "skill",
+          "agent",
+          "command",
+          "manual_action",
+          "doc-fix",
+          "infrastructure-fix",
+          "lesson",
+          "unclear"
+        ]
+      },
+      "ground_truth": "manual_action",
+      "notes": "SYNTHETIC third answer value (no real code-quality-auditor observations exist in the pool - census showed 135 cruft-checker + 16 telemetry only). Rule-defensible per the v1.1.4 routing rule at workflow-suggester.md:58: pattern_type plugin_quality routes to manual_action."
+    },
+    {
+      "task_id": "gap_mirror_01",
+      "task_type": "mirror_state_classification",
+      "task_class": "gap",
+      "source": "real",
+      "framing": "mirror_state",
+      "difficulty": "ambiguous",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "IDENTICAL",
+        "DRIFTED",
+        "NO_MIRROR"
+      ],
+      "context": "Dogfood file: .claude/settings.json\nTemplate counterpart exists at: template/.claude/settings.json.template\n\n=== TEMPLATE VERSION (template/.claude/settings.json.template) ===\n{\n  \"model\": \"opusplan\",\n  \"permissions\": {\n    \"defaultMode\": \"default\",\n    \"allow\": [\n      \"Bash\",\n      \"PowerShell\",\n      \"Edit\",\n      \"Write\",\n      \"Read\",\n      \"Glob\",\n      \"Grep\",\n      \"WebFetch\",\n      \"WebSearch\",\n      \"NotebookEdit\",\n      \"Agent\"\n    ]\n  },\n  \"compactPrompt\": \"{{COMPACT_PROMPT}}\",\n  \"hooks\": {\n    \"PreCompact\": [\n      {\n        \"matcher\": \"auto\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"bash \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/precompact-backup.sh\\\"\"\n          }\n        ]\n      }\n    ],\n    \"PreToolUse\": [\n      {\n        \"matcher\": \"Bash\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"bash \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/pretooluse-bash-safety.sh\\\"\"\n          }\n        ]\n      },\n      {\n        \"matcher\": \"PowerShell\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"bash \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/pretooluse-powershell-safety.sh\\\"\"\n          }\n        ]\n      }\n    ],\n    \"SessionStart\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"bash \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/sessionstart-rules.sh\\\"\"\n          }\n        ]\n      },\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"bash \\\"$CLAUDE_PROJECT_DIR/.claude/scripts/plugin-quality-check.sh\\\" --hook\"\n          }\n        ]\n      }\n    ],\n    \"SessionEnd\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"bash \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/sessionend-observe.sh\\\"\"\n          }\n        ]\n      }\n    ]\n  }\n}\n\n\n=== CURRENT VERSION (.claude/settings.json) ===\n{\n  \"model\": \"opusplan\",\n  \"permissions\": {\n    \"defaultMode\": \"plan\",\n    \"allow\": [\n      \"Bash\",\n      \"PowerShell\",\n      \"Edit\",\n      \"Write\",\n      \"Read\",\n      \"Glob\",\n      \"Grep\",\n      \"WebFetch\",\n      \"WebSearch\",\n      \"NotebookEdit\",\n      \"Agent\"\n    ]\n  },\n  \"compactPrompt\": \"Durable rules:\\n- TWO .claude/ dirs exist: ./.claude/ (working ON the meta-system) and ./template/.claude/ (gets installed INTO target projects). Never conflate.\\n- Template files use .template suffix. Don't edit them as live config.\\n- Non-destructive install: code that touches a target project's .claude/ must merge, never overwrite.\\n- Plan before structural changes. This project is the foundation other projects inherit.\\n- Verify file existence before recommending a path or command.\",\n  \"hooks\": {\n    \"PreCompact\": [\n      {\n        \"matcher\": \"auto\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"bash \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/precompact-backup.sh\\\"\"\n          }\n        ]\n      }\n    ],\n    \"PreToolUse\": [\n      {\n        \"matcher\": \"Bash\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"bash \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/pretooluse-bash-safety.sh\\\"\"\n          }\n        ]\n      },\n      {\n        \"matcher\": \"PowerShell\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"bash \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/pretooluse-powershell-safety.sh\\\"\"\n          }\n        ]\n      }\n    ],\n    \"SessionStart\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"bash \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/sessionstart-rules.sh\\\"\"\n          }\n        ]\n      },\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"bash \\\"$CLAUDE_PROJECT_DIR/.claude/scripts/cruft-check.sh\\\" --hook\"\n          }\n        ]\n      },\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"bash \\\"$CLAUDE_PROJECT_DIR/.claude/scripts/plugin-quality-check.sh\\\" --hook\"\n          }\n        ]\n      }\n    ],\n    \"SessionEnd\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"bash \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/sessionend-observe.sh\\\"\"\n          }\n        ]\n      }\n    ]\n  }\n}\n",
+      "prompt": "What is this file's mirror state relative to template/? Answer with exactly one word: IDENTICAL, DRIFTED, or NO_MIRROR.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "IDENTICAL",
+          "DRIFTED",
+          "NO_MIRROR"
+        ]
+      },
+      "ground_truth": "DRIFTED",
+      "notes": "Placeholder-resolution conflation ({{...}} placeholders resolved at install) - but by the locked any-difference semantics this IS drift. Harvest-verified DRIFTED, flagged ambiguous for exactly this conflation."
+    },
+    {
+      "task_id": "gap_mirror_02",
+      "task_type": "mirror_state_classification",
+      "task_class": "gap",
+      "source": "real",
+      "framing": "mirror_state",
+      "difficulty": "easy",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "IDENTICAL",
+        "DRIFTED",
+        "NO_MIRROR"
+      ],
+      "context": "Dogfood file: .claude/scripts/cruft-check.sh\nTemplate counterpart: none - neither template/.claude/scripts/cruft-check.sh nor template/.claude/scripts/cruft-check.sh.template exists in the template tree. (The file is a dogfood-only maintainer tool.)",
+      "prompt": "What is this file's mirror state relative to template/? Answer with exactly one word: IDENTICAL, DRIFTED, or NO_MIRROR.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "IDENTICAL",
+          "DRIFTED",
+          "NO_MIRROR"
+        ]
+      },
+      "ground_truth": "NO_MIRROR",
+      "notes": "Dogfood-only maintainer tool; no template counterpart path exists. Harvest-verified NO_MIRROR."
+    },
+    {
+      "task_id": "gap_file_02",
+      "task_type": "file_baseline_classification",
+      "task_class": "gap",
+      "source": "real",
+      "framing": "two_contents_comparison",
+      "difficulty": "easy",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "MODIFIED",
+        "UNCHANGED"
+      ],
+      "context": "Below are two versions of a file from an installed skeleton project.\n\n=== TEMPLATE VERSION ===\n#!/usr/bin/env bash\n# PreToolUse hook: blocks Bash invocations matching destructive patterns\n# before execution. Replaces fragile string-pattern denies in settings.json\n# (Phase 11/14 verified those don't reliably fire). Per Anthropic docs:\n# \"Bash permission patterns that try to constrain command arguments are fragile.\"\n#\n# Protocol: reads PreToolUse JSON on stdin (tool_name + tool_input.command);\n# emits hookSpecificOutput JSON with permissionDecision = allow | deny.\n# Exit 0 in both cases; deny is signaled via JSON, not exit code.\n# Fail-closed: jq missing, JSON malformed, or required fields missing -> deny.\n#\n# Scope: Bash only. tool_name != \"Bash\" -> allow (no-op for Edit/Write/Read/etc).\n#\n# Patterns intercepted (10 destructive shapes covered by 6 regexes):\n#   rm -rf, git push --force (long+short), git reset --hard origin/,\n#   chmod -R 777, and (curl|wget) ... | (bash|sh) pipe-to-shell.\n# Pipe-to-shell catches Phase 11's 4 dropped deny rules that were silent\n# no-ops because '|' is a subcommand separator in CC's permissions schema.\nset -uo pipefail\n\nreadonly HOOK_NAME=\"pretooluse-bash-safety\"\nreadonly DENY_REASON=\"BLOCKED by ${HOOK_NAME} hook: command matches destructive pattern. If you genuinely need this, run it manually outside Claude Code.\"\n\n# Destructive-shape patterns live in a shared library so that this hook\n# and plugin-quality-check.sh (Phase 24 / heuristic iii) operate against\n# the same set — single source of truth. Lib sources DESTRUCTIVE_BASH_PATTERNS.\n# Path resolved via CLAUDE_PROJECT_DIR (set by Claude Code harness) for\n# CWD-independence; falls back to relative path for manual invocation from\n# project root. Phase 30b robustness fix — relative-only path fail-closed\n# spuriously when harness CWD drifted from project root.\nreadonly LIB=\"${CLAUDE_PROJECT_DIR:-.}/.claude/lib/destructive-bash-patterns.sh\"\nif [ ! -f \"$LIB\" ]; then\n  # Fail-closed: missing lib means we can't safely vet commands.\n  printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"%s (destructive-pattern lib missing at %s — fail-closed)\"}}\\n' \\\n    \"$DENY_REASON\" \"$LIB\"\n  exit 0\nfi\n# shellcheck disable=SC1090,SC1091\nsource \"$LIB\"\n\nemit_allow() {\n  jq -cn '{hookSpecificOutput: {hookEventName: \"PreToolUse\", permissionDecision: \"allow\"}}'\n  exit 0\n}\n\nemit_deny() {\n  local reason=\"$1\"\n  jq -cn --arg r \"$reason\" '{hookSpecificOutput: {hookEventName: \"PreToolUse\", permissionDecision: \"deny\", permissionDecisionReason: $r}}'\n  exit 0\n}\n\n# Phase 30c: parser-aware FP exemption for git commit -m message bodies +\n# bash heredoc payloads. Destructive-pattern strings inside those exempted\n# regions no longer trigger deny. Patterns OUTSIDE exempted regions still\n# match (counter-tests verify chained-command, post-heredoc deny preserved).\n# Shell-portable: bash regex + sed only — no Python, no extra jq.\n\n# redact_git_commit_messages: replace -m / --message argument bodies with a\n# placeholder so destructive-pattern strings in commit messages don't trigger\n# deny. Only fires when command begins with `git commit` — chained commands\n# after the message ARE preserved (so `git commit -m \"rm -rf foo\"; rm -rf /`\n# still denies on the second cmd). Handles 4 quote/equals forms; the `-mfoo`\n# immediate form is intentionally NOT handled (uncommon; safer to under-exempt).\nredact_git_commit_messages() {\n  local cmd=\"$1\"\n  if [[ ! \"$cmd\" =~ ^[[:space:]]*git[[:space:]]+commit([[:space:]]|$) ]]; then\n    printf '%s' \"$cmd\"\n    return\n  fi\n  printf '%s' \"$cmd\" | sed -E \\\n    -e 's/(-m|--message)=\"[^\"]*\"/\\1=\"X\"/g' \\\n    -e \"s/(-m|--message)='[^']*'/\\1='X'/g\" \\\n    -e 's/(-m|--message)[[:space:]]+\"[^\"]*\"/\\1 \"X\"/g' \\\n    -e \"s/(-m|--message)[[:space:]]+'[^']*'/\\1 'X'/g\"\n}\n\n# strip_bash_heredocs: walk command line-by-line; when a heredoc opener\n# (<<MARKER, <<-MARKER, <<'MARKER', <<\"MARKER\") is detected, replace\n# subsequent lines with HEREDOC_BODY until matching terminator. Destructive\n# patterns OUTSIDE heredoc bodies (before opener, after closer) remain\n# intact. Detection regex requires identifier start (letter/underscore)\n# — won't accidentally match `<<` in arithmetic / shift contexts.\nstrip_bash_heredocs() {\n  local input=\"$1\"\n  local out=\"\" line in_heredoc=\"\" first=1\n  while IFS= read -r line || [ -n \"$line\" ]; do\n    if [ -n \"$in_heredoc\" ]; then\n      local trimmed\n      trimmed=$(printf '%s' \"$line\" | sed 's/^[[:space:]]*//')\n      if [ \"$trimmed\" = \"$in_heredoc\" ] || [ \"$line\" = \"$in_heredoc\" ]; then\n        [ $first -eq 0 ] && out+=$'\\n'\n        out+=\"$line\"\n        first=0\n        in_heredoc=\"\"\n      else\n        [ $first -eq 0 ] && out+=$'\\n'\n        out+=\"HEREDOC_BODY\"\n        first=0\n      fi\n    else\n      [ $first -eq 0 ] && out+=$'\\n'\n      out+=\"$line\"\n      first=0\n      if [[ \"$line\" =~ \\<\\<-?[[:space:]]*[\\'\\\"]?([A-Za-z_][A-Za-z0-9_]*)[\\'\\\"]? ]]; then\n        in_heredoc=\"${BASH_REMATCH[1]}\"\n      fi\n    fi\n  done <<< \"$input\"\n  printf '%s' \"$out\"\n}\n\n# jq is required to safely build the response JSON. If missing, hand-build\n# a minimal deny payload — the hook fails closed, blocking Bash entirely\n# until jq is installed. Surfaces the misconfiguration loudly in the reason.\nif ! command -v jq >/dev/null 2>&1; then\n  printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"%s (jq missing — fail-closed)\"}}\\n' \\\n    \"$DENY_REASON\"\n  exit 0\nfi\n\nINPUT=$(cat)\nif [ -z \"$INPUT\" ]; then\n  emit_deny \"${DENY_REASON} (empty input — fail-closed)\"\nfi\n\nTOOL_NAME=$(printf '%s' \"$INPUT\" | jq -r '.tool_name // empty' 2>/dev/null || true)\nif [ -z \"$TOOL_NAME\" ]; then\n  emit_deny \"${DENY_REASON} (unparseable input — fail-closed)\"\nfi\n\n# Out-of-scope tool — allow. This hook only governs Bash.\nif [ \"$TOOL_NAME\" != \"Bash\" ]; then\n  emit_allow\nfi\n\nCOMMAND=$(printf '%s' \"$INPUT\" | jq -r '.tool_input.command // empty' 2>/dev/null || true)\nif [ -z \"$COMMAND\" ]; then\n  emit_deny \"${DENY_REASON} (Bash invocation with empty command — fail-closed)\"\nfi\n\n# Redact exempted content (Phase 30c FP closure):\n#   - git commit -m / --message argument bodies\n#   - bash heredoc payloads\n# Destructive patterns OUTSIDE redacted regions still match.\nREDACTED_COMMAND=$(redact_git_commit_messages \"$COMMAND\")\nREDACTED_COMMAND=$(strip_bash_heredocs \"$REDACTED_COMMAND\")\n\nfor pattern in \"${DESTRUCTIVE_BASH_PATTERNS[@]}\"; do\n  if [[ \"$REDACTED_COMMAND\" =~ $pattern ]]; then\n    emit_deny \"$DENY_REASON\"\n  fi\ndone\n\nemit_allow\n\n# Unreachable — emit_* functions exit. Kept for the 5-section discipline.\nexit 0\n\n\n=== CURRENT VERSION ===\n#!/usr/bin/env bash\n# PreToolUse hook: blocks Bash invocations matching destructive patterns\n# before execution. Replaces fragile string-pattern denies in settings.json\n# (Phase 11/14 verified those don't reliably fire). Per Anthropic docs:\n# \"Bash permission patterns that try to constrain command arguments are fragile.\"\n#\n# Protocol: reads PreToolUse JSON on stdin (tool_name + tool_input.command);\n# emits hookSpecificOutput JSON with permissionDecision = allow | deny.\n# Exit 0 in both cases; deny is signaled via JSON, not exit code.\n# Fail-closed: jq missing, JSON malformed, or required fields missing -> deny.\n#\n# Scope: Bash only. tool_name != \"Bash\" -> allow (no-op for Edit/Write/Read/etc).\n#\n# Patterns intercepted (10 destructive shapes covered by 6 regexes):\n#   rm -rf, git push --force (long+short), git reset --hard origin/,\n#   chmod -R 777, and (curl|wget) ... | (bash|sh) pipe-to-shell.\n# Pipe-to-shell catches Phase 11's 4 dropped deny rules that were silent\n# no-ops because '|' is a subcommand separator in CC's permissions schema.\nset -uo pipefail\n\nreadonly HOOK_NAME=\"pretooluse-bash-safety\"\nreadonly DENY_REASON=\"BLOCKED by ${HOOK_NAME} hook: command matches destructive pattern. If you genuinely need this, run it manually outside Claude Code.\"\n\n# Destructive-shape patterns live in a shared library so that this hook\n# and plugin-quality-check.sh (Phase 24 / heuristic iii) operate against\n# the same set — single source of truth. Lib sources DESTRUCTIVE_BASH_PATTERNS.\n# Path resolved via CLAUDE_PROJECT_DIR (set by Claude Code harness) for\n# CWD-independence; falls back to relative path for manual invocation from\n# project root. Phase 30b robustness fix — relative-only path fail-closed\n# spuriously when harness CWD drifted from project root.\nreadonly LIB=\"${CLAUDE_PROJECT_DIR:-.}/.claude/lib/destructive-bash-patterns.sh\"\nif [ ! -f \"$LIB\" ]; then\n  # Fail-closed: missing lib means we can't safely vet commands.\n  printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"%s (destructive-pattern lib missing at %s — fail-closed)\"}}\\n' \\\n    \"$DENY_REASON\" \"$LIB\"\n  exit 0\nfi\n# shellcheck disable=SC1090,SC1091\nsource \"$LIB\"\n\nemit_allow() {\n  jq -cn '{hookSpecificOutput: {hookEventName: \"PreToolUse\", permissionDecision: \"allow\"}}'\n  exit 0\n}\n\nemit_deny() {\n  local reason=\"$1\"\n  jq -cn --arg r \"$reason\" '{hookSpecificOutput: {hookEventName: \"PreToolUse\", permissionDecision: \"deny\", permissionDecisionReason: $r}}'\n  exit 0\n}\n\n# Phase 30c: parser-aware FP exemption for git commit -m message bodies +\n# bash heredoc payloads. Destructive-pattern strings inside those exempted\n# regions no longer trigger deny. Patterns OUTSIDE exempted regions still\n# match (counter-tests verify chained-command, post-heredoc deny preserved).\n# Shell-portable: bash regex + sed only — no Python, no extra jq.\n\n# redact_git_commit_messages: replace -m / --message argument bodies with a\n# placeholder so destructive-pattern strings in commit messages don't trigger\n# deny. Only fires when command begins with `git commit` — chained commands\n# after the message ARE preserved (so `git commit -m \"rm -rf foo\"; rm -rf /`\n# still denies on the second cmd). Handles 4 quote/equals forms; the `-mfoo`\n# immediate form is intentionally NOT handled (uncommon; safer to under-exempt).\nredact_git_commit_messages() {\n  local cmd=\"$1\"\n  if [[ ! \"$cmd\" =~ ^[[:space:]]*git[[:space:]]+commit([[:space:]]|$) ]]; then\n    printf '%s' \"$cmd\"\n    return\n  fi\n  printf '%s' \"$cmd\" | sed -E \\\n    -e 's/(-m|--message)=\"[^\"]*\"/\\1=\"X\"/g' \\\n    -e \"s/(-m|--message)='[^']*'/\\1='X'/g\" \\\n    -e 's/(-m|--message)[[:space:]]+\"[^\"]*\"/\\1 \"X\"/g' \\\n    -e \"s/(-m|--message)[[:space:]]+'[^']*'/\\1 'X'/g\"\n}\n\n# strip_bash_heredocs: walk command line-by-line; when a heredoc opener\n# (<<MARKER, <<-MARKER, <<'MARKER', <<\"MARKER\") is detected, replace\n# subsequent lines with HEREDOC_BODY until matching terminator. Destructive\n# patterns OUTSIDE heredoc bodies (before opener, after closer) remain\n# intact. Detection regex requires identifier start (letter/underscore)\n# — won't accidentally match `<<` in arithmetic / shift contexts.\nstrip_bash_heredocs() {\n  local input=\"$1\"\n  local out=\"\" line in_heredoc=\"\" first=1\n  while IFS= read -r line || [ -n \"$line\" ]; do\n    if [ -n \"$in_heredoc\" ]; then\n      local trimmed\n      trimmed=$(printf '%s' \"$line\" | sed 's/^[[:space:]]*//')\n      if [ \"$trimmed\" = \"$in_heredoc\" ] || [ \"$line\" = \"$in_heredoc\" ]; then\n        [ $first -eq 0 ] && out+=$'\\n'\n        out+=\"$line\"\n        first=0\n        in_heredoc=\"\"\n      else\n        [ $first -eq 0 ] && out+=$'\\n'\n        out+=\"HEREDOC_BODY\"\n        first=0\n      fi\n    else\n      [ $first -eq 0 ] && out+=$'\\n'\n      out+=\"$line\"\n      first=0\n      if [[ \"$line\" =~ \\<\\<-?[[:space:]]*[\\'\\\"]?([A-Za-z_][A-Za-z0-9_]*)[\\'\\\"]? ]]; then\n        in_heredoc=\"${BASH_REMATCH[1]}\"\n      fi\n    fi\n  done <<< \"$input\"\n  printf '%s' \"$out\"\n}\n\n# jq is required to safely build the response JSON. If missing, hand-build\n# a minimal deny payload — the hook fails closed, blocking Bash entirely\n# until jq is installed. Surfaces the misconfiguration loudly in the reason.\nif ! command -v jq >/dev/null 2>&1; then\n  printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"%s (jq missing — fail-closed)\"}}\\n' \\\n    \"$DENY_REASON\"\n  exit 0\nfi\n\nINPUT=$(cat)\nif [ -z \"$INPUT\" ]; then\n  emit_deny \"${DENY_REASON} (empty input — fail-closed)\"\nfi\n\nTOOL_NAME=$(printf '%s' \"$INPUT\" | jq -r '.tool_name // empty' 2>/dev/null || true)\nif [ -z \"$TOOL_NAME\" ]; then\n  emit_deny \"${DENY_REASON} (unparseable input — fail-closed)\"\nfi\n\n# Out-of-scope tool — allow. This hook only governs Bash.\nif [ \"$TOOL_NAME\" != \"Bash\" ]; then\n  emit_allow\nfi\n\nCOMMAND=$(printf '%s' \"$INPUT\" | jq -r '.tool_input.command // empty' 2>/dev/null || true)\nif [ -z \"$COMMAND\" ]; then\n  emit_deny \"${DENY_REASON} (Bash invocation with empty command — fail-closed)\"\nfi\n\n# Redact exempted content (Phase 30c FP closure):\n#   - git commit -m / --message argument bodies\n#   - bash heredoc payloads\n# Destructive patterns OUTSIDE redacted regions still match.\nREDACTED_COMMAND=$(redact_git_commit_messages \"$COMMAND\")\nREDACTED_COMMAND=$(strip_bash_heredocs \"$REDACTED_COMMAND\")\n\nfor pattern in \"${DESTRUCTIVE_BASH_PATTERNS[@]}\"; do\n  if [[ \"$REDACTED_COMMAND\" =~ $pattern ]]; then\n    emit_deny \"$DENY_REASON\"\n  fi\ndone\n\nemit_allow\n\n# Unreachable — emit_* functions exit. Kept for the 5-section discipline.\nexit 0\n",
+      "prompt": "Above are two versions of a file: the template-as-shipped version and the current version in an installed project. Is the current version modified from the template, or unchanged? Any difference between the versions, however small, counts as modified. Answer with exactly one word: MODIFIED or UNCHANGED.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "MODIFIED",
+          "UNCHANGED"
+        ]
+      },
+      "ground_truth": "UNCHANGED",
+      "notes": "Real UNCHANGED case: template/.claude/hooks/pretooluse-bash-safety.sh embedded twice from the same variable - byte-identity by construction (same pattern as gap task #1)."
+    },
+    {
+      "task_id": "gap_file_03",
+      "task_type": "file_baseline_classification",
+      "task_class": "gap",
+      "source": "real",
+      "framing": "two_contents_comparison",
+      "difficulty": "easy",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "MODIFIED",
+        "UNCHANGED"
+      ],
+      "context": "Below are two versions of a file from an installed skeleton project.\n\n=== TEMPLATE VERSION ===\n# Hooks\n\nBaseline Claude Code hooks that ship with claude-skeleton. Three events are wired up by default in `settings.json`:\n\n- **SessionStart** → `sessionstart-rules.sh` — does two jobs in one hook: (1) re-injects durable rules from `compactPrompt`, and (2) invokes `.claude/scripts/drift-check.sh` and folds any drift notice into the same `additionalContext` block. Fires on every SessionStart event (no `matcher` restriction). Failure of drift-check (missing/malformed `.skeleton-version`, missing jq) is swallowed — the hook always emits cleanly and never blocks session start.\n- **PreCompact** → `precompact-backup.sh` — backs up STATUS.md, SESSION_LOG.md, and CLAUDE.md before auto-compaction.\n- **SessionEnd** → `sessionend-observe.sh` — records the session boundary for `session-observer` to scan back from at next session start.\n\n## What does NOT ship: `PostToolUse` and `SubagentStop`\n\n**Finding (Phase 2 of the parent project):** when the user's `~/.claude/settings.json` declares a hook block (e.g. `PostToolUse`), it **replaces** the project-level block wholesale. The two are not merged — they shadow.\n\nThis means a project that registers a `PostToolUse` hook expects it to fire, but if the user has *any* `PostToolUse` configuration at the user level, the project's hook is silently dead. Same for `SubagentStop` and any other event the user configures globally.\n\nWe don't ship those hooks because they would fail silently on common dev setups, and silent failure is the worst failure mode.\n\n## Recommended pattern: **wrapper scripts**\n\nIf you want post-edit or post-tool behavior, wrap the action itself, not the event. Examples in the baseline:\n\n- `scripts/commit.sh` — every commit goes through this, so post-commit context is reliably visible. No hook needed.\n- `scripts/deploy.sh` — every deploy goes through this, so the `POST-DEPLOY SMOKE TEST REQUIRED` banner always fires. No hook needed.\n\nThe wrapper is the canonical entry point, so its output always shows. No precedence trap.\n\n## Adding new hooks\n\nTwo steps:\n\n1. Drop the script in `.claude/hooks/`. Make it executable (`chmod +x`).\n2. Register it in `.claude/settings.json` under the matching event.\n\nIf you're adding `PostToolUse` or `SubagentStop`, **re-read the finding above** and consider the wrapper-script pattern first.\n\n## Dependencies\n\n- `sessionstart-rules.sh` requires `jq`. If jq is missing the hook no-ops; the session still starts cleanly.\n- `precompact-backup.sh` requires nothing beyond standard POSIX tools.\n- `sessionend-observe.sh` requires nothing beyond standard POSIX tools (uses `mkdir`, `printf`, `date`).\n\n\n=== CURRENT VERSION ===\n# Hooks\n\nBaseline Claude Code hooks that ship with claude-skeleton. Three events are wired up by default in `settings.json`:\n\n- **SessionStart** → `sessionstart-rules.sh` — does two jobs in one hook: (1) re-injects durable rules from `compactPrompt`, and (2) invokes `.claude/scripts/drift-check.sh` and folds any drift notice into the same `additionalContext` block. Fires on every SessionStart event (no `matcher` restriction). Failure of drift-check (missing/malformed `.skeleton-version`, missing jq) is swallowed — the hook always emits cleanly and never blocks session start.\n- **PreCompact** → `precompact-backup.sh` — backs up STATUS.md, SESSION_LOG.md, and CLAUDE.md before auto-compaction.\n- **SessionEnd** → `sessionend-observe.sh` — records the session boundary for `session-observer` to scan back from at next session start.\n\n## What does NOT ship: `PostToolUse` and `SubagentStop`\n\n**Finding (Phase 2 of the parent project):** when the user's `~/.claude/settings.json` declares a hook block (e.g. `PostToolUse`), it **replaces** the project-level block wholesale. The two are not merged — they shadow.\n\nThis means a project that registers a `PostToolUse` hook expects it to fire, but if the user has *any* `PostToolUse` configuration at the user level, the project's hook is silently dead. Same for `SubagentStop` and any other event the user configures globally.\n\nWe don't ship those hooks because they would fail silently on common dev setups, and silent failure is the worst failure mode.\n\n## Recommended pattern: **wrapper scripts**\n\nIf you want post-edit or post-tool behavior, wrap the action itself, not the event. Examples in the baseline:\n\n- `scripts/commit.sh` — every commit goes through this, so post-commit context is reliably visible. No hook needed.\n- `scripts/deploy.sh` — every deploy goes through this, so the `POST-DEPLOY SMOKE TEST REQUIRED` banner always fires. No hook needed.\n\nThe wrapper is the canonical entry point, so its output always shows. No precedence trap.\n\n## Adding new hooks\n\nTwo steps:\n\n1. Drop the script in `.claude/hooks/`. Make it executable (`chmod +x`).\n2. Register it in `.claude/settings.json` under the matching event.\n\nIf you're adding `PostToolUse` or `SubagentStop`, **re-read the finding above** and consider the wrapper-script pattern first.\n\n## Dependencies\n\n- `sessionstart-rules.sh` requires `jq`. If jq is missing the hook no-ops; the session still starts cleanly.\n- `precompact-backup.sh` requires nothing beyond standard POSIX tools.\n- `sessionend-observe.sh` requires nothing beyond standard POSIX tools (uses `mkdir`, `printf`, `date`).\n\n## Project-specific orphan scripts\n\nThe following hook scripts exist in this project but are NOT registered (intentionally — see the Phase 2 finding in `docs/SESSION_LOG.md` for context):\n\n- `post-deploy-smoke-test.sh` — replaced by the `deploy.sh` wrapper pattern.\n- `subagentstop-log.sh` — shadowed by user-level config precedence.\n\nThese files are kept on disk for historical diagnostic value but fire on no event. Safe to delete during a future cleanup pass.\n",
+      "prompt": "Above are two versions of a file: the template-as-shipped version and the current version in an installed project. Is the current version modified from the template, or unchanged? Any difference between the versions, however small, counts as modified. Answer with exactly one word: MODIFIED or UNCHANGED.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "MODIFIED",
+          "UNCHANGED"
+        ]
+      },
+      "ground_truth": "MODIFIED",
+      "notes": "Real MODIFIED case: hooks/README.md - Trainer-View's install carries a 9-line pure append (survey-verified churn 9+/0-)."
+    },
+    {
+      "task_id": "gap_file_04",
+      "task_type": "file_baseline_classification",
+      "task_class": "gap",
+      "source": "synthetic",
+      "framing": "two_contents_comparison",
+      "difficulty": "ambiguous",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "MODIFIED",
+        "UNCHANGED"
+      ],
+      "context": "Below are two versions of a file from an installed skeleton project.\n\n=== TEMPLATE VERSION ===\n#!/usr/bin/env bash\n# redact-observation: cross-install emission gate for observation files.\n#\n# Takes an observation JSON file path. Reads the file's privacy_class\n# field and decides whether (and how) to emit a sharable version to\n# stdout.\n#\n#   local-only             → REFUSE (exit 2). Never printed to stdout.\n#   safe-to-share          → pass-through (jq-canonicalized). All fields\n#                            kept as-is — the producer already asserted\n#                            this observation carries no project content.\n#   share-with-redaction   → strip to the safe-to-share allowlist below.\n#                            Fail-closed: any field NOT explicitly named\n#                            in the allowlist is dropped. New observation\n#                            fields default to dropped, not passed.\n#   (missing)              → REFUSE (exit 3). The producer didn't set the\n#                            field — run migrate-observation-privacy.sh\n#                            first.\n#\n# Allowlist for share-with-redaction:\n#   pattern_id, source, pattern_type, occurrences, first_seen, last_seen,\n#   resolved_at, confidence, privacy_class\n#   target_resource — ONLY when its category prefix is NOT \"file:\" or\n#                     \"command:\" (those leak project structure / args).\n#   evidence — array; per-entry reduced to {timestamp, kind} ONLY.\n#              summary, tool_name, args_redacted dropped.\n#   notes, summary, any free-text fields → DROPPED by default.\n#\n# No network. Stdout-only on success (nothing written to disk). Designed\n# to be called by Phase 47+ cross-install push tooling; the contract is\n# the field allowlist, not the calling discipline.\n#\n# Exit codes:\n#   0 — redacted JSON emitted to stdout\n#   2 — REFUSED: privacy_class == \"local-only\"\n#   3 — REFUSED: privacy_class field missing (run migration first)\n#   4 — REFUSED: file does not exist or unreadable\n#   5 — REFUSED: privacy_class value not recognized\n#   6 — REFUSED: jq not available\n\nset -uo pipefail\n\n# ---- constants ----\n# Fail-closed allowlist filter for share-with-redaction observations.\n# Keep this filter in sync with the redaction policy documented in\n# session-observer.schema.md (\"Privacy class mapping\" section).\n# Adding a new shareable field is a deliberate schema change — edit\n# this filter; new fields default to STRIPPED.\nSAFE_FILTER='\n{\n  pattern_id,\n  source,\n  pattern_type,\n  occurrences,\n  first_seen,\n  last_seen,\n  resolved_at,\n  confidence,\n  privacy_class,\n  evidence: ((.evidence // []) | map({timestamp, kind}))\n}\n+ (if (.target_resource | type) == \"string\"\n       and ((.target_resource | startswith(\"file:\")) | not)\n       and ((.target_resource | startswith(\"command:\")) | not)\n   then {target_resource}\n   else {} end)\n'\nNOTICE_PREFIX=\"[redact-observation]\"\n\n# ---- helpers ----\nemit_refuse() {\n  printf '%s REFUSED: %s\\n' \"$NOTICE_PREFIX\" \"$1\" >&2\n}\n\nemit_redacted() {\n  # -aS --indent 2 + tr -d '\\r' matches producer JSON shape (Python's\n  # json.dump with ensure_ascii=True + sort_keys=True + LF line endings).\n  jq -aS --indent 2 \"$1\" \"$2\" 2>/dev/null | tr -d '\\r'\n}\n\n# ---- main ----\nmain() {\n  local obs=\"${1:-}\"\n\n  if [ -z \"$obs\" ] || [ ! -f \"$obs\" ] || [ ! -r \"$obs\" ]; then\n    emit_refuse \"file does not exist or unreadable: ${obs:-<no path given>}\"\n    return 4\n  fi\n\n  command -v jq >/dev/null 2>&1 || {\n    emit_refuse \"jq not on PATH\"\n    return 6\n  }\n\n  local pclass\n  pclass=$(jq -r '.privacy_class // empty' \"$obs\" 2>/dev/null)\n\n  if [ -z \"$pclass\" ]; then\n    emit_refuse \"missing privacy_class — run migrate-observation-privacy.sh first\"\n    return 3\n  fi\n\n  case \"$pclass\" in\n    local-only)\n      emit_refuse \"local-only observation, never emit cross-install\"\n      return 2\n      ;;\n    safe-to-share)\n      emit_redacted '.' \"$obs\"\n      ;;\n    share-with-redaction)\n      emit_redacted \"$SAFE_FILTER\" \"$obs\"\n      ;;\n    *)\n      emit_refuse \"unknown privacy_class value: $pclass\"\n      return 5\n      ;;\n  esac\n}\n\nmain \"$@\"\nrc=$?\n\n# ---- cleanup ----\nexit \"$rc\"\n\n\n=== CURRENT VERSION ===\n#!/usr/bin/env bash\n# redact-observation: cross-install emission gate for observation files.\n#\n# Takes an observation JSON file path. Reads the file's privacy_class\n# field and decides whether (and how) to emit a sharable version to\n# stdout.\n#\n#   local-only             → REFUSE (exit 2). Never printed to stdout.\n#   safe-to-share          → pass-through (jq-canonicalized). All fields\n#                            kept as-is — the producer already asserted\n#                            this observation carries no project content.\n#   share-with-redaction   → strip to the safe-to-share allowlist below.\n#                            Fail-closed: any field NOT explicitly named\n#                            in the allowlist is dropped. New observation\n#                            fields default to dropped, not passed.\n#   (missing)              → REFUSE (exit 3). The producer didn't set the\n#                            field — run migrate-observation-privacy.sh\n#                            first.\n#\n# Allowlist for share-with-redaction:\n#   pattern_id, source, pattern_type, occurrences, first_seen, last_seen,\n#   resolved_at, confidence, privacy_class\n#   target_resource — ONLY when its category prefix is NOT \"file:\" or\n#                     \"command:\" (those leak project structure / args).\n#   evidence — array; per-entry reduced to {timestamp, kind} ONLY.\n#              summary, tool_name, args_redacted dropped.\n#   notes, summary, any free-text fields → DROPPED by default.\n#\n# No network. Stdout-only on success (nothing written to disk). Designed\n# to be called by Phase 47+ cross-install push tooling; the contract is\n# the field allowlist, not the calling discipline.\n#\n# Exit codes:\n#   0 — redacted JSON emitted to stdout\n#   2 — REFUSED: privacy_class == \"local-only\"\n#   3 — REFUSED: privacy_class field missing (run migration first)\n#   4 — REFUSED: file does not exist or unreadable\n#   5 — REFUSED: privacy_class value not recognized\n#   6 — REFUSED: jq not available\n\nset -uo pipefail\n\n# ---- constants ----\n# Fail-closed allowlist filter for share-with-redaction observations.\n# Keep this filter in sync with the redaction policy documented in\n# session-observer.schema.md (\"Privacy class mapping\" section).\n# Adding a new shareable field is a deliberate schema change — edit\n# this filter; new fields default to STRIPPED.\nSAFE_FILTER='\n{\n  pattern_id,\n  source,\n  pattern_type,\n  occurrences,\n  first_seen,\n  last_seen,\n  resolved_at,\n  confidence,\n  privacy_class,\n  evidence: ((.evidence // []) | map({timestamp, kind}))\n}\n+ (if (.target_resource | type) == \"string\"\n       and ((.target_resource | startswith(\"file:\")) | not)\n       and ((.target_resource | startswith(\"command:\")) | not)\n   then {target_resource}\n   else {} end)\n'\nNOTICE_PREFIX=\"[redact-observation]\"\n\n# ---- helpers ----\nemit_refuse() {\n  printf '%s REFUSED: %s\\n' \"$NOTICE_PREFIX\" \"$1\" >&2\n}\n\nemit_redacted() {\n  # -aS --indent 2 + tr -d '\\r' matches producer JSON shape (Python's\n  # json.dump with ensure_ascii=True + sort_keys=True + LF line endings).\n  jq -aS --indent 2 \"$1\" \"$2\" 2>/dev/null | tr -d '\\r'\n}\n\n# ---- main ----\nmain() {\n  local obs=\"${1:-}\"\n\n  if [ -z \"$obs\" ] || [ ! -f \"$obs\" ] || [ ! -r \"$obs\" ]; then\n    emit_refuse \"file does not exist or unreadable: ${obs:-<no path given>}\"\n    return 5\n  fi\n\n  command -v jq >/dev/null 2>&1 || {\n    emit_refuse \"jq not on PATH\"\n    return 6\n  }\n\n  local pclass\n  pclass=$(jq -r '.privacy_class // empty' \"$obs\" 2>/dev/null)\n\n  if [ -z \"$pclass\" ]; then\n    emit_refuse \"missing privacy_class — run migrate-observation-privacy.sh first\"\n    return 3\n  fi\n\n  case \"$pclass\" in\n    local-only)\n      emit_refuse \"local-only observation, never emit cross-install\"\n      return 2\n      ;;\n    safe-to-share)\n      emit_redacted '.' \"$obs\"\n      ;;\n    share-with-redaction)\n      emit_redacted \"$SAFE_FILTER\" \"$obs\"\n      ;;\n    *)\n      emit_refuse \"unknown privacy_class value: $pclass\"\n      return 5\n      ;;\n  esac\n}\n\nmain \"$@\"\nrc=$?\n\n# ---- cleanup ----\nexit \"$rc\"\n",
+      "prompt": "Above are two versions of a file: the template-as-shipped version and the current version in an installed project. Is the current version modified from the template, or unchanged? Any difference between the versions, however small, counts as modified. Answer with exactly one word: MODIFIED or UNCHANGED.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "MODIFIED",
+          "UNCHANGED"
+        ]
+      },
+      "ground_truth": "MODIFIED",
+      "notes": "SYNTHETIC subtle semantic change: base is the real template/.claude/lib/redact-observation.sh (125 lines, identical in both installs); CURRENT block changes exactly one token - line 87 'return 4' -> 'return 5' (the file-unreadable exit path), silently contradicting the exit-code contract in the header. The edit exists only in this context string, never applied to the real file."
+    },
+    {
+      "task_id": "gap_file_05",
+      "task_type": "file_baseline_classification",
+      "task_class": "gap",
+      "source": "synthetic",
+      "framing": "two_contents_comparison",
+      "difficulty": "ambiguous",
+      "cheap_check_settles": false,
+      "cheap_check_result": null,
+      "canonical_answers": [
+        "MODIFIED",
+        "UNCHANGED"
+      ],
+      "context": "Below are two versions of a file from an installed skeleton project.\n\n=== TEMPLATE VERSION ===\n#!/usr/bin/env bash\n# drift-check: read-only version-drift check.\n# Compares .claude/.skeleton-version's `version` field against the\n# cached `cached_skeleton_head` (last known remote release). Emits a\n# notice on stdout if they differ; silent if matching. Always exits 0\n# so the SessionStart hook chain never blocks. Invoked by\n# sessionstart-rules.sh; also manually dispatchable by drift-checker.\n# NEVER fetches the network, NEVER writes the marker. Cache refresh\n# is `bash scripts/update.sh --check-remote`.\n\nset -uo pipefail\n\n# ---- constants ----\nMARKER_PATH=\".claude/.skeleton-version\"\nNOTICE_PREFIX=\"[skeleton-drift]\"\n\n# ---- helpers ----\nemit() { printf '%s\\n' \"$*\"; }\n\n# read_field <jq-expression> — null/missing handled by `// empty`\nread_field() {\n  jq -r \"$1 // empty\" \"$MARKER_PATH\" 2>/dev/null\n}\n\ndays_since() {\n  local ts=\"$1\"\n  if [ -z \"$ts\" ]; then printf 'unknown'; return; fi\n  local epoch_then epoch_now\n  epoch_then=$(date -u -d \"$ts\" +%s 2>/dev/null) \\\n    || epoch_then=$(date -u -j -f \"%Y-%m-%dT%H:%M:%SZ\" \"$ts\" +%s 2>/dev/null) \\\n    || { printf 'unknown'; return; }\n  epoch_now=$(date -u +%s)\n  printf '%d' $(( (epoch_now - epoch_then) / 86400 ))\n}\n\n# ---- main ----\nif [ ! -f \"$MARKER_PATH\" ]; then\n  emit \"$NOTICE_PREFIX no .skeleton-version — install may need rerun\"\n  exit 0\nfi\n\nif ! command -v jq >/dev/null 2>&1; then\n  # No jq → no clean way to read JSON. Silent no-op (same fallback\n  # pattern as sessionstart-rules.sh).\n  exit 0\nfi\n\n# Smoke-test the JSON. If parse fails, degrade gracefully.\nif ! jq -e . \"$MARKER_PATH\" >/dev/null 2>&1; then\n  emit \"$NOTICE_PREFIX marker unreadable — session continues, drift unknown\"\n  exit 0\nfi\n\nVERSION=$(read_field '.version')\nCACHED=$(read_field '.cached_skeleton_head')\nFETCHED_AT=$(read_field '.cached_skeleton_head_fetched_at')\n\nif [ -z \"$CACHED\" ]; then\n  emit \"$NOTICE_PREFIX cache empty (no last-known remote version).\"\n  emit \"  installed: ${VERSION:-unknown}\"\n  emit \"  refresh:   bash scripts/update.sh --check-remote\"\n  exit 0\nfi\n\nif [ \"$VERSION\" = \"$CACHED\" ]; then\n  exit 0\nfi\n\nDAYS=$(days_since \"$FETCHED_AT\")\nemit \"$NOTICE_PREFIX update available.\"\nemit \"  installed: ${VERSION:-unknown}\"\nemit \"  available: $CACHED   (cache: ${DAYS} day(s) old)\"\nemit \"  run:       bash scripts/update.sh\"\nexit 0\n\n\n=== CURRENT VERSION ===\n#!/usr/bin/env bash\n# drift-check: read-only version-drift check.\n# Compares .claude/.skeleton-version's `version` field against the\n# cached `cached_skeleton_head` (last known remote release). Emits a\n# notice on stdout if they differ; silent if matching. Always exits 0\n# so the SessionStart hook chain never blocks. Invoked by\n# sessionstart-rules.sh; also manually dispatchable by drift-checker.\n# NEVER fetches the network, NEVER writes the marker. Cache refresh\n# is `bash scripts/update.sh --check-remote`.\n\nset -uo pipefail\n\n# ---- constants ----\nMARKER_PATH=\".claude/.skeleton-version\"\nNOTICE_PREFIX=\"[skeleton-drift]\"\n\n# ---- helpers ----\nemit() { printf '%s\\n' \"$*\"; }\n\n# read_field <jq-expression> — null/missing handled by `// empty`\nread_field() {\n  jq -r \"$1 // empty\" \"$MARKER_PATH\" 2>/dev/null\n}\n\ndays_since() {\n  local ts=\"$1\"\n  if [ -z \"$ts\" ]; then printf 'unknown'; return; fi\n  local epoch_then epoch_now\n  epoch_then=$(date -u -d \"$ts\" +%s 2>/dev/null) \\\n    || epoch_then=$(date -u -j -f \"%Y-%m-%dT%H:%M:%SZ\" \"$ts\" +%s 2>/dev/null) \\\n    || { printf 'unknown'; return; }\n  epoch_now=$(date -u +%s)\n  printf '%d' $(( (epoch_now - epoch_then) / 86400 ))\n}\n\n# ---- main ----\nif [ ! -f \"$MARKER_PATH\" ]; then\n  emit \"$NOTICE_PREFIX no .skeleton-version — install may need rerun\"\n  exit 0\nfi\n\nif ! command -v jq >/dev/null 2>&1; then\n  # No jq → no clean way to read JSON. Silent no-op (same fallback\n  # pattern as sessionstart-rules.sh).\n  exit 0\nfi\n\n# Smoke-test the JSON. If parse fails, degrade gracefully.\nif ! jq -e . \"$MARKER_PATH\" >/dev/null 2>&1; then\n  emit \"$NOTICE_PREFIX marker unreadable — session continues, drift unknown\"\n  exit 0\nfi\n\nVERSION=$(read_field '.version')\nCACHED=$(read_field '.cached_skeleton_head')\nFETCHED_AT=$(read_field '.cached_skeleton_head_fetched_at')\n\nif [ -z \"$CACHED\" ]; then\n  emit \"$NOTICE_PREFIX cache empty (no last-known remote version).\"\n  emit \"  installed: ${VERSION:-unknown}\"\n  emit \"  refresh:   bash scripts/update.sh --check-remote\"\n  exit 0\nfi\n\nif [ \"$VERSION\" = \"$CACHED\" ]; then\n exit 0\nfi\n\nDAYS=$(days_since \"$FETCHED_AT\")\nemit \"$NOTICE_PREFIX update available.\"\nemit \"  installed: ${VERSION:-unknown}\"\nemit \"  available: $CACHED   (cache: ${DAYS} day(s) old)\"\nemit \"  run:       bash scripts/update.sh\"\nexit 0\n",
+      "prompt": "Above are two versions of a file: the template-as-shipped version and the current version in an installed project. Is the current version modified from the template, or unchanged? Any difference between the versions, however small, counts as modified. Answer with exactly one word: MODIFIED or UNCHANGED.",
+      "extractor": {
+        "kind": "choice",
+        "options": [
+          "MODIFIED",
+          "UNCHANGED"
+        ]
+      },
+      "ground_truth": "MODIFIED",
+      "notes": "SYNTHETIC near-invisible change: base is the real template/.claude/scripts/drift-check.sh (74 lines, identical in both installs); CURRENT block changes exactly one line's leading indent - line 66 '  exit 0' (two spaces) -> ' exit 0' (one space). Whitespace-only counts as modified per the locked baseline semantics; tests under-calling on near-invisible change. The edit exists only in this context string, never applied to the real file."
     }
   ]
 }
