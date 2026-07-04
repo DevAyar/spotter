@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "purpose": "Draft ledger for model re-tier proposals (Phase 48). DRAFT-ONLY: nothing reads this file to change a model pin; no code path in Phase 48 applies a proposal. Applying is out of scope - when it ever ships, applying a pin swap is the one interaction that requires an explicit yes from the human.",
+    "written_by": "token-cost-monitor stages drafts as .claude/telemetry/retier-*.draft.json; sessionend-cost-proposals.sh folds staged drafts into the proposals array below at the SessionEnd seam (BATCH-AT-SEAMS). Humans edit status by hand after review; 'approved' records a decision, it does not trigger anything.",
+    "entry_schema": {
+      "id": "string, unique within this file",
+      "created_at": "ISO 8601 UTC timestamp",
+      "status": "draft | approved | rejected (human-edited; entries always ENTER as draft)",
+      "proposed_change": {
+        "component": "path of the agent/helper whose pin would change, e.g. .claude/agents/01_research/research-helper.md",
+        "from_pin": "current model pin",
+        "to_pin": "proposed model pin"
+      },
+      "evidence": "array of strings - mechanical evidence only: measured telemetry (session ids + fields), published pricing (model-pricing.json entry + as_of), actual runs (command + output). Model self-assessment is banned as an evidence source (see token-cost-monitor).",
+      "notes": "optional free text"
+    }
+  },
+  "proposals": []
+}

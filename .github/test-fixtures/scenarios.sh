@@ -107,7 +107,7 @@ scenario_fresh_install() {
   bash "$SKELETON_DIR/scripts/install.sh" \
     --source "$SKELETON_DIR" --target "$TEST_DIR" \
     --mode=fresh --claude-only
-  verify_marker 63
+  verify_marker 67
   echo "PASS fresh-install"
 }
 
@@ -1100,7 +1100,7 @@ LEGACY
     cat "$TEST_DIR/.claude/.skeleton-version" >&2
     exit 1
   fi
-  verify_marker 63
+  verify_marker 67
   echo "PASS backfill-migrate"
 }
 
@@ -1155,8 +1155,8 @@ with open(sys.argv[1]) as f:
     d = json.load(f)
 raw = d.get('raw_template_baselines')
 n = len(raw) if isinstance(raw, dict) else None
-if n != 63:
-    sys.exit(f'ERROR: expected 63 raw_template_baselines after migration, got {n}')
+if n != 67:
+    sys.exit(f'ERROR: expected 67 raw_template_baselines after migration, got {n}')
 print(f'  raw_template_baselines present after migration: {n} entries')
 " "$marker"
   echo "PASS raw-baseline-migrate"
