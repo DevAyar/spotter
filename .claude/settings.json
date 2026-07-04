@@ -73,6 +73,14 @@
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/scripts/plugin-quality-check.sh\" --hook"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/sessionstart-cost-summary.sh\""
+          }
+        ]
       }
     ],
     "SessionEnd": [
@@ -81,6 +89,14 @@
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/sessionend-observe.sh\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/sessionend-cost-proposals.sh\""
           }
         ]
       }

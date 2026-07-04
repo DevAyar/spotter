@@ -413,3 +413,16 @@ A cross-install memory bus runs as opt-in machinery (Phase 47, complete through 
 - **Preview + purge (Phase 47c-2)** — `/share-preview` dry-runs the next push (reports the would-include count + per-producer breakdown; commits/pushes nothing). `/share-disable --purge-remote` removes this install's own files from the remote before disabling (see escape hatches).
 
 Data crosses the boundary only when share is enabled and the SessionEnd push (or `/share-push`) runs — redacted events to a git remote the user controls. Full schema + trust model: `docs/INSTALLATION.md` § Share mode opt-in.
+
+## Token-cost monitoring + gate/friction config (Phase 48)
+
+Phase 46 telemetry gets its first consumer: the `token-cost-monitor` agent (`.claude/agents/05_meta/token-cost-monitor.md`) reads per-session telemetry plus the pricing reference (`.claude/telemetry/model-pricing.json`) and surfaces cost ambiently. Four design properties are locked, recorded in the component definitions themselves — not left to implementation mood:
+
+- **EVIDENCE-MECHANICAL** — every surfaced number and every proposal cites mechanical evidence only: measured telemetry, published pricing, actual runs. Model self-assessment (self-reported confidence, resampling-agreement scores) is **permanently banned** as an evidence source in this surface; recorded basis: `experiments/confidence/ANALYSIS.md` (zero-variance RED verdict, 2026-07).
+- **DRAFT-ONLY** — the agent proposes; it never applies. No code path in this surface modifies a model pin, settings, or any live component. Re-tier proposals land as drafts in `.claude/telemetry/retier-proposals.json` awaiting human review; a hand-edited `approved` status records a decision, it does not trigger anything.
+- **NON-INTERRUPTING** — no mid-session prompts, modals, or blocking output. Ambient lines and batched drafts only.
+- **BATCH-AT-SEAMS** — output lands at session seams: the SessionStart hook (`sessionstart-cost-summary.sh`) prints a one-line ambient spend summary; the SessionEnd hook (`sessionend-cost-proposals.sh`) folds staged drafts into the ledger. Firing is SessionStart/SessionEnd hooks only — never cron, never `claude -p` (billing-pool constraint).
+
+**Routing rule:** AI-directive changes go to `CLAUDE_MANAGER.md`; human-facing gate/friction adjustments go to `.claude/gate-config.json` — never into this file's counterpart direction. `gate-config.json` is the operation-tier surface named in ROADMAP's per-project manager-optimizer bullet: the cost thresholds are its first live content, and the v1.2.0 optimizer drafts against its `operation_tiers` / `friction` slots as its second consumer — approval-gated, like everything else.
+
+The only interaction that ever requests an explicit yes is applying a consequential live-component change (an actual model-pin swap) — and applying is out of scope in Phase 48; this phase only drafts.
