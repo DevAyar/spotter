@@ -55,6 +55,10 @@ BACKFILL_MODE=false
 RAW_BASELINE_ENTRIES=()
 MARKER_HAS_RAW_BASELINES=false
 MIGRATED=false
+# Set when classification adds a raw baseline for a file the marker didn't
+# know (dogfood-mirrored or pre-Phase-52 file): the marker must be rewritten
+# even when no file content was applied, or the backfill is silently lost.
+RAW_BASELINE_BACKFILLED=false
 
 # ---- Phase 47a: install identity backfill ----
 IDENTITY_BACKFILLED=false
@@ -638,6 +642,7 @@ classify() {
       # surface as LOCALLY_MODIFIED (protected); pristine files as UNCHANGED.
       hash_baseline="$hash_template"
       raw_baseline_set "$full_rel" "$hash_baseline"
+      RAW_BASELINE_BACKFILLED=true
     fi
 
     if [ "$hash_baseline" = "$hash_current" ] && [ "$hash_baseline" = "$hash_template" ]; then
@@ -1033,7 +1038,7 @@ apply_orphans() {
 write_version_marker() {
   [ "$DRY_RUN" = true ] && return 0
   # Write if anything was applied, or if backfill / raw-baseline / identity migration happened.
-  if [ "$APPLIED" -eq 0 ] && [ "$BACKFILL_MODE" = false ] && [ "$MIGRATED" = false ] && [ "$IDENTITY_BACKFILLED" = false ]; then
+  if [ "$APPLIED" -eq 0 ] && [ "$BACKFILL_MODE" = false ] && [ "$MIGRATED" = false ] && [ "$IDENTITY_BACKFILLED" = false ] && [ "$RAW_BASELINE_BACKFILLED" = false ]; then
     return 0
   fi
   local marker="$TARGET_PATH/.claude/.skeleton-version"
@@ -1070,6 +1075,9 @@ summary() {
   printf '  skipped: %d\n' "$SKIPPED_FILES"
   if [ "$BACKFILL_MODE" = true ]; then
     ok "marker migrated to per-file-hash schema (0.8.0)"
+  fi
+  if [ "$RAW_BASELINE_BACKFILLED" = true ] && [ "$DRY_RUN" = false ]; then
+    ok "marker raw baselines backfilled for files the marker didn't know"
   fi
 }
 
