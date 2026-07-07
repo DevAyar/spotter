@@ -86,12 +86,23 @@ for fn in os.listdir(sess_dir):
         toks = {k: int(float(fm.get(k, "0"))) for k in
                 ("total_tokens_in", "total_tokens_out",
                  "total_cache_creation", "total_cache_read")}
-        sessions.append((ended, toks))
+        sessions.append((fm.get("started", "") or ended.isoformat(), ended, toks))
     except Exception:
         continue
 if not sessions:
     sys.exit(0)
-sessions.sort(key=lambda s: s[0])
+
+# Resumed sessions re-report CUMULATIVE lineage totals under new session ids
+# (same `started`, later `ended`) — summing raw rollups double-counts. Group
+# rollups into lineages keyed by `started`: the latest rollup is the
+# lineage's current cumulative state; superseded rollups are checkpoints for
+# window deltas. (First optimizer pass caught this: $1,037 naive vs ~$216
+# true delta over the same 7 days.)
+lineages = {}
+for started, ended, toks in sessions:
+    lineages.setdefault(started, []).append((ended, toks))
+for key in lineages:
+    lineages[key].sort(key=lambda r: r[0])
 
 p_in, p_out = row["input_per_mtok"], row["output_per_mtok"]
 c_read = pricing.get("cache_read_multiplier", 0.1)
@@ -106,16 +117,38 @@ def usd(t):
 def fmt(n):
     return f"{n / 1e6:.1f}M" if n >= 100_000 else f"{n:,}"
 
-last_ended, last = sessions[-1]
+newest_key = max(lineages, key=lambda k: lineages[k][-1][0])
+last_ended, last = lineages[newest_key][-1]
 last_usd = usd(last)
-week = [t for e, t in sessions if (last_ended - e).days < 7]
-week_usd = sum(usd(t) for t in week)
+
+# 7d figure = per-lineage window deltas, not a raw-rollup sum.
+window_start = last_ended - datetime.timedelta(days=7)
+week_usd, week_n = 0.0, 0
+for key, rollups in lineages.items():
+    latest_ended, latest_toks = rollups[-1]
+    if latest_ended < window_start:
+        continue                      # lineage finished before the window
+    baseline = None
+    for e, t in rollups[:-1]:
+        if e <= window_start:
+            baseline = t              # keep the LATEST pre-window checkpoint
+    if baseline is None:
+        started_ts = parse_ts(key)
+        if started_ts is not None and started_ts < window_start and len(rollups) > 1:
+            # lineage predates the window with no pre-window checkpoint:
+            # best-effort baseline = earliest checkpoint (overestimates less
+            # than counting the whole cumulative lineage)
+            baseline = rollups[0][1]
+    contrib = usd(latest_toks) - (usd(baseline) if baseline else 0.0)
+    if contrib > 0:
+        week_usd += contrib
+        week_n += 1
 cache = last["total_cache_read"] + last["total_cache_creation"]
 
 line = (f"[token-cost] last session ~${last_usd:,.2f} "
         f"(in {fmt(last['total_tokens_in'])} / out {fmt(last['total_tokens_out'])} / "
         f"cache {fmt(cache)} @ {model} rates) | "
-        f"7d ~${week_usd:,.2f} across {len(week)} session(s)")
+        f"7d ~${week_usd:,.2f} across {week_n} lineage(s)")
 
 def threshold(v):
     # bool is an int subclass; a stray JSON true must not become a $1 threshold
