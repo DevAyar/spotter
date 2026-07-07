@@ -10,7 +10,8 @@
       "finding": "one-paragraph statement of the observed pattern",
       "mechanical_evidence": "array of strings - each line cites a file path plus a measured value (counts, timestamps, dollar estimates at named rates, commit ids). Model self-assessment is banned as an evidence source (see manager-optimizer / experiments/confidence/ANALYSIS.md).",
       "draft": "target claude_manager: concrete proposed directive text (quotable, placeable). target gate_config: concrete key/value change - existing keys or the documented-empty operation-tier/friction slots only (proposing values is in scope; defining new slots is not).",
-      "status": "draft | approved | applied | rejected (human-edited; entries always ENTER as draft; 'applied' only after the edit lands)"
+      "status": "draft | approved | applied | rejected (human-edited; entries always ENTER as draft; 'applied' only after the edit lands)",
+      "review_note": "optional, human-added at review: the rejection reason, or a note on the applied form (e.g. verbatim vs recalibrated per review direction)"
     },
     "runtime_state": ".claude/telemetry/optimizer-state.json (gitignored, hook-created) carries {sessions_since_last_run, last_run_at, last_nudge_count}: the SessionEnd hook increments the counter, the SessionStart hook reads it for the cooldown-gated nudge line, and manager-optimizer resets it on dispatch."
   },

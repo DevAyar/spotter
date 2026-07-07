@@ -45,6 +45,8 @@ Field-tested rule of thumb: when work would burn **>5k tokens of context** to do
 
 Heuristic when you're uncertain: if you'd need to `Read` more than three files end-to-end to answer the request, dispatch. If it's two or fewer and they're known small, read directly.
 
+Measured baseline (first optimizer pass, 2026-07-07): across 2,048 telemetry tool events (2026-05-19 to 2026-07-06) the Agent tool fired 3 times — all Explore, all on 2026-05-19 — against 552 Bash / 412 Edit / 285 Read events run directly by the manager. Recalibration (ledger review, 2026-07-07): the rule above stands for what it was written for — *exploratory* reading, where you don't know where the answer lives and the summary is the product. The measured gap is dominated by a different work shape: surgical governance edits against known anchors, where direct reads are the norm and no justification is owed. Reconciled rule: dispatch when the reading is exploratory (unknown answer location, or 4+ files end-to-end to find it); read directly when the target is already known. An exploratory 4+-file read without dispatching earns one line of justification in the plan.
+
 ### Escalate to the user vs propose autonomously
 
 Reversible-and-cheap → propose-and-execute. Destructive, shared-state, or high-blast-radius → propose-and-wait.
@@ -136,6 +138,8 @@ Observation files are read-only context for planning; the manager doesn't modify
 When the manager (or user) wants to review patterns that have accumulated in observations — typically at a weekly retrospective rhythm, before planning multi-step work, or when the observation file count climbs past ~5–10 unreviewed patterns — dispatch `workflow-suggester`. The agent reads `.claude/observations/*.json` plus existing `.claude/captures/*.md` (for idempotency), applies the default thresholds (`occurrences >= 3 AND confidence >= medium`), and drafts one markdown capture per warranted observation under `.claude/captures/<source_pattern_id>.md`.
 
 The handoff after drafting is **human review**. Each capture lands with `status: draft` in its frontmatter — the user edits to `approved` (X-builders like `script-builder` pick it up to draft the actual artifact), then to `shipped` after promoting the built artifact (adding a `shipped_to:` field that records the promoted path — terminal success state), or to `rejected` (workflow-suggester respects this as a do-not-re-suggest marker; file persists). Re-dispatch is idempotent: if every warranted observation already has a capture in any status, zero new files are written. `workflow-suggester` never auto-approves, never builds the suggested artifact itself (script-builder is the first X-builder; future builders ship later), and never modifies observations.
+
+Triage by source before dispatching. Measured baseline (first optimizer pass, 2026-07-07): this install's observation backlog is 135/152 cruft-checker and 17/152 session-end-telemetry; session-observer and task-watchdog have produced zero files, and workflow-suggester has never drafted a capture here. When the unreviewed count crosses the 5-10 threshold and the backlog is dominated by a deterministic producer (cruft-checker), review those observations as a batch against their common root cause first - e.g. a single doc whose repo-root-relative links all resolve as broken - and fix or resolve them directly; dispatch workflow-suggester only for the residue that looks like a repeatable workflow pattern rather than a doc defect.
 
 ### When to dispatch script-builder
 

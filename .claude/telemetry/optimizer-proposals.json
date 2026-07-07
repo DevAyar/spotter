@@ -10,9 +10,60 @@
       "finding": "one-paragraph statement of the observed pattern",
       "mechanical_evidence": "array of strings - each line cites a file path plus a measured value (counts, timestamps, dollar estimates at named rates, commit ids). Model self-assessment is banned as an evidence source (see manager-optimizer / experiments/confidence/ANALYSIS.md).",
       "draft": "target claude_manager: concrete proposed directive text (quotable, placeable). target gate_config: concrete key/value change - existing keys or the documented-empty operation-tier/friction slots only (proposing values is in scope; defining new slots is not).",
-      "status": "draft | approved | applied | rejected (human-edited; entries always ENTER as draft; 'applied' only after the edit lands)"
+      "status": "draft | approved | applied | rejected (human-edited; entries always ENTER as draft; 'applied' only after the edit lands)",
+      "review_note": "optional, human-added at review: the rejection reason, or a note on the applied form (e.g. verbatim vs recalibrated per review direction)"
     },
     "runtime_state": ".claude/telemetry/optimizer-state.json (gitignored, hook-created) carries {sessions_since_last_run, last_run_at, last_nudge_count}: the SessionEnd hook increments the counter, the SessionStart hook reads it for the cooldown-gated nudge line, and manager-optimizer resets it on dispatch."
   },
-  "proposals": []
+  "proposals": [
+    {
+      "id": "opt-20260707-cost-warn-thresholds",
+      "timestamp": "2026-07-07T17:03:29Z",
+      "target": "gate_config",
+      "finding": "The per-session cost warn threshold (warn_usd_per_session=50.0) is below the measured cost of most real session rollups, so the warn fires on 9 of 13 data-carrying rollups (69%) and discriminates nothing. Session rollups in this install are multi-day cumulative lineages (resumed sessions re-emit cumulative counters under new ids), so 'per session' costs run far above a naive per-sitting expectation: median rollup $76.65, top four $334-$378 at the configured assumed_model rates. The 7-day threshold (250.0) is roughly calibrated against the true lineage delta ($216.07 measured 2026-07-01 to 2026-07-06) but any consumer that naively sums overlapping rollups will overcount that same window as $1,037.05 - a mechanism caveat noted here, not a threshold problem. Proposed: raise warn_usd_per_session to 200.0 so the warn flags the outlier tail (4 of 13 measured rollups) instead of the majority; leave warn_usd_per_7d unchanged.",
+      "mechanical_evidence": [
+        ".claude/gate-config.json: cost.warn_usd_per_session=50.0, cost.warn_usd_per_7d=250.0, cost.assumed_model=claude-opus-4-8; file history is exactly 2 commits (af74071, 173a783, both 2026-07-04) - never hand-tuned since creation",
+        ".claude/telemetry/model-pricing.json: claude-opus-4-8 input $5.00/MTok, output $25.00/MTok, cache_read_multiplier 0.1, cache_write_multiplier_5m 1.25, as_of 2026-07-02 - the named rate basis for every dollar figure in this proposal",
+        ".claude/telemetry/sessions/*.md frontmatter: 13 of 17 session files carry data (data_available true, nonzero tokens); estimated rollup costs at the above rates: $6.18, $26.24, $32.57, $44.06, $60.60, $60.78, $76.65, $162.26, $162.26, $334.20, $337.15, $352.03, $378.33; median $76.65; 9 of 13 exceed the $50 warn; 4 of 13 exceed $200",
+        ".claude/telemetry/sessions/32bc212c-668c-47b1-942c-f9ad05a2b063.md: started 2026-06-26T16:41:00.799Z, ended 2026-07-06T23:04:19Z (10-day cumulative rollup); 380,841 in / 1,857,685 out / 36,045,152 cache-create / 209,399,454 cache-read = $378.33 at the named rates",
+        ".claude/telemetry/sessions/d1bffc09-4358-4b35-954a-3e5cd600b693.md and .claude/telemetry/sessions/191e6904-44b3-4473-8c4c-97b590cd4455.md: identical token totals (255,219 in / 1,085,655 out / 15,222,260 cache-create / 77,412,225 cache-read) under different ids and end timestamps (2026-07-01T17:57:26Z vs 2026-07-02T02:05:07Z) - resumed-lineage rollups double-count; naive sum of the 4 rollups ended 2026-07-01..06 = $1,037.05 vs true lineage delta 2026-07-01 to 2026-07-06 = $216.07"
+      ],
+      "draft": "In .claude/gate-config.json set cost.warn_usd_per_session: 50.0 -> 200.0 (existing key; value change only). Keep cost.warn_usd_per_7d at 250.0. Rationale to record alongside: per-session warn should flag the cumulative-lineage outlier tail (measured top 4 of 13 rollups, $334-$378), not fire on 69% of rollups; the 7d threshold already sits just above the measured true 7-day lineage delta ($216.07).",
+      "status": "rejected",
+      "review_note": "REJECTED at first ledger review (2026-07-07): the threshold pressure is an artifact of a rollup accounting defect - resumed-session lineages re-report cumulative totals under new session ids, so the naive 7d sum double-counts (this proposal's own evidence lines are the repro). Fix the measurement, then re-derive; raising the threshold would bake the bug into config. Measurement fix lands in the companion commit \"fix(telemetry): dedupe resumed-session lineages in the 7d ambient rollup\" (same push). No threshold value changed."
+    },
+    {
+      "id": "opt-20260707-dispatch-heuristic-baseline",
+      "timestamp": "2026-07-07T17:03:29Z",
+      "target": "claude_manager",
+      "finding": "The codified dispatch discipline ('>5k tokens of context -> dispatch a helper'; 'more than three files end-to-end -> dispatch') is not being exercised: across seven weeks of telemetry the Agent tool fired 3 times out of 2,048 recorded tool events (0.15%), all agent:Explore within a 16-second span on 2026-05-19, while the manager performed 552 Bash / 412 Edit / 285 Read / 179 Write / 170 Grep events directly. The 11-helper roster the directive presents as the default path for multi-file work sees effectively zero interactive dispatch (hook-invoked producers like cruft-checker run as bash scripts and are not counted here). Either the heuristic's threshold is mis-calibrated for this install's meta-work, or direct-read is the de facto accepted norm and the directive overstates dispatch. The directive should carry the measured baseline so the divergence is visible and gets an explicit decision rather than silent drift.",
+      "mechanical_evidence": [
+        ".claude/telemetry/events/*.jsonl: tool_name histogram over 2,048 events (2026-05-19 to 2026-07-06): Bash 552, Edit 412, Read 285, Write 179, Grep 170, Glob 96, ExitPlanMode 80, EnterPlanMode 67, Skill 19, Agent 3; resumed-lineage files double-count some non-Agent events (d1bffc09 subset-of 191e6904; 5d8bb91f subset-of 32bc212c), which only overstates the non-Agent side - deduped Agent count remains <= 3",
+        ".claude/telemetry/events/159fa886-7a46-46b3-8978-9605d59cd537.jsonl: the only 3 Agent events, all target_resource agent:Explore, timestamps 2026-05-19T21:43:58.261Z, 2026-05-19T21:44:06.693Z, 2026-05-19T21:44:14.743Z",
+        "CLAUDE_MANAGER.md:44 - '>5k tokens of context' dispatch rule with the claimed 'roughly 94% token savings' basis; CLAUDE_MANAGER.md:46 - 'if you'd need to Read more than three files end-to-end to answer the request, dispatch'",
+        "CLAUDE_MANAGER.md:276-288 - 11-helper roster presented as the baseline dispatch surface"
+      ],
+      "draft": "Amend CLAUDE_MANAGER.md 'Dispatch a helper vs read files directly' by appending: 'Measured baseline (first optimizer pass, 2026-07-07): across 2,048 telemetry tool events (2026-05-19 to 2026-07-06) the Agent tool fired 3 times - all Explore, all on 2026-05-19 - against 552 Bash / 412 Edit / 285 Read events run directly by the manager. The dispatch rule above is currently aspiration, not practice, in this install. Until the next optimizer pass shows otherwise, treat any session where you Read 4+ files end-to-end without dispatching as a deliberate exception worth one line of justification in the plan - or decide explicitly that direct-read is this install's norm and rewrite this section to say so.'",
+      "status": "applied",
+      "review_note": "APPLIED (recalibrated) at first ledger review (2026-07-07): measured-baseline sentence kept verbatim; the draft's either/or tail replaced per review direction - dispatch guidance recalibrated (exploratory reading -> dispatch; known-anchor surgical edits -> direct read), not deleted. Appended to CLAUDE_MANAGER.md '### Dispatch a helper vs read files directly' (+ template mirror), same commit."
+    },
+    {
+      "id": "opt-20260707-observation-backlog-directive",
+      "timestamp": "2026-07-07T17:03:29Z",
+      "target": "claude_manager",
+      "finding": "The observation-consumption directives in CLAUDE_MANAGER.md describe a producer mix and a triage flow that do not match the measured backlog. The directive names session-observer and task-watchdog as the two v1.1.0 producers; both have produced zero files. The actual backlog is 89% cruft-checker (135/152) plus session-end-telemetry (17/152). The workflow-suggester dispatch threshold ('~5-10 unreviewed patterns') has been crossed (16 unresolved as of 2026-07-06) with zero workflow-suggester dispatches ever recorded and zero captures ever drafted. The unresolved backlog itself is dominated by one deterministic false-positive class: 13 of 16 are broken-link findings against a single doc whose repo-root-relative link style resolves as missing from docs/. The directive should tell the manager to triage deterministic cruft backlogs by source and root cause in one pass, rather than route them toward a capture flow that has never fired.",
+      "mechanical_evidence": [
+        ".claude/observations/: 152 observation JSON files; count by source field: cruft-checker 135, session-end-telemetry 17, session-observer 0, task-watchdog 0, code-quality-auditor 0",
+        "CLAUDE_MANAGER.md:132 - 'Two producers write to .claude/observations/ in v1.1.0: session-observer ... and task-watchdog' - both measured at 0 files ever produced",
+        "CLAUDE_MANAGER.md:136 - dispatch threshold 'observation file count climbs past ~5-10 unreviewed patterns'; measured unresolved (resolved_at null) count: 16, all last_seen 2026-07-06T22:43:33Z-34Z",
+        ".claude/captures/: 0 capture files (README.md only) - workflow-suggester has never drafted a capture in this install",
+        ".claude/telemetry/events/*.jsonl: 3 Agent tool events across 2,048 recorded tool events (2026-05-19 to 2026-07-06), all target_resource agent:Explore on 2026-05-19; no workflow-suggester dispatch recorded",
+        "13 of 16 unresolved observations flag heuristic-i 'file missing' link targets in docs/AUDIT-v1.1.4-cc-side.md; spot-check of 7 flagged targets (scripts/update.sh, scripts/install.sh, .claude/scripts/commit.sh, .github/workflows/ci.yml, .claude/agents/02_audit/audit-helper.md, .claude/agents/04_planning/plan-coordinator.md, .claude/.skeleton-version) - all 7 exist at repo root; the doc's links are written repo-root-relative so they resolve as broken relative to docs/",
+        "3 of 16 unresolved observations are heuristic-vii field-count claims: .claude/agents/05_meta/cruft-checker.md:3 and task-watchdog.md:70 (dogfood + template copies) say session-observer schema is '9-field'; checker measures actual 10"
+      ],
+      "draft": "Amend CLAUDE_MANAGER.md 'When to consult observations' / 'When to dispatch workflow-suggester' with the following placeable paragraph (end of the 'When to dispatch workflow-suggester' section): 'Triage by source before dispatching. Measured baseline (first optimizer pass, 2026-07-07): this install's observation backlog is 135/152 cruft-checker and 17/152 session-end-telemetry; session-observer and task-watchdog have produced zero files, and workflow-suggester has never drafted a capture here. When the unreviewed count crosses the 5-10 threshold and the backlog is dominated by a deterministic producer (cruft-checker), review those observations as a batch against their common root cause first - e.g. a single doc whose repo-root-relative links all resolve as broken - and fix or resolve them directly; dispatch workflow-suggester only for the residue that looks like a repeatable workflow pattern rather than a doc defect.'",
+      "status": "applied",
+      "review_note": "APPLIED at first ledger review (2026-07-07): draft paragraph appended verbatim at the end of CLAUDE_MANAGER.md '### When to dispatch workflow-suggester' (+ template mirror), same commit."
+    }
+  ]
 }
