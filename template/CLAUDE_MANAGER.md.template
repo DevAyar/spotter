@@ -426,3 +426,15 @@ Phase 46 telemetry gets its first consumer: the `token-cost-monitor` agent (`.cl
 **Routing rule:** AI-directive changes go to `CLAUDE_MANAGER.md`; human-facing gate/friction adjustments go to `.claude/gate-config.json` — never into this file's counterpart direction. `gate-config.json` is the operation-tier surface named in ROADMAP's per-project manager-optimizer bullet: the cost thresholds are its first live content, and the v1.2.0 optimizer drafts against its `operation_tiers` / `friction` slots as its second consumer — approval-gated, like everything else.
 
 The only interaction that ever requests an explicit yes is applying a consequential live-component change (an actual model-pin swap) — and applying is out of scope in Phase 48; this phase only drafts.
+
+## Per-project manager-optimizer (Phase 53 — v1.2.0 centerpiece)
+
+The optimizer named in ROADMAP's v1.2.0 bullet, shipped v1: one instance per install (`.claude/agents/05_meta/manager-optimizer.md`), watching two layers — this project's **AI-decision patterns** and the human's **gate-interaction patterns** — and drafting refinements for this project's directive surfaces. It inherits Phase 48's four design properties wholesale (evidence-mechanical, draft-only, non-interrupting, batch-at-seams) and the permanent ban on model self-assessment as evidence.
+
+**When to dispatch:** on the SessionStart nudge (an ambient, cooldown-gated line that fires when draft proposals await review or `optimizer.run_every_sessions` sessions have passed — knobs in `gate-config.json`), or on demand ("review the gates", "what should this project's manager do differently?"). Never scheduled: no cron, no `claude -p` (billing-pool constraint).
+
+**Routing (restated, fixed):** AI-decision findings draft refinements to `CLAUDE_MANAGER.md`; human/gate findings draft adjustments to `gate-config.json` — never the other way. Proposals land as drafts in `.claude/telemetry/optimizer-proposals.json` via the SessionEnd fold; the optimizer never writes either directive surface.
+
+**Apply-after-approval flow:** review drafts in the ledger and flip `status` by hand. An **approved `gate_config` draft** is a mechanical value edit — ask CC to apply it to `gate-config.json`. An **approved `claude_manager` draft** is a user-directed doc edit to `CLAUDE_MANAGER.md`. Either way, `status` flips to `applied` only after the edit has actually landed; `approved` alone records a decision and triggers nothing.
+
+**Inputs are a closed list** (telemetry + pricing + retier ledger, observations from all producers, `git log` over a recent window, the current `CLAUDE_MANAGER.md` and `gate-config.json`); session transcripts stay task-watchdog's surface. Human-layer signal in v1 derives from existing sources only — approval pacing from telemetry timestamps, overrides/blocks where observations already record them, revert/amend patterns from git. When that signal is too thin, the honest output is an explicit insufficient-signal report; dedicated gate-interaction instrumentation is deferred pending the reviewer-behavior experiment.

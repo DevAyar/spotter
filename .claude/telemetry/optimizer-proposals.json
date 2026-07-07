@@ -1,0 +1,18 @@
+{
+  "_meta": {
+    "purpose": "Draft ledger for per-project manager-optimizer proposals (Phase 53, v1.2.0 centerpiece). DRAFT-ONLY: nothing reads this file to change any directive surface; no code path auto-applies a proposal, ever. Routing is fixed - target claude_manager drafts propose CLAUDE_MANAGER.md refinement text; target gate_config drafts propose gate-config.json key/value changes; never the other way.",
+    "written_by": "manager-optimizer stages drafts as .claude/telemetry/optimizer-*.draft.json; sessionend-cost-proposals.sh folds staged drafts into the proposals array below at the SessionEnd seam (BATCH-AT-SEAMS). Humans edit status by hand after review.",
+    "apply_flow": "Approved gate_config drafts are mechanical value edits the user asks CC to apply to .claude/gate-config.json. Approved claude_manager drafts are user-directed doc edits to CLAUDE_MANAGER.md. Either way, status flips to 'applied' only AFTER the edit has actually landed - 'approved' alone records a decision and triggers nothing.",
+    "entry_schema": {
+      "id": "string, unique within this file",
+      "timestamp": "ISO 8601 UTC (when the finding was drafted)",
+      "target": "claude_manager | gate_config",
+      "finding": "one-paragraph statement of the observed pattern",
+      "mechanical_evidence": "array of strings - each line cites a file path plus a measured value (counts, timestamps, dollar estimates at named rates, commit ids). Model self-assessment is banned as an evidence source (see manager-optimizer / experiments/confidence/ANALYSIS.md).",
+      "draft": "target claude_manager: concrete proposed directive text (quotable, placeable). target gate_config: concrete key/value change - existing keys or the documented-empty operation-tier/friction slots only (proposing values is in scope; defining new slots is not).",
+      "status": "draft | approved | applied | rejected (human-edited; entries always ENTER as draft; 'applied' only after the edit lands)"
+    },
+    "runtime_state": ".claude/telemetry/optimizer-state.json (gitignored, hook-created) carries {sessions_since_last_run, last_run_at, last_nudge_count}: the SessionEnd hook increments the counter, the SessionStart hook reads it for the cooldown-gated nudge line, and manager-optimizer resets it on dispatch."
+  },
+  "proposals": []
+}

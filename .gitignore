@@ -44,6 +44,14 @@ docs/SESSION_LOG.md
 .claude/telemetry/events/*.jsonl
 .claude/telemetry/sessions/*.md
 
+# Phase 53 optimizer runtime: the sessions-since-last-run counter mutates at
+# every SessionEnd, and staged draft proposals are transient (folded into
+# their ledger at the seam) — runtime state, not source-of-truth. The
+# tracked ledger seeds (retier-proposals.json, optimizer-proposals.json)
+# stay in.
+.claude/telemetry/optimizer-state.json
+.claude/telemetry/*.draft.json
+
 # Phase 47b shared-memory: the LOCAL staging tree of redacted cross-install
 # events (producer/install/date). A plain mirror of the share remote's
 # layout; Phase 47c clones the remote and pushes from it. Per-install runtime

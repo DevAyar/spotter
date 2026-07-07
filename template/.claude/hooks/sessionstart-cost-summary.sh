@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
-# sessionstart-cost-summary: ambient one-line token-spend summary (Phase 48).
-# Reads .claude/telemetry/sessions/*.md frontmatter, prices it with
+# sessionstart-cost-summary: ambient one-line token-spend summary (Phase 48)
+# plus the cooldown-gated manager-optimizer nudge (Phase 53).
+# Stanza 1 reads .claude/telemetry/sessions/*.md frontmatter, prices it with
 # .claude/telemetry/model-pricing.json at the assumed_model from
 # .claude/gate-config.json, and prints EXACTLY ONE line (latest session +
-# trailing-7-day rollup, with an inline over-threshold marker). A printed
-# line, not a gate, not a modal - NON-INTERRUPTING / BATCH-AT-SEAMS.
-# Fail-soft: any missing input, disabled cost block, or parse problem means
-# print nothing; a single bad session file is skipped, never fatal. Always
-# exits 0 so the SessionStart hook chain never blocks.
+# trailing-7-day rollup, with an inline over-threshold marker).
+# Stanza 2 prints AT MOST ONE additional ambient line - only when
+# gate-config optimizer.enabled and either draft optimizer proposals await
+# review or the sessions-since-last-run counter crossed run_every_sessions,
+# and the nudge cooldown is satisfied. Printed lines, not gates, not modals
+# - NON-INTERRUPTING / BATCH-AT-SEAMS; <=2 lines total from this hook
+# (Phase 48's one + Phase 53's at-most-one).
+# Fail-soft: any missing input, disabled block, or parse problem means
+# print nothing for that stanza; a single bad session file is skipped,
+# never fatal. Always exits 0 so the SessionStart hook chain never blocks.
 
 set -uo pipefail
 
@@ -22,10 +28,11 @@ GATECONF="$ROOT/.claude/gate-config.json"
 
 # ---- main ----
 PYBIN=$(command -v python || command -v python3) || exit 0
-[ -d "$SESS_DIR" ] || exit 0
-[ -f "$PRICING" ] || exit 0
-[ -f "$GATECONF" ] || exit 0
+[ -f "$GATECONF" ] || exit 0        # both stanzas need gate-config
 
+# Stanza 1 (Phase 48 cost line). Its inputs gate ONLY this stanza - a
+# missing pricing file or sessions dir must not suppress the nudge below.
+if [ -d "$SESS_DIR" ] && [ -f "$PRICING" ]; then
 "$PYBIN" - "$SESS_DIR" "$PRICING" "$GATECONF" <<'PYEOF' 2>/dev/null
 import datetime, json, os, sys
 
@@ -124,6 +131,78 @@ if over:
     line += "  !! over threshold (" + ", ".join(over) + ")"
 print(line)
 PYEOF
+fi
+
+# ---- Phase 53: optimizer nudge (at most ONE additional ambient line) ----
+OPT_LEDGER="$ROOT/.claude/telemetry/optimizer-proposals.json"
+OPT_STATE="$ROOT/.claude/telemetry/optimizer-state.json"
+if [ -f "$OPT_LEDGER" ]; then
+  "$PYBIN" - "$OPT_LEDGER" "$OPT_STATE" "$GATECONF" <<'PYEOF' 2>/dev/null
+import json, os, sys
+
+ledger_path, state_path, gateconf_path = sys.argv[1], sys.argv[2], sys.argv[3]
+
+def usable_int(v):
+    return isinstance(v, int) and not isinstance(v, bool)
+
+try:
+    conf = json.load(open(gateconf_path, encoding="utf-8"))
+except Exception:
+    sys.exit(0)
+opt = conf.get("optimizer") or {}
+if opt.get("enabled") is not True:
+    sys.exit(0)
+run_every = opt.get("run_every_sessions")
+run_every = run_every if usable_int(run_every) and run_every > 0 else 12
+cooldown = opt.get("nudge_cooldown_sessions")
+cooldown = cooldown if usable_int(cooldown) and cooldown > 0 else 4
+
+try:
+    led = json.load(open(ledger_path, encoding="utf-8"))
+    pending = sum(1 for p in (led.get("proposals") or [])
+                  if isinstance(p, dict) and p.get("status") == "draft")
+except Exception:
+    sys.exit(0)
+
+state = {}
+try:
+    if os.path.exists(state_path):
+        loaded = json.load(open(state_path, encoding="utf-8"))
+        if isinstance(loaded, dict):
+            state = loaded
+except Exception:
+    state = {}
+count = state.get("sessions_since_last_run")
+count = count if usable_int(count) and count >= 0 else 0
+last_nudge = state.get("last_nudge_count")
+last_nudge = last_nudge if usable_int(last_nudge) else None
+
+if not pending and count < run_every:
+    sys.exit(0)                      # nothing to nudge about
+if last_nudge is not None and (count - last_nudge) < cooldown:
+    sys.exit(0)                      # cooldown: don't nag every session
+
+if pending:
+    print(f"[manager-optimizer] {pending} draft proposal(s) awaiting review in "
+          f".claude/telemetry/optimizer-proposals.json - dispatch manager-optimizer or review by hand")
+else:
+    print(f"[manager-optimizer] {count} session(s) since last optimizer run "
+          f"(threshold {run_every}) - consider dispatching manager-optimizer")
+
+state["last_nudge_count"] = count
+tmp = state_path + f".tmp.{os.getpid()}"
+try:
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(state, f, indent=2)
+        f.write("\n")
+    os.replace(tmp, state_path)
+except Exception:
+    try:
+        os.remove(tmp)
+    except OSError:
+        pass
+PYEOF
+fi
 
 # ---- cleanup ----
 exit 0

@@ -1,14 +1,15 @@
 {
   "_meta": {
     "purpose": "The gate/friction config surface named in ROADMAP's per-project manager-optimizer bullet (Phase 48 implements). Human-facing gate and friction adjustments land HERE — never in CLAUDE_MANAGER.md, which is the AI-facing directive surface. Per-project: each install tunes its own copy.",
-    "consumers": "token-cost-monitor (first consumer — reads the cost block below); the v1.2.0 per-project manager-optimizer (second consumer — will DRAFT adjustments to the operation_tiers and friction slots for the user's approval; approval-gated autonomy holds).",
+    "consumers": "token-cost-monitor (first consumer — reads the cost block below); manager-optimizer (second consumer, Phase 53 — reads the optimizer block below, and DRAFTS adjustments to existing keys and the operation_tiers/friction slots for the user's approval; approval-gated autonomy holds).",
     "routing_rule": "AI-directive changes -> CLAUDE_MANAGER.md. Human/gate adjustments -> this file. Nothing in Phase 48 writes to this file programmatically; edits are human edits.",
     "schema": {
       "cost": "Live (Phase 48). enabled: master switch for ambient cost surfaces. assumed_model: pricing row from telemetry/model-pricing.json used for dollar estimates (telemetry does not record the model, so estimates must state their assumption). warn_usd_per_session / warn_usd_per_7d: thresholds the SessionStart summary line and token-cost-monitor warn against; numbers are estimates at assumed_model rates.",
       "operation_tiers": "EMPTY SLOT (documented, not yet consumed). Per-tier gate overrides keyed tier_1..tier_5 per ROADMAP Appendix (operation tier classification). The v1.2.0 optimizer drafts entries here; Phase 48 ships the slot only.",
-      "friction": "EMPTY SLOT (documented, not yet consumed). Friction knobs for the approval gate (e.g. confirmation verbosity, batching windows). Same consumer and same approval gating as operation_tiers."
+      "friction": "EMPTY SLOT (documented, not yet consumed). Friction knobs for the approval gate (e.g. confirmation verbosity, batching windows). Same consumer and same approval gating as operation_tiers.",
+      "optimizer": "Live (Phase 53). enabled: master switch for the SessionStart nudge line. run_every_sessions: sessions-since-last-run threshold at which the nudge fires. nudge_cooldown_sessions: minimum sessions between nudge lines. The counter itself lives in the gitignored runtime file telemetry/optimizer-state.json."
     },
-    "version": 1
+    "version": 2
   },
   "cost": {
     "enabled": true,
@@ -17,5 +18,10 @@
     "warn_usd_per_7d": 250.0
   },
   "operation_tiers": {},
-  "friction": {}
+  "friction": {},
+  "optimizer": {
+    "enabled": true,
+    "run_every_sessions": 12,
+    "nudge_cooldown_sessions": 4
+  }
 }
