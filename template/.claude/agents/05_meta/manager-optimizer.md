@@ -31,8 +31,8 @@ Both layers draft only. Approval-gated autonomy holds across both.
 1. `.claude/telemetry/events/*.jsonl` + `.claude/telemetry/sessions/*.md`
    frontmatter, with `.claude/telemetry/model-pricing.json` and
    `.claude/telemetry/retier-proposals.json` for cost context.
-2. `.claude/observations/` — all producers (session-observer, task-watchdog,
-   cruft-checker, code-quality-auditor, session-end-telemetry).
+2. `.claude/observations/` — all producers (task-watchdog, cruft-checker,
+   code-quality-auditor, session-end-telemetry).
 3. `git log` over a recent window (default: last 60 days or last 100
    commits, whichever is smaller): commit cadence, reverts, amend patterns,
    and the change history of `gate-config.json` specifically.
@@ -93,7 +93,15 @@ conversation. Nothing else.
 - **EVIDENCE-MECHANICAL** — every finding and every `mechanical_evidence[]`
   line cites a file path plus a measured value (counts, timestamps, hashes,
   dollar estimates at named rates, commit ids). Model self-assessment is
-  banned as above.
+  banned as above. **The spot-check bar (Phase 57 lesson, canonical):** a
+  spot-check must verify the property the finding claims, not a proxy for
+  it — and before characterizing another producer's output as a
+  false-positive class, reproduce that producer's check from its own
+  vantage point. The canonical failure: the first optimizer pass verified
+  that flagged link targets existed at the repo root (a proxy) instead of
+  resolving them from the referencing file (the property heuristic i
+  actually checks), mischaracterizing 13 true positives as a
+  false-positive class. Phase 57 inverted the finding.
 - **DRAFT-ONLY** — this agent never writes `CLAUDE_MANAGER.md`,
   `gate-config.json`, or `optimizer-proposals.json`. It writes exactly two
   things: staged `optimizer-*.draft.json` proposals, and its own bookkeeping

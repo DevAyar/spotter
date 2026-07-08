@@ -2,7 +2,7 @@
   "cached_skeleton_head": null,
   "cached_skeleton_head_fetched_at": null,
   "claude_only": true,
-  "commit": "d3f2701252e941bea67151bf795f26ee3e5dee78",
+  "commit": "b3da4336e125f7a020b7bb8c3d4c7e677c65672c",
   "files": {
     ".claude/agents/01_research/research-helper.md": "d6819af268891840da334ab8f16eced5d561027780b8f9adc59fdef8052f3051",
     ".claude/agents/02_audit/audit-helper.md": "59fcf1d52c019b03a8f4cac67a2d4be6c502366b3bd8832f42a541a6696ceb62",
@@ -18,7 +18,6 @@
     ".claude/agents/05_meta/script-builder.md": "5e41871250444ffffd9962cdbf5a73a12d64dacf2b865fc21e0fe26c27b81174",
     ".claude/agents/05_meta/script-builder.schema.md": "1c36f0266c66b030cb011c54a40d70739d5e7273b3bb89e758fd059744341b3e",
     ".claude/agents/05_meta/self-audit-helper.md": "38aa8daf74ee3345ac32058fdab3d3bc68e75f3e7ffb63a56bd206e330431459",
-    ".claude/agents/05_meta/session-observer.md": "3e11b50e7f6cf5245e4baa36a742c248941451d7a7ff5bd782261c2d95cc2389",
     ".claude/agents/05_meta/session-observer.schema.md": "6cc11c0ce9694f05395afdd74074c27810c9babe516af3e81bf805ed277843c7",
     ".claude/agents/05_meta/system-memory-helper.md": "9af38caad0ca315c69fd2ae2fa30431ff93c6c1586b33ba8b9ff380cc1c30a78",
     ".claude/agents/05_meta/task-watchdog.md": "8d7480f67bf2ba42f475ac8974c670a190f8badfa1935f32ce6db2e32891429c",
@@ -97,7 +96,6 @@
     ".claude/agents/05_meta/script-builder.md": "5e41871250444ffffd9962cdbf5a73a12d64dacf2b865fc21e0fe26c27b81174",
     ".claude/agents/05_meta/script-builder.schema.md": "1c36f0266c66b030cb011c54a40d70739d5e7273b3bb89e758fd059744341b3e",
     ".claude/agents/05_meta/self-audit-helper.md": "38aa8daf74ee3345ac32058fdab3d3bc68e75f3e7ffb63a56bd206e330431459",
-    ".claude/agents/05_meta/session-observer.md": "3e11b50e7f6cf5245e4baa36a742c248941451d7a7ff5bd782261c2d95cc2389",
     ".claude/agents/05_meta/session-observer.schema.md": "6cc11c0ce9694f05395afdd74074c27810c9babe516af3e81bf805ed277843c7",
     ".claude/agents/05_meta/system-memory-helper.md": "9af38caad0ca315c69fd2ae2fa30431ff93c6c1586b33ba8b9ff380cc1c30a78",
     ".claude/agents/05_meta/task-watchdog.md": "8d7480f67bf2ba42f475ac8974c670a190f8badfa1935f32ce6db2e32891429c",
@@ -157,6 +155,6 @@
     ".claude/telemetry/retier-proposals.json": "c5085a3dbb874d664434938beb1abf40ee2f13d51601d5794b9bf07916cd1b06"
   },
   "source": "C:/Users/darre/Dev/Claude-Skeleton",
-  "updated_at": "2026-07-08T02:52:51Z",
+  "updated_at": "2026-07-08T22:29:37Z",
   "version": "1.1.4"
 }

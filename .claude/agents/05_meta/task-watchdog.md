@@ -1,14 +1,14 @@
 ---
 name: task-watchdog
-description: Retrospective observer of the prior Claude Code session's tool calls. Reads the prior session's JSONL transcript at session start, detects long-running bash calls (duration > threshold) and recurring failures (same normalized error signature ≥3 times in-session), and writes structured observation files to .claude/observations/ using session-observer's existing schema. Invoked automatically by the SessionStart hook chain after drift-check.sh; manually dispatchable on request. Retrospective only — no real-time polling, no network, no writes outside .claude/observations/. Workflow-suggester picks up these observations like any other source. v1.1+ Phase 5, final v1.1.0 component and second producer against session-observer's schema.
+description: Retrospective observer of the prior Claude Code session's tool calls. Reads the prior session's JSONL transcript at session start, detects long-running bash calls (duration > threshold) and recurring failures (same normalized error signature ≥3 times in-session), and writes structured observation files to .claude/observations/ using the observation schema (session-observer.schema.md). Invoked automatically by the SessionStart hook chain after drift-check.sh; manually dispatchable on request. Retrospective only — no real-time polling, no network, no writes outside .claude/observations/. Workflow-suggester picks up these observations like any other source. v1.1+ Phase 5, final v1.1.0 component; canonical producer against the observation schema (its namesake first producer, session-observer, retired Phase 58).
 tools: Read, Bash, Write
 ---
 
 # task-watchdog
 
-A retrospective observer agent at L2 in `.claude/agents/05_meta/`. The **fifth and final v1.1.0 component** of the capture/reuse loop tier: where `session-observer` detects repeated-command / repeated-edit / error-resolution patterns from `SESSION_LOG.md`, task-watchdog scans the prior session's **actual tool-call timing data** from Claude Code's transcript file and emits observations for two specific signal shapes.
+A retrospective observer agent at L2 in `.claude/agents/05_meta/`. The **fifth and final v1.1.0 component** of the capture/reuse loop tier: task-watchdog scans the prior session's **actual tool-call timing data** from Claude Code's transcript file and emits observations for two specific signal shapes.
 
-task-watchdog is the **canonical producer** of `recurring_failure` observations (ownership transferred from session-observer in this same phase) and the only producer of `other`-typed long-running-bash observations in v1.1.0. Both flow through `workflow-suggester` like any other source.
+task-watchdog is the **canonical producer** of `recurring_failure` observations (ownership transferred from session-observer in this same phase; that producer since retired, Phase 58) and the only producer of `other`-typed long-running-bash observations in v1.1.0. Both flow through `workflow-suggester` like any other source.
 
 ## When to use
 
@@ -67,7 +67,7 @@ These are the contract — task-watchdog enforces them:
 - **No resource-anomaly signals.** Memory, token, CPU — these bundle with v1.2.0's `token-efficiency-monitor` proactive upgrade.
 - **No subagent transcript analysis.** Events with `isSidechain: true` are filtered out for v1.1.0. Subagent timing is a separate observation surface for v1.2+.
 - **No cross-session aggregation.** Processes only the IMMEDIATELY PRIOR session per run. `workflow-suggester` is the layer that aggregates patterns across observations.
-- **No new schema fields.** Strictly within session-observer's existing 10-field schema (extended with `resolved_at` in Phase 12 — task-watchdog uses the field but doesn't own it). v1.2.0's `long_running_command` pattern_type may be added later; for now, `other`+notes carries the signal.
+- **No new schema fields.** Strictly within the observation schema's existing 10 fields (extended with `resolved_at` in Phase 12 — task-watchdog uses the field but doesn't own it). v1.2.0's `long_running_command` pattern_type may be added later; for now, `other`+notes carries the signal.
 - **No notification path.** Writes observations; doesn't emit user-facing notices. Workflow-suggester (next dispatch) draws captures from the observation pile.
 - **No automatic remediation.** Detection is automatic; action flows through workflow-suggester → captures → user approves → builder ships.
 

@@ -1,12 +1,12 @@
 ---
 name: cruft-checker
-description: Dogfood-only retrospective auditor of the skeleton repo's own docs/refs. Scans for nine cruft classes (broken markdown links, missing markdown anchors, VERSION↔CHANGELOG mismatches, stale README counts, non-existent phase refs, stale schema-field-count claims, hook-entry config-schema violations, tag↔VERSION↔CHANGELOG mismatches at HEAD, cross-doc stale version refs) and emits observations to .claude/observations/ using session-observer's 10-field schema. Third producer against that schema after session-observer and task-watchdog. Auto-fires from SessionStart hook with a 24h cooldown; manual dispatch ignores the cooldown. Read-only — NEVER auto-fixes, NEVER hits the network, NEVER writes outside .claude/observations/ and .claude/.last-cruft-check. v1.1.x first component; pairs with workflow-suggester's `doc-fix` and `infrastructure-fix` artifact_types.
+description: Dogfood-only retrospective auditor of the skeleton repo's own docs/refs. Scans for nine cruft classes (broken markdown links, missing markdown anchors, VERSION↔CHANGELOG mismatches, stale README counts, non-existent phase refs, stale schema-field-count claims, hook-entry config-schema violations, tag↔VERSION↔CHANGELOG mismatches at HEAD, cross-doc stale version refs) and emits observations to .claude/observations/ using the observation schema (session-observer.schema.md; 10 fields). Third producer against that schema after task-watchdog (the schema's namesake first producer, session-observer, retired Phase 58). Auto-fires from SessionStart hook with a 24h cooldown; manual dispatch ignores the cooldown. Read-only — NEVER auto-fixes, NEVER hits the network, NEVER writes outside .claude/observations/ and .claude/.last-cruft-check. v1.1.x first component; pairs with workflow-suggester's `doc-fix` and `infrastructure-fix` artifact_types.
 tools: Read, Bash, Glob, Grep, Write
 ---
 
 # cruft-checker
 
-A read-only L2 observer at `.claude/agents/05_meta/`. The **first v1.1.x component** and the **third observation producer** against `session-observer`'s 8-field schema (after `session-observer` itself and `task-watchdog`).
+A read-only L2 observer at `.claude/agents/05_meta/`. The **first v1.1.x component** and the **third observation producer** against the 10-field observation schema (after the since-retired `session-observer` and `task-watchdog`).
 
 cruft-checker is **dogfood-only**: it lives in skeleton's own `.claude/`, NOT in `template/.claude/`. Per the locked **two distinct audit surfaces** principle: skeleton-level audit (this) stays in dogfood; project-level audit ships in v1.2.0's `infrastructure-auditor` under `template/`. The two are intentionally separate.
 
@@ -123,7 +123,7 @@ A future `doc-fix-builder` (v1.2+ candidate, not committed) could automate step 
 - **No deprecation-pattern detection** (heuristic 6) — deferred to follow-up phase.
 - **No subagent transcript analysis** — task-watchdog's territory.
 - **No auto-promotion of doc-fix captures** — manual workflow in v1.1.x.
-- **No additional pattern_type values.** cruft-checker uses the existing `other` enum value with notes to carry every detection signal. `resolved_at` (Phase 12 schema extension, owned by session-observer's schema doc) carries the resolution signal — same field used by all producers. `suggested_artifact_type: doc-fix` (v1.1.x addition) is on the capture schema, not the observation schema.
+- **No additional pattern_type values.** cruft-checker uses the existing `other` enum value with notes to carry every detection signal. `resolved_at` (Phase 12 schema extension, owned by the observation schema doc) carries the resolution signal — same field used by all producers. `suggested_artifact_type: doc-fix` (v1.1.x addition) is on the capture schema, not the observation schema.
 
 ## Mechanism reference
 

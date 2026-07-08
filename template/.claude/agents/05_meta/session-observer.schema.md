@@ -1,9 +1,11 @@
 # session-observer observation schema
 
+> **Naming note (Phase 58):** this file is the shared observation-layer contract; it keeps the name of its first producer, `session-observer`, which was retired in Phase 58 (unpopulated surface — see CHANGELOG). The schema, its fields, and all other producers are unaffected.
+
 The wire format for one observation entry under `.claude/observations/<pattern_id>.json`.
 
 This schema is the contract shared by:
-- **Producers**: `session-observer` (v1.1.0, all pattern types except `recurring_failure`), `task-watchdog` (v1.1+ Phase 5, canonical producer of `recurring_failure` observations and `other`-typed long-running-bash observations). Future producers add their name to the `source` enum without breaking existing consumers.
+- **Producers**: `task-watchdog` (v1.1+ Phase 5, canonical producer of `recurring_failure` observations and `other`-typed long-running-bash observations), `cruft-checker` (v1.1.x, dogfood-only), `code-quality-auditor` (v1.1.4), session-end telemetry (Phase 46). `session-observer` (v1.1.0, the original producer) retired Phase 58; its `source` enum value remains valid for historical observations. Future producers add their name to the `source` enum without breaking existing consumers.
 - **Consumers**: `workflow-suggester` (v1.1+ Phase 2 extension — drafts captures from observation files). Future consumers (v2.0 plugin recommendation system, v1.2+ `manager-optimizer`) read the same schema.
 
 Lock the schema; extend the enums. New producers register a `source` value, new pattern shapes register a `pattern_type` value. Field names and field semantics are stable surface area.
@@ -15,7 +17,7 @@ Lock the schema; extend the enums. New producers register a `source` value, new 
 | `pattern_id` | string (64-char lowercase hex) | yes | Stable SHA-256 of `pattern_type + normalized_signature`. Same pattern → same id across sessions and across producers. The filename is `<pattern_id>.json`. |
 | `source` | string enum (extensible) | yes | Which producer emitted this observation. v1.1.0 values: `session-observer`, `task-watchdog`, `manual`, `other`. v1.1.x adds `cruft-checker` (skeleton-doc cruft; dogfood-only). v1.1.4 adds `code-quality-auditor` (installed-plugin manifest + security audit; ships in template). |
 | `pattern_type` | string enum (extensible) | yes | What kind of pattern. v1.1.0 values: `repeated_command`, `repeated_edit`, `error_resolution`, `recurring_failure` (canonical producer: `task-watchdog`), `other`. v1.1.4 adds `plugin_quality` (emitted by `code-quality-auditor` for the three plugin-verification heuristics — manifest path missing/empty, hooks.json schema violation, destructive shell pattern against unguarded path). |
-| `occurrences` | integer (≥ 1) | yes | Count of times this pattern was observed across the producer's inspection windows. Monotonic — updates on re-observation. Minimum 2 for pattern-detection producers (`session-observer`, `task-watchdog`) — a single sighting isn't a pattern. Deterministic-detection producers with full-resolve-pass semantics (`cruft-checker`, `code-quality-auditor`) MAY emit at `occurrences = 1` because each scan is an independent atomic detection — the pattern's existence at scan-time is the observation, and absence in subsequent scans is signaled via `resolved_at` rather than via accumulated occurrence counts. |
+| `occurrences` | integer (≥ 1) | yes | Count of times this pattern was observed across the producer's inspection windows. Monotonic — updates on re-observation. Minimum 2 for pattern-detection producers (`task-watchdog`; historically also the retired `session-observer`) — a single sighting isn't a pattern. Deterministic-detection producers with full-resolve-pass semantics (`cruft-checker`, `code-quality-auditor`) MAY emit at `occurrences = 1` because each scan is an independent atomic detection — the pattern's existence at scan-time is the observation, and absence in subsequent scans is signaled via `resolved_at` rather than via accumulated occurrence counts. |
 | `first_seen` | string (ISO-8601 UTC) | yes | When `pattern_id` was first observed. Set once on creation. Format: `YYYY-MM-DDTHH:MM:SSZ`. |
 | `last_seen` | string (ISO-8601 UTC) | yes | When `pattern_id` was most recently observed. Updates on each re-observation. |
 | `resolved_at` | string (ISO-8601 UTC) or `null` | yes | Set by the producer when its scan no longer detects the underlying pattern. `null` = active (detected on most recent scan, or never re-scanned since first emission). Non-null timestamp = producer confirmed the pattern is gone as of that time. Reset to `null` on re-detection (regression). Consumers like `workflow-suggester` skip non-null entries when generating new captures. See "Resolution lifecycle" below. |
@@ -61,7 +63,7 @@ The mechanism is asymmetric by producer scope:
 
 - `cruft-checker` runs a **full resolve pass** — every scan covers the entire scope, so absence in a scan is meaningful evidence the cruft is gone.
 - `task-watchdog` is **session-bounded** — each scan covers one prior session, so absence in a scan is not meaningful evidence the pattern is permanently gone. task-watchdog writes `resolved_at: null` on emissions but does NOT actively set timestamps. Older observations stay `null` indefinitely; this is intentional.
-- `session-observer` runs a **scoped resolve pass** — resolves observations whose pattern doesn't appear in the current scan window, with the same regression-reset on re-detection.
+- `session-observer` (retired Phase 58) ran a **scoped resolve pass** — resolving observations whose pattern doesn't appear in the current scan window, with the same regression-reset on re-detection.
 
 Resolved observations stay on disk as audit trail — consumers filter them, nothing deletes them. v2.0's `manager-optimizer` is the eventual pruning surface.
 
@@ -71,7 +73,7 @@ Resolved observations stay on disk as audit trail — consumers filter them, not
 
 | Producer | pattern_type | privacy_class | Rationale |
 |---|---|---|---|
-| session-observer | `repeated_command` | `local-only` | Command args contain project paths |
+| session-observer (retired Phase 58) | `repeated_command` | `local-only` | Command args contain project paths |
 | session-observer | `repeated_edit` | `local-only` | File paths leak project structure |
 | session-observer | `error_resolution` | `local-only` | Error context project-specific |
 | session-observer | `other` | `local-only` | Conservative catch-all |
@@ -141,7 +143,7 @@ This is a `repeated_command` pattern — the same intent (counting `.gd` files a
 - Full file contents.
 - Long stack traces (signature line + first 3 frames is enough).
 - Secrets (see redaction rules above — non-negotiable).
-- User-identifying info beyond what's in the activity log surface (the agent reads `SESSION_LOG.md`; if you're tempted to add user identity beyond what's there, stop).
+- User-identifying info beyond what's in the producer's bounded activity surface (transcripts, project docs, plugin sources; if you're tempted to add user identity beyond what's there, stop).
 - Anything > 120 chars per `summary` or `args_redacted` field. Truncate.
 
 If a pattern can't be expressed within these constraints, the pattern itself is probably under-normalized. Tighten the normalization before adding fields.

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # cruft-check: dogfood-only auditor of the skeleton repo's own docs/refs.
 # Implements 9 heuristics (i, ii, iii, iv, v, vii, viii, ix, x; vi deferred)
-# and emits observations to .claude/observations/ using session-observer's
-# 9-field schema. Third producer against that schema. Invoked by the
+# and emits observations to .claude/observations/ using the observation
+# schema (session-observer.schema.md; 10 required fields). Third producer
+# against that schema. Invoked by the
 # SessionStart hook chain (with --hook + 24h cooldown) or manually
 # (no flag, ignores cooldown). NEVER auto-fixes. NEVER hits the network.
 # NEVER writes outside .claude/observations/ + .claude/.last-cruft-check.

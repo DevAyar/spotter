@@ -6,7 +6,7 @@ tools: Read, Grep, Glob, Write
 
 # workflow-suggester
 
-A drafting agent at L2. The consumer side of the v1.1+ capture/reuse loop: where `session-observer` (Phase 1) writes structured observations to `.claude/observations/`, this agent reads them, applies a threshold, and **drafts one markdown capture per warranted observation** under `.claude/captures/`. Each draft is a self-contained review surface — the user reads it and decides whether to approve, reject, or do nothing.
+A drafting agent at L2. The consumer side of the v1.1+ capture/reuse loop: the observation producers (task-watchdog, cruft-checker, code-quality-auditor, session-end telemetry) write structured observations to `.claude/observations/`; this agent reads them, applies a threshold, and **drafts one markdown capture per warranted observation** under `.claude/captures/`. Each draft is a self-contained review surface — the user reads it and decides whether to approve, reject, or do nothing.
 
 This is **drafting only**. It does not build scripts, skills, agents, or any other artifact (that's later v1.1+ phases — `script-builder` first). It does not modify observations. It does not auto-approve. It does not auto-dispatch downstream builders.
 
@@ -21,7 +21,7 @@ Do **not** dispatch for: code review, debugging, generating an actual script/ski
 
 ## What it inspects
 
-- **`.claude/observations/*.json`** — input. Each file is one observation written by `session-observer` (or a future producer like `task-watchdog`), conforming to [`session-observer.schema.md`](session-observer.schema.md). Read-only — never modifies or deletes.
+- **`.claude/observations/*.json`** — input. Each file is one observation written by any producer (task-watchdog, cruft-checker, code-quality-auditor, session-end telemetry), conforming to [`session-observer.schema.md`](session-observer.schema.md). Read-only — never modifies or deletes.
 - **`.claude/captures/*.md`** — for idempotency. Grep all `.md` files in the directory for `^source_pattern_id:` frontmatter lines, build a set of pattern_ids that already have any capture (regardless of `status` — draft / approved / rejected all count). Used to skip observations that have already been considered.
 
 The agent does NOT read source code, settings, secrets, or anything outside these two surfaces. The observation schema's redaction rules already keep secrets out of evidence; this agent doesn't re-introduce that risk.
@@ -30,7 +30,7 @@ The agent does NOT read source code, settings, secrets, or anything outside thes
 
 An observation must satisfy **all three**:
 
-- `resolved_at` is `null` — observations marked resolved by their producer (cruft-checker's full resolve pass, session-observer's scoped resolve pass) are skipped. The underlying pattern is gone; re-suggesting would be noise. Cheapest check, runs first. Existing captures that reference resolved observations stay valid — resolution doesn't invalidate prior work.
+- `resolved_at` is `null` — observations marked resolved by their producer (e.g. cruft-checker's full resolve pass) are skipped. The underlying pattern is gone; re-suggesting would be noise. Cheapest check, runs first. Existing captures that reference resolved observations stay valid — resolution doesn't invalidate prior work.
 - `occurrences >= 3` — at least three sightings of the same pattern.
 - `confidence >= medium` — `med` or `high` only; `low`-confidence observations get skipped.
 

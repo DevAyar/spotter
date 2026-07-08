@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # plugin-quality-check: read-only auditor of installed plugins under
 # ~/.claude/plugins/cache/. Implements 3 heuristics (i, ii, iii) and
-# emits observations to .claude/observations/ using session-observer's
-# existing schema. v1.1.4 first plugin-verification component; composes
+# emits observations to .claude/observations/ using the observation
+# schema (session-observer.schema.md). v1.1.4 first plugin-verification component; composes
 # with cruft-checker + drift-checker as the project-level audit triad.
 # Invoked by the SessionStart hook chain (with --hook + 24h cooldown)
 # or manually (no flag, ignores cooldown). For testing, --plugin-dir

@@ -24,11 +24,10 @@ Thumbs.db
 # Test projects (used for install validation in Phase 4d-e)
 /test-projects/
 
-# Runtime observation files (written by session-observer / task-watchdog /
-# cruft-checker). Persistent on disk for cross-session workflow-suggester
+# Runtime observation files (written by task-watchdog / cruft-checker /
+# code-quality-auditor / session-end telemetry). Persistent on disk for cross-session workflow-suggester
 # consumption, but not part of source-of-truth repo state.
 .claude/observations/*.json
-.claude/observations/.session-ended
 # The watchdog marker lives under observations/ (task-watchdog.sh OBS_DIR);
 # the old .claude/-root path here never matched anything — invisible until
 # Phase 57 made the script actually write the marker.

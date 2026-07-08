@@ -8,7 +8,7 @@ The substrate has shipped — **v1.1.4** is the current version, with the observ
 
 Each line below is a governance capability the substrate already supports — not a feature recap.
 
-- **Observation layer is working.** Three independent signal sources (session-observer, task-watchdog, cruft-checker) feed a shared schema in `.claude/observations/`. New producers can be added without re-architecting consumers.
+- **Observation layer is working.** Independent signal sources (task-watchdog, cruft-checker, code-quality-auditor, session-end telemetry) feed a shared schema in `.claude/observations/`; the original session-observer retired in Phase 58 (unpopulated surface). New producers can be added without re-architecting consumers.
 - **Capture/reuse loop is working.** Patterns observed in real session work become draft capture files; the user approves; an X-builder (a builder that turns approved captures into reusable artifacts — `script-builder` is the first) drafts the artifact; the user promotes when ready.
 - **Project-level audit triad is working.** `cruft-checker` (doc rot inside the project), `drift-checker` (skeleton-version drift against the upstream release), `code-quality-auditor` (installed-plugin sanity) all fire at session start with a cooldown.
 - **Plugin bundle is vetted and installed.** Six ecosystem plugins (`feature-dev`, `code-review`, `commit-commands`, `security-guidance`, `superpowers`, `claude-mem`) compose with the skeleton. The eyes-open install pattern (audit the plugin, install with explicit awareness of side effects) is proven on the trust-tier-2 claude-mem case.

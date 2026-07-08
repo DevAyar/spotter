@@ -99,7 +99,7 @@ To re-draft a captured pattern after rejecting the first attempt: delete the exi
 - **No promotion of drafts.** The `mv` + `chmod +x` + capture-status-flip is the user's call. v1.1.0 does not ship a `/promote-script` command (candidate for v1.1.x).
 - **No handling of non-script artifact types.** `skill`, `agent`, `command`, `manual_action`, `unclear` — all explicitly out of scope. Those wait for `skill-builder` / `agent-builder` / `command-builder` (later v1.1+ phases).
 - **No auto-dispatch on capture status flip.** When a user flips a capture from `draft` → `approved`, this agent does NOT automatically run. The manager dispatches manually. Auto-dispatch (Gap #1) is not closed in v1.1.0.
-- **No modification of upstream agents or schemas.** `session-observer`, `workflow-suggester`, and their schemas are stable contracts; this agent reads but does not edit them.
+- **No modification of upstream agents or schemas.** `workflow-suggester` and the observation/capture schemas are stable contracts; this agent reads but does not edit them.
 - **No autonomous re-running.** Invocation is always explicit (user request, manager dispatch).
 
 ## Schema reference

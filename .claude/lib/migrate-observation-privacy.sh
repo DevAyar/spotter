@@ -7,7 +7,7 @@
 #
 # Required by Phase 46 schema bump: all observations must carry
 # privacy_class so redact-observation.sh can enforce cross-install
-# policy. Producers (session-observer, task-watchdog, cruft-checker,
+# policy. Producers (task-watchdog, cruft-checker,
 # code-quality-auditor) emit the field directly on new observations;
 # this script handles the migration of pre-v1.1.5 files.
 #
