@@ -67,7 +67,7 @@ These are the contract — task-watchdog enforces them:
 - **No resource-anomaly signals.** Memory, token, CPU — these bundle with v1.2.0's `token-efficiency-monitor` proactive upgrade.
 - **No subagent transcript analysis.** Events with `isSidechain: true` are filtered out for v1.1.0. Subagent timing is a separate observation surface for v1.2+.
 - **No cross-session aggregation.** Processes only the IMMEDIATELY PRIOR session per run. `workflow-suggester` is the layer that aggregates patterns across observations.
-- **No new schema fields.** Strictly within session-observer's existing 9-field schema (extended with `resolved_at` in Phase 12 — task-watchdog uses the field but doesn't own it). v1.2.0's `long_running_command` pattern_type may be added later; for now, `other`+notes carries the signal.
+- **No new schema fields.** Strictly within session-observer's existing 10-field schema (extended with `resolved_at` in Phase 12 — task-watchdog uses the field but doesn't own it). v1.2.0's `long_running_command` pattern_type may be added later; for now, `other`+notes carries the signal.
 - **No notification path.** Writes observations; doesn't emit user-facing notices. Workflow-suggester (next dispatch) draws captures from the observation pile.
 - **No automatic remediation.** Detection is automatic; action flows through workflow-suggester → captures → user approves → builder ships.
 
