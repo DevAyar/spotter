@@ -1255,6 +1255,103 @@ scenario_cruft_check_fixture() {
   echo "PASS cruft-check-fixture"
 }
 
+scenario_watchdog_transcript_resolution() {
+  echo ">> watchdog-transcript-resolution: encoded-dir + cwd-fallback both resolve; observations emitted (Phase 57)"
+  # Regression guard for the silent-inert transcript-resolution defect:
+  # encode_cwd must produce CC's encoding of the project dir, and the
+  # fallback must find cwd on a non-first line. The CLONE is the project
+  # dir under test, so OBS_DIR (derived from CLAUDE_PROJECT_DIR) stays
+  # inside the sandbox and assertions read where the script writes.
+  TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-wd)
+  git clone -q --depth 1 "file://$SKELETON_DIR" "$TEST_DIR/skel"
+  (
+    cd "$TEST_DIR/skel"
+    clone_dir="$PWD"
+    fx="$TEST_DIR/projects"
+    # Mirror of task-watchdog.sh's encode_cwd — keep in sync.
+    wd_encode() {
+      local p="$1"
+      case "$p" in
+        /[A-Za-z]/*)
+          local d="${p:1:1}"
+          p="$(printf '%s' "$d" | tr '[:lower:]' '[:upper:]'):${p:2}"
+          ;;
+      esac
+      printf '%s' "$p" | sed 's/[^A-Za-z0-9]/-/g'
+    }
+    enc=$(wd_encode "$clone_dir")
+    # The transcript's cwd value must equal what the watchdog's python sees
+    # in ITS argv. On Windows Git Bash, MSYS converts Unix-form argv paths
+    # (/tmp/...) to Windows form (C:/Users/...) when invoking python.exe —
+    # so generate the embedded cwd through the same argv channel. On
+    # Linux/macOS this is the identity.
+    # Execution-validated probe (Windows Store publishes python/python3
+    # execution-alias stubs that pass `command -v` but exit nonzero).
+    pybin=""
+    for cand in python python3; do
+      if command -v "$cand" >/dev/null 2>&1 && "$cand" -c 'pass' >/dev/null 2>&1; then
+        pybin="$cand"; break
+      fi
+    done
+    [ -n "$pybin" ] || { echo "SKIP watchdog-transcript-resolution (no working python)"; exit 0; }
+    cwd_as_python_sees=$("$pybin" -c 'import sys; print(sys.argv[1])' "$clone_dir")
+
+    write_transcripts() {
+      mkdir -p "$1"
+      # Second-newest transcript: 3x same-signature failures + one >5m bash.
+      # First line deliberately carries NO cwd (matches real transcripts).
+      # __CWD__ is substituted with the clone path (forward-slash, JSON-safe).
+      cat > "$1/prior.jsonl.tmpl" <<'JSONL'
+{"type":"summary","sessionId":"wd-prior","timestamp":"2026-07-01T00:00:00Z"}
+{"type":"assistant","sessionId":"wd-prior","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T00:01:00Z","message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"bash slow-build.sh"}}]}}
+{"type":"user","sessionId":"wd-prior","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T00:08:00Z","toolUseResult":{"durationMs":400000,"exitCode":0},"message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"done"}]}}
+{"type":"assistant","sessionId":"wd-prior","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T00:09:00Z","message":{"content":[{"type":"tool_use","id":"t2","name":"Bash","input":{"command":"pytest"}}]}}
+{"type":"user","sessionId":"wd-prior","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T00:09:30Z","toolUseResult":{"exitCode":1},"message":{"content":[{"type":"tool_result","tool_use_id":"t2","content":"assert failed: widget count mismatch","is_error":true}]}}
+{"type":"assistant","sessionId":"wd-prior","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T00:10:00Z","message":{"content":[{"type":"tool_use","id":"t3","name":"Bash","input":{"command":"pytest"}}]}}
+{"type":"user","sessionId":"wd-prior","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T00:10:30Z","toolUseResult":{"exitCode":1},"message":{"content":[{"type":"tool_result","tool_use_id":"t3","content":"assert failed: widget count mismatch","is_error":true}]}}
+{"type":"assistant","sessionId":"wd-prior","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T00:11:00Z","message":{"content":[{"type":"tool_use","id":"t4","name":"Bash","input":{"command":"pytest"}}]}}
+{"type":"user","sessionId":"wd-prior","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T00:11:30Z","toolUseResult":{"exitCode":1},"message":{"content":[{"type":"tool_result","tool_use_id":"t4","content":"assert failed: widget count mismatch","is_error":true}]}}
+JSONL
+      sed "s|__CWD__|$cwd_as_python_sees|g" "$1/prior.jsonl.tmpl" > "$1/prior.jsonl"
+      rm -f "$1/prior.jsonl.tmpl"
+      # Newest transcript: the just-started current session. Carries a cwd
+      # event so the fallback sees TWO candidates and picks the second-newest.
+      printf '{"type":"summary","sessionId":"wd-current","timestamp":"2026-07-02T00:00:00Z"}\n{"type":"user","sessionId":"wd-current","isSidechain":false,"cwd":"%s","timestamp":"2026-07-02T00:00:01Z","message":{"content":[]}}\n' "$cwd_as_python_sees" > "$1/current.jsonl"
+      touch -t 202607010000 "$1/prior.jsonl"
+      touch -t 202607020000 "$1/current.jsonl"
+    }
+
+    # Sub-case A: primary path — fixture dir named with CC's real encoding
+    # of the clone path.
+    write_transcripts "$fx/$enc"
+    rm -f .claude/observations/.last-watchdog-session
+    CLAUDE_PROJECT_DIR="$clone_dir" CLAUDE_PROJECTS_DIR_OVERRIDE="$fx" \
+      bash .claude/scripts/task-watchdog.sh > /dev/null 2>&1
+    found=$(grep -l '"source": "task-watchdog"' .claude/observations/*.json 2>/dev/null || true)
+    if [ -z "$found" ] || [ ! -f .claude/observations/.last-watchdog-session ]; then
+      echo "ERROR: primary-path (encoded dir) resolution emitted no observation/marker" >&2
+      ls "$fx" >&2 2>/dev/null || true
+      exit 1
+    fi
+    echo "  primary (encoded dir: $enc) OK"
+
+    # Sub-case B: fallback path — dir name matches no encoding; cwd events
+    # on non-first lines must resolve it.
+    rm -f .claude/observations/*.json .claude/observations/.last-watchdog-session
+    rm -rf "$fx"
+    write_transcripts "$fx/renamed-beyond-recognition"
+    CLAUDE_PROJECT_DIR="$clone_dir" CLAUDE_PROJECTS_DIR_OVERRIDE="$fx" \
+      bash .claude/scripts/task-watchdog.sh > /dev/null 2>&1
+    found=$(grep -l '"source": "task-watchdog"' .claude/observations/*.json 2>/dev/null || true)
+    if [ -z "$found" ]; then
+      echo "ERROR: cwd-fallback resolution emitted no observation" >&2
+      exit 1
+    fi
+    echo "  fallback (cwd match) OK"
+  )
+  echo "PASS watchdog-transcript-resolution"
+}
+
 scenario_replace_with_yes_piped() {
   echo ">> replace-with-yes-piped: --mode=replace overwrites with YES piped to stdin"
   init_target
@@ -1397,6 +1494,7 @@ case "${1:-}" in
   check-remote-cached)              scenario_check_remote_cached ;;
   hook-fail-closed-bash-safety)     scenario_hook_fail_closed_bash_safety ;;
   cruft-check-fixture)              scenario_cruft_check_fixture ;;
+  watchdog-transcript-resolution)   scenario_watchdog_transcript_resolution ;;
   replace-with-yes-piped)           scenario_replace_with_yes_piped ;;
   hook-fp-exemption-git-commit-message) scenario_hook_fp_exemption_git_commit_message ;;
   all)
@@ -1433,6 +1531,7 @@ case "${1:-}" in
     scenario_check_remote_cached
     scenario_hook_fail_closed_bash_safety
     scenario_cruft_check_fixture
+    scenario_watchdog_transcript_resolution
     scenario_replace_with_yes_piped
     scenario_hook_fp_exemption_git_commit_message
     echo "ALL SCENARIOS PASSED"
@@ -1475,6 +1574,7 @@ Scenarios:
   check-remote-cached          --check-remote against mock bare repo populates cached_skeleton_head (Phase 30b H5).
   hook-fail-closed-bash-safety Missing lib → PreToolUse hook emits deny JSON (Phase 30b H5).
   cruft-check-fixture          Broken markdown link → cruft-check.sh heuristic-i observation (Phase 30b H5).
+  watchdog-transcript-resolution  Encoded-dir + cwd-fallback transcript resolution emits observations (Phase 57).
   replace-with-yes-piped       printf 'YES' | install.sh --mode=replace overwrites locally-modified file (Phase 30b H7).
   hook-fp-exemption-git-commit-message  Parser exempts -m bodies + heredoc/here-string payloads; counter-tests verify outside-region patterns still deny (Phase 30c).
   all                          Run every scenario in sequence.

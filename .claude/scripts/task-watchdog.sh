@@ -22,19 +22,41 @@ LAST_SESSION_MARKER="$OBS_DIR/.last-watchdog-session"
 # CLAUDE_PROJECTS_DIR_OVERRIDE lets tests point at a fixture tree.
 PROJECTS_DIR="${CLAUDE_PROJECTS_DIR_OVERRIDE:-${HOME}/.claude/projects}"
 NOTICE_PREFIX="[task-watchdog]"
+# python||python3, validated by EXECUTION not presence: stock macOS and
+# Debian/Ubuntu ship python3 only, and the Windows Store publishes a
+# python/python3 execution-alias stub that passes `command -v` but exits
+# nonzero — either way a presence-only probe silently no-ops this script
+# (the Phase 57 silent-inert class).
+PYBIN=""
+for _cand in python python3; do
+  if command -v "$_cand" >/dev/null 2>&1 && "$_cand" -c 'pass' >/dev/null 2>&1; then
+    PYBIN="$_cand"
+    break
+  fi
+done
 
 # ---- helpers ----
 emit() { printf '%s\n' "$*"; }
 
 # encode_cwd <absolute-path>
-# Mirrors Claude Code's project-dir encoding: drop a leading drive
-# colon, then replace path separators with `-`.
+# Mirrors Claude Code's project-dir encoding: EVERY non-alphanumeric
+# character becomes `-` (so C:\Users\x -> C--Users-x, and a dotted dir
+# like .claude-mem -> -claude-mem). A Git-Bash form (/c/Users/x) is
+# normalized to drive form FIRST — on Windows the hook receives
+# CLAUDE_PROJECT_DIR in Git-Bash form, and encoding it raw yields
+# `-c-Users-x`, which matches nothing. That mismatch kept this script
+# silently inert on Windows installs (Phase 57 diagnosis). Known
+# ambiguity: a genuine Unix path with a single-letter top dir (/x/proj)
+# is misread as a drive; the cwd-match fallback rescues that case.
 encode_cwd() {
   local p="$1"
-  if [ ${#p} -ge 2 ] && [ "${p:1:1}" = ":" ]; then
-    p="${p:0:1}${p:2}"
-  fi
-  printf '%s' "$p" | tr '\\/' '--'
+  case "$p" in
+    /[A-Za-z]/*)
+      local drive="${p:1:1}"
+      p="$(printf '%s' "$drive" | tr '[:lower:]' '[:upper:]'):${p:2}"
+      ;;
+  esac
+  printf '%s' "$p" | sed 's/[^A-Za-z0-9]/-/g'
 }
 
 read_last_session_id() {
@@ -58,35 +80,55 @@ find_prior_jsonl() {
     # Take the SECOND most recently modified .jsonl (newest is the
     # current session, which is just starting and has no completed
     # tool calls yet).
-    find "$primary_dir" -maxdepth 1 -type f -name '*.jsonl' -printf '%T@\t%p\n' 2>/dev/null \
-      | sort -rn \
-      | awk 'NR==2 {print $2}'
+    # Portable second-newest (find -printf is GNU-only; macOS lacks it).
+    # ls -t is line-based: fine for per-file lines, pathological only for
+    # filenames containing newlines.
+    ls -1t "$primary_dir"/*.jsonl 2>/dev/null | sed -n '2p'
     return
   fi
-  # Fallback: scan all project dirs, pick newest JSONL whose first
-  # event names $target_cwd. Bounded by maxdepth + count.
+  # Fallback: scan all project dirs, pick the second-newest JSONL whose
+  # early events name $target_cwd. Real transcripts don't carry `cwd` on
+  # the FIRST line (Phase 57 diagnosis: first lines are summary/meta
+  # events), so scan a bounded number of lines; paths are compared
+  # normalized (drive form, forward slashes, case-folded) so Git-Bash and
+  # Windows forms match.
   [ -d "$PROJECTS_DIR" ] || return
-  command -v python >/dev/null 2>&1 || return
-  python - "$PROJECTS_DIR" "$target_cwd" <<'PYFALLBACK'
-import json, os, sys
+  [ -n "$PYBIN" ] || return
+  "$PYBIN" - "$PROJECTS_DIR" "$target_cwd" <<'PYFALLBACK'
+import json, os, re, sys
 projects_dir, target = sys.argv[1], sys.argv[2]
+
+def norm(p):
+    if not isinstance(p, str): return ''
+    p = p.replace('\\', '/')
+    m = re.match(r'^/([A-Za-z])/(.*)$', p)      # /c/Users/x -> C:/Users/x
+    if m: p = m.group(1).upper() + ':/' + m.group(2)
+    return p.rstrip('/').lower()
+
+target_n = norm(target)
 candidates = []
 for entry in os.scandir(projects_dir):
     if not entry.is_dir(): continue
-    for f in os.scandir(entry.path):
+    try:
+        files = list(os.scandir(entry.path))
+    except OSError:
+        continue                     # one unreadable project dir must not abort the scan
+    for f in files:
         if not f.name.endswith('.jsonl') or not f.is_file(): continue
         try:
             with open(f.path, encoding='utf-8', errors='replace') as fh:
-                for line in fh:
+                for i, line in enumerate(fh):
+                    if i >= 40: break            # bounded scan for a cwd event
                     line = line.strip()
                     if not line: continue
                     try:
                         ev = json.loads(line)
                     except Exception:
                         continue
-                    if ev.get('cwd') == target:
-                        candidates.append((f.stat().st_mtime, f.path))
-                    break
+                    if 'cwd' in ev:
+                        if norm(ev.get('cwd')) == target_n:
+                            candidates.append((f.stat().st_mtime, f.path))
+                        break                    # first cwd event settles it
         except OSError:
             continue
 candidates.sort(reverse=True)
@@ -103,16 +145,24 @@ fi
 mkdir -p "$OBS_DIR" 2>/dev/null || exit 0
 
 JSONL_PATH=$(find_prior_jsonl)
-[ -n "$JSONL_PATH" ] && [ -f "$JSONL_PATH" ] || exit 0
+if [ -z "$JSONL_PATH" ] || [ ! -f "$JSONL_PATH" ]; then
+  # Fail-soft, but not fail-silent: if the projects dir exists and holds
+  # transcripts yet resolution missed, surface one line — an unresolvable
+  # transcript dir stayed invisible for eight weeks before Phase 57.
+  if [ -d "$PROJECTS_DIR" ] && find "$PROJECTS_DIR" -maxdepth 2 -name '*.jsonl' -print -quit 2>/dev/null | grep -q .; then
+    emit "$NOTICE_PREFIX transcript not resolved for ${CLAUDE_PROJECT_DIR:-$PWD} under $PROJECTS_DIR — check project-dir encoding"
+  fi
+  exit 0
+fi
 
-if ! command -v python >/dev/null 2>&1; then
-  # No python → no clean way to walk JSONL. Silent no-op.
+if [ -z "$PYBIN" ]; then
+  # No python/python3 → no clean way to walk JSONL. Silent no-op.
   exit 0
 fi
 
 # Cheap sessionId peek so we can short-circuit on already-processed
 # sessions without parsing the full file.
-PRIOR_SESSION_ID=$(python - "$JSONL_PATH" <<'PYPEEK'
+PRIOR_SESSION_ID=$("$PYBIN" - "$JSONL_PATH" <<'PYPEEK'
 import json, sys
 try:
     with open(sys.argv[1], encoding='utf-8', errors='replace') as f:
@@ -138,7 +188,7 @@ if [ "$(read_last_session_id)" = "$PRIOR_SESSION_ID" ]; then
 fi
 
 # Process the JSONL. Python helper writes observation files in place.
-python - "$JSONL_PATH" "$OBS_DIR" "$DURATION_THRESHOLD_MS" "$FAILURE_OCCURRENCE_THRESHOLD" "$EVIDENCE_CAP" 2>/dev/null <<'PYIMPL'
+"$PYBIN" - "$JSONL_PATH" "$OBS_DIR" "$DURATION_THRESHOLD_MS" "$FAILURE_OCCURRENCE_THRESHOLD" "$EVIDENCE_CAP" 2>/dev/null <<'PYIMPL'
 import hashlib, json, os, re, sys
 from collections import defaultdict
 from datetime import datetime, timezone
