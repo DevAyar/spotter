@@ -1,6 +1,6 @@
 ---
 name: self-audit-helper
-description: Audits the meta-system itself. Finds orphan files (no other surface references them), dead registrations (entries in `ROUTING.md` / `settings.json` pointing to missing files), doc drift (described behavior diverges from file reality), and missing routes (files present but not in `ROUTING.md`). Reports drift; never auto-fixes.
+description: Audits the meta-system itself. Finds dead registrations (entries in `ROUTING.md` / `settings.json` pointing to missing files), doc drift (described behavior diverges from file reality), and missing routes (files present but not in `ROUTING.md`). Orphan detection consolidated into artifact-fit-analyzer's ORPHAN lane (Phase 56). Reports drift; never auto-fixes.
 tools: Glob, Grep, Read, Bash
 model: sonnet
 ---
@@ -39,8 +39,11 @@ single-file checks (Read directly).
 
 Four drift categories:
 
-1. **Orphans** — files in `.claude/` that no other surface
-   references. Possibly dead code from a removed feature.
+1. **Orphans** — consolidated into `artifact-fit-analyzer`'s ORPHAN
+   lane (Phase 56; capture 6f7e14b7): zero-reference detection lives
+   there, under its sharper mechanical evidence bar (deterministic
+   cross-reference greps + git history). This helper no longer reports
+   orphans; the slot is kept so category numbering stays stable.
 2. **Dead references** — names in `ROUTING.md`, `CLAUDE_MANAGER.md`,
    or `settings.json` that point to files that don't exist. Classic
    example: a `PostToolUse` hook registered in `settings.json` but
@@ -56,7 +59,7 @@ Four drift categories:
 
 A structured drift report grouped by category. For each finding:
 
-- **Type** — orphan / dead-ref / doc-drift / missing-route.
+- **Type** — dead-ref / doc-drift / missing-route.
 - **Location** — file path + line number where applicable.
 - **Severity** — graded against this rubric (escalate if unsure):
 
@@ -86,7 +89,6 @@ A structured drift report grouped by category. For each finding:
 
 - **Never auto-fixes.** Reports drift only.
 - Never modifies any file in `.claude/` or `docs/`.
-- Never deletes orphans, even when confidence is high — the user
-  decides what's load-bearing.
-- Never grades quality. Orphan ≠ bad; the user may have a reason the
-  file is unreferenced (in-progress feature, planned future surface).
+- Never grades quality — a flagged file isn't a bad file; the user
+  may have a reason it is the way it is (in-progress feature, planned
+  future surface).
