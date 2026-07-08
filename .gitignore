@@ -29,7 +29,10 @@ Thumbs.db
 # consumption, but not part of source-of-truth repo state.
 .claude/observations/*.json
 .claude/observations/.session-ended
-.claude/.last-watchdog-session
+# The watchdog marker lives under observations/ (task-watchdog.sh OBS_DIR);
+# the old .claude/-root path here never matched anything — invisible until
+# Phase 57 made the script actually write the marker.
+.claude/observations/.last-watchdog-session
 .claude/.last-cruft-check
 .claude/.last-plugin-quality-check
 
