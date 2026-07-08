@@ -2,13 +2,14 @@
   "cached_skeleton_head": null,
   "cached_skeleton_head_fetched_at": null,
   "claude_only": true,
-  "commit": "043ed73b1a0d253c174699800358c9a592d71dbb",
+  "commit": "d3f2701252e941bea67151bf795f26ee3e5dee78",
   "files": {
     ".claude/agents/01_research/research-helper.md": "d6819af268891840da334ab8f16eced5d561027780b8f9adc59fdef8052f3051",
     ".claude/agents/02_audit/audit-helper.md": "59fcf1d52c019b03a8f4cac67a2d4be6c502366b3bd8832f42a541a6696ceb62",
     ".claude/agents/03_monitoring/monitoring-helper.md": "f67f713c8b92c4455ddc5d70bf65b43f72724dbdd8fc9b2c6da729fff14d6c4a",
     ".claude/agents/04_planning/plan-coordinator.md": "42cc4ed1cc2c24c9dce0f0eeb25a62830892b31afd314985ff777707e56adbe6",
     ".claude/agents/05_meta/agent-slicer.md": "eb1d643e1c3a0cbc0de95f7b56ea10f359d471e38d215a9543b6620f7fb916e2",
+    ".claude/agents/05_meta/artifact-fit-analyzer.md": "3b04896bc986e77f9ca48f867c0e3627640202574c4a1b1fa9f0991700415049",
     ".claude/agents/05_meta/code-quality-auditor.md": "4618afa398f027c9b80dcc3769915466cda2c47eeca3d0f04938a0b7fa050a5b",
     ".claude/agents/05_meta/drift-checker.md": "faf8ea0663890660d1a991700aed8bdb62cb7856819c625fff49f7aecdc39a66",
     ".claude/agents/05_meta/integration-installer.md": "03fba422244ad437d2b7d2773ec1594674295ca1fb6ed2397c7f77b37a47267b",
@@ -87,6 +88,7 @@
     ".claude/agents/03_monitoring/monitoring-helper.md": "f67f713c8b92c4455ddc5d70bf65b43f72724dbdd8fc9b2c6da729fff14d6c4a",
     ".claude/agents/04_planning/plan-coordinator.md": "42cc4ed1cc2c24c9dce0f0eeb25a62830892b31afd314985ff777707e56adbe6",
     ".claude/agents/05_meta/agent-slicer.md": "eb1d643e1c3a0cbc0de95f7b56ea10f359d471e38d215a9543b6620f7fb916e2",
+    ".claude/agents/05_meta/artifact-fit-analyzer.md": "3b04896bc986e77f9ca48f867c0e3627640202574c4a1b1fa9f0991700415049",
     ".claude/agents/05_meta/code-quality-auditor.md": "4618afa398f027c9b80dcc3769915466cda2c47eeca3d0f04938a0b7fa050a5b",
     ".claude/agents/05_meta/drift-checker.md": "faf8ea0663890660d1a991700aed8bdb62cb7856819c625fff49f7aecdc39a66",
     ".claude/agents/05_meta/integration-installer.md": "03fba422244ad437d2b7d2773ec1594674295ca1fb6ed2397c7f77b37a47267b",
@@ -155,6 +157,6 @@
     ".claude/telemetry/retier-proposals.json": "c5085a3dbb874d664434938beb1abf40ee2f13d51601d5794b9bf07916cd1b06"
   },
   "source": "C:/Users/darre/Dev/Claude-Skeleton",
-  "updated_at": "2026-07-07T17:45:30Z",
+  "updated_at": "2026-07-08T02:52:51Z",
   "version": "1.1.4"
 }

@@ -442,3 +442,13 @@ The optimizer named in ROADMAP's v1.2.0 bullet, shipped v1: one instance per ins
 **Apply-after-approval flow:** review drafts in the ledger and flip `status` by hand. An **approved `gate_config` draft** is a mechanical value edit — ask CC to apply it to `gate-config.json`. An **approved `claude_manager` draft** is a user-directed doc edit to `CLAUDE_MANAGER.md`. Either way, `status` flips to `applied` only after the edit has actually landed; `approved` alone records a decision and triggers nothing.
 
 **Inputs are a closed list** (telemetry + pricing + retier ledger, observations from all producers, `git log` over a recent window, the current `CLAUDE_MANAGER.md` and `gate-config.json`); session transcripts stay task-watchdog's surface. Human-layer signal in v1 derives from existing sources only — approval pacing from telemetry timestamps, overrides/blocks where observations already record them, revert/amend patterns from git. When that signal is too thin, the honest output is an explicit insufficient-signal report; dedicated gate-interaction instrumentation is deferred pending the reviewer-behavior experiment.
+
+## Artifact-fit analysis (Phase 56)
+
+`artifact-fit-analyzer` (`.claude/agents/05_meta/artifact-fit-analyzer.md`) is the second v1.2.0 per-project component: it reads this install's artifact inventory (agents, skills, scripts incl. drafts, commands, hooks + their settings wiring), the directive surfaces, and `.claude/` git history, and drafts captures in four closed lanes — OVERLAP, GAP, MISFIT (carrying the "should this be a skill, agent, script, or command?" recommendation from the cut skill-builder/agent-builder), and ORPHAN. Phase 48/53 design properties inherit wholesale; an explicit clean bill is a valid deliverable.
+
+**When to dispatch:** after phases that add or retire artifacts; when overlap is suspected ("do we have two things doing this job?"); on demand. **Scheduled cadence is explicitly deferred to infrastructure-auditor** — this agent ships no hook, no SessionStart line, no cooldown.
+
+**Approval flow:** its captures review like any other capture — `draft`, then human-edited `approved` or `rejected`. Approved `manual_action` captures execute as **user-directed edits** (consolidation, new artifact, type conversion, or removal); the analyzer itself never edits, moves, or deletes an artifact.
+
+**Boundaries, one line each:** cruft-checker owns stale references in docs/config; artifact-fit-analyzer owns structural relationships among live artifacts; manager-optimizer owns decision patterns and loop pruning; code-quality-auditor owns plugin auditing.

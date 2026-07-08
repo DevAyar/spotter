@@ -9,6 +9,8 @@ This schema is what:
 
 Lock the structure; extend the enums. New artifact-builders register a `suggested_artifact_type` value if needed; the body conventions stay stable.
 
+> **Non-observation producers (v1.2+, annotation only — no field or enum changes).** Captures MAY originate from producers other than `workflow-suggester`. Such captures derive `source_pattern_id` deterministically (the derivation is documented in the producer's own agent definition), reuse `source_pattern_type: other`, and their body names the producer; the foreign key into `.claude/observations/` is **intentionally dangling** for this class — there is no observation file behind them. First instance: `artifact-fit-analyzer` (Phase 56), following the existing value-reuse precedent (the v1.1.4 `manual_action` routing for `plugin_quality` observations). All required fields and body conventions below apply unchanged, with one substitution: since there is no observation evidence array, each `## Evidence` entry is `path:line + verbatim excerpt` in place of `timestamp + summary` — the 3–10-entry and ≤120-chars-per-line caps still apply (truncate excerpts with an ellipsis).
+
 ## File format
 
 UTF-8 markdown with YAML frontmatter delimited by `---` lines. Filename is `<source_pattern_id>.md` (matches the observation's `pattern_id`).
