@@ -59,6 +59,14 @@ MIGRATED=false
 # know (dogfood-mirrored or pre-Phase-52 file): the marker must be rewritten
 # even when no file content was applied, or the backfill is silently lost.
 RAW_BASELINE_BACKFILLED=false
+# Set when classification finds a file whose current content hash-equals the
+# CURRENT template but differs from the recorded baseline (updated in template
+# + dogfood-mirrored in one commit, so the baseline lags). The shipped state is
+# met by definition — classify UNCHANGED and catch the baseline up. Without
+# this, the next template change to such a file would misclassify a
+# byte-identical file as LOCALLY_MODIFIED (Phase 59; chip task_715e1e30).
+RAW_BASELINE_REBASED=false
+REBASED_COUNT=0
 
 # ---- Phase 47a: install identity backfill ----
 IDENTITY_BACKFILLED=false
@@ -144,7 +152,6 @@ raw_baseline_unset() {
 UNCHANGED_FILES=()
 TEMPLATE_UPDATED_FILES=()
 LOCALLY_MODIFIED_FILES=()
-LOCAL_MATCHES_TEMPLATE_FILES=()
 NEW_FILES=()
 ORPHAN_FILES=()
 
@@ -378,7 +385,9 @@ recorded in .claude/.skeleton-version. Classifies each file:
                          Safe to apply.
   - LOCALLY_MODIFIED   — you modified it; template also moved on.
                          Warned; never auto-updated.
-  - UNCHANGED          — file matches template and recorded hash.
+  - UNCHANGED          — file matches template (includes match-rebaseline:
+                         content equals the current template but the recorded
+                         baseline lagged, so the baseline is caught up).
   - NEW                — template has it; you don't.
   - ORPHAN             — you have it (in marker); template no longer
                          ships it.
@@ -410,9 +419,12 @@ Backfill (one-time):
 Baseline (raw-template, Phase 52):
   Each file is classified against the template version it was installed
   from (raw_template_baselines in .skeleton-version). A file that differs
-  from that baseline is LOCALLY_MODIFIED — whoever changed it
-  (project-tuner-helper, you, or both) — and is never auto-overwritten.
-  Markers created before this field are migrated once, inline, by
+  from that baseline AND from the current template is LOCALLY_MODIFIED —
+  whoever changed it (project-tuner-helper, you, or both) — and is never
+  auto-overwritten. A file that differs from its recorded baseline but
+  hash-equals the CURRENT template is UNCHANGED: the shipped state is met
+  by definition, so classification catches the baseline up (match-rebaseline,
+  Phase 59). Markers created before this field are migrated once, inline, by
   re-hashing the template at the recorded install commit.
 EOF
 }
@@ -652,8 +664,18 @@ classify() {
     elif [ "$hash_baseline" != "$hash_current" ] && [ "$hash_current" != "$hash_template" ]; then
       LOCALLY_MODIFIED_FILES+=("$full_rel")
     else
-      # baseline != current AND current == template
-      LOCAL_MATCHES_TEMPLATE_FILES+=("$full_rel")
+      # baseline != current AND current == template: stale-but-matching. The
+      # file is byte-identical to what the template ships now (updated +
+      # dogfood-mirrored in one commit), so the shipped state is met — classify
+      # UNCHANGED and catch the lagging baseline up to the current hash. A
+      # bookkeeping-only rewrite; nothing about file content changes. Guarded
+      # into the marker write via RAW_BASELINE_REBASED; reported in dry-run,
+      # applied on real runs (Phase 59; chip task_715e1e30).
+      UNCHANGED_FILES+=("$full_rel")
+      raw_baseline_set "$full_rel" "$hash_current"
+      marker_hash_set "$full_rel" "$hash_current"
+      RAW_BASELINE_REBASED=true
+      REBASED_COUNT=$((REBASED_COUNT + 1))
     fi
   done < <(find "$skel_claude" -type f 2>/dev/null)
 
@@ -803,8 +825,8 @@ print_findings() {
   printf '  locally modified files:       %d  (will not auto-update)\n' "${#LOCALLY_MODIFIED_FILES[@]}"
   printf '  new files in template:        %d\n' "${#NEW_FILES[@]}"
   printf '  orphans (gone from template): %d\n' "${#ORPHAN_FILES[@]}"
-  if [ ${#LOCAL_MATCHES_TEMPLATE_FILES[@]} -gt 0 ]; then
-    printf '  locally edited to match:      %d  (apply is a no-op)\n' "${#LOCAL_MATCHES_TEMPLATE_FILES[@]}"
+  if [ "$REBASED_COUNT" -gt 0 ]; then
+    printf '  match-rebaseline:             %d  (baseline catches up; content unchanged)\n' "$REBASED_COUNT"
   fi
   echo
 }
@@ -1038,7 +1060,7 @@ apply_orphans() {
 write_version_marker() {
   [ "$DRY_RUN" = true ] && return 0
   # Write if anything was applied, or if backfill / raw-baseline / identity migration happened.
-  if [ "$APPLIED" -eq 0 ] && [ "$BACKFILL_MODE" = false ] && [ "$MIGRATED" = false ] && [ "$IDENTITY_BACKFILLED" = false ] && [ "$RAW_BASELINE_BACKFILLED" = false ]; then
+  if [ "$APPLIED" -eq 0 ] && [ "$BACKFILL_MODE" = false ] && [ "$MIGRATED" = false ] && [ "$IDENTITY_BACKFILLED" = false ] && [ "$RAW_BASELINE_BACKFILLED" = false ] && [ "$RAW_BASELINE_REBASED" = false ]; then
     return 0
   fi
   local marker="$TARGET_PATH/.claude/.skeleton-version"
@@ -1078,6 +1100,9 @@ summary() {
   fi
   if [ "$RAW_BASELINE_BACKFILLED" = true ] && [ "$DRY_RUN" = false ]; then
     ok "marker raw baselines backfilled for files the marker didn't know"
+  fi
+  if [ "$RAW_BASELINE_REBASED" = true ] && [ "$DRY_RUN" = false ]; then
+    ok "match-rebaseline: ${REBASED_COUNT} entrie(s) caught up to the current template hash"
   fi
 }
 

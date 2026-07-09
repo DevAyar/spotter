@@ -1352,6 +1352,70 @@ JSONL
   echo "PASS watchdog-transcript-resolution"
 }
 
+scenario_match_rebaseline() {
+  echo ">> match-rebaseline: stale-but-matching entry -> UNCHANGED + baseline caught up; converse stays LOCALLY_MODIFIED (Phase 59)"
+  # Clone the skeleton as a MUTABLE source — the live repo is never mutated.
+  TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-rebase)
+  local src="$TEST_DIR/src" target="$TEST_DIR/target"
+  git clone -q --depth 1 "file://$SKELETON_DIR" "$src"
+  mkdir -p "$target"
+  ( cd "$target" && git init -q && git config user.email "ci@test.local" \
+      && git config user.name "CI Test" && printf '# t\n' > README.md \
+      && git add README.md && git commit -q -m init )
+  bash "$src/scripts/install.sh" --source "$src" --target "$target" \
+    --mode=fresh --claude-only > /dev/null 2>&1
+
+  local relmatch=".claude/agents/01_research/research-helper.md"
+  local relmod=".claude/agents/02_audit/audit-helper.md"
+  local marker="$target/.claude/.skeleton-version"
+  base_of() { python -c "import json,sys; print(json.load(open(sys.argv[1]))['raw_template_baselines'][sys.argv[2]])" "$1" "$2"; }
+  local base_before
+  base_before=$(base_of "$marker" "$relmatch")
+
+  # Stale-but-matching: edit IDENTICALLY in source-template AND target
+  # (baseline lags, current == current template).
+  printf '\n<!-- rebase test -->\n' >> "$src/template/$relmatch"
+  printf '\n<!-- rebase test -->\n' >> "$target/$relmatch"
+  # Converse: modify ONLY the target copy (current != template).
+  printf '\n<!-- local only -->\n' >> "$target/$relmod"
+
+  # (c) dry-run reports both classes and writes nothing.
+  local marker_pre out
+  marker_pre=$(sha256_of "$marker")
+  out=$(bash "$src/scripts/update.sh" --source "$src" --target "$target" --dry-run < /dev/null 2>&1)
+  assert_contains "$out" "match-rebaseline:             1"
+  assert_contains "$out" "locally modified files:       1"
+  [ "$(sha256_of "$marker")" = "$marker_pre" ] || { echo "ERROR: dry-run mutated the marker" >&2; exit 1; }
+  echo "  (c) dry-run reports both, marker untouched OK"
+
+  # (a) real run, keep the LOCALLY_MODIFIED file -> match file re-baselined.
+  printf 'k\n' | bash "$src/scripts/update.sh" --source "$src" --target "$target" \
+    > "$TEST_DIR/out.txt" 2>&1 || true
+  assert_contains "$(cat "$TEST_DIR/out.txt")" "match-rebaseline"
+  local base_after cur_hash
+  base_after=$(base_of "$marker" "$relmatch")
+  cur_hash=$(sha256_of "$target/$relmatch")
+  if [ "$base_after" != "$cur_hash" ] || [ "$base_after" = "$base_before" ]; then
+    echo "ERROR: match file baseline not caught up (before=$base_before after=$base_after cur=$cur_hash)" >&2
+    exit 1
+  fi
+  echo "  (a) match file re-baselined to current hash OK"
+
+  # (b) converse: modified-only file still LOCALLY_MODIFIED, never re-baselined;
+  #     the match class is now drained (nothing left to catch up).
+  local out2
+  out2=$(bash "$src/scripts/update.sh" --source "$src" --target "$target" --dry-run < /dev/null 2>&1)
+  assert_contains "$out2" "locally modified files:       1"
+  assert_contains "$out2" "$relmod"
+  if printf '%s' "$out2" | grep -q "match-rebaseline"; then
+    echo "ERROR: match-rebaseline class not drained after real run" >&2
+    exit 1
+  fi
+  echo "  (b) modified-only stays LOCALLY_MODIFIED, match class drained OK"
+
+  echo "PASS match-rebaseline"
+}
+
 scenario_replace_with_yes_piped() {
   echo ">> replace-with-yes-piped: --mode=replace overwrites with YES piped to stdin"
   init_target
@@ -1495,6 +1559,7 @@ case "${1:-}" in
   hook-fail-closed-bash-safety)     scenario_hook_fail_closed_bash_safety ;;
   cruft-check-fixture)              scenario_cruft_check_fixture ;;
   watchdog-transcript-resolution)   scenario_watchdog_transcript_resolution ;;
+  match-rebaseline)                 scenario_match_rebaseline ;;
   replace-with-yes-piped)           scenario_replace_with_yes_piped ;;
   hook-fp-exemption-git-commit-message) scenario_hook_fp_exemption_git_commit_message ;;
   all)
@@ -1532,6 +1597,7 @@ case "${1:-}" in
     scenario_hook_fail_closed_bash_safety
     scenario_cruft_check_fixture
     scenario_watchdog_transcript_resolution
+    scenario_match_rebaseline
     scenario_replace_with_yes_piped
     scenario_hook_fp_exemption_git_commit_message
     echo "ALL SCENARIOS PASSED"
@@ -1575,6 +1641,7 @@ Scenarios:
   hook-fail-closed-bash-safety Missing lib → PreToolUse hook emits deny JSON (Phase 30b H5).
   cruft-check-fixture          Broken markdown link → cruft-check.sh heuristic-i observation (Phase 30b H5).
   watchdog-transcript-resolution  Encoded-dir + cwd-fallback transcript resolution emits observations (Phase 57).
+  match-rebaseline             Stale-but-matching baseline -> UNCHANGED + caught up; converse stays LOCALLY_MODIFIED (Phase 59).
   replace-with-yes-piped       printf 'YES' | install.sh --mode=replace overwrites locally-modified file (Phase 30b H7).
   hook-fp-exemption-git-commit-message  Parser exempts -m bodies + heredoc/here-string payloads; counter-tests verify outside-region patterns still deny (Phase 30c).
   all                          Run every scenario in sequence.

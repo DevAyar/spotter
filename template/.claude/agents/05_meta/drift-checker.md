@@ -8,7 +8,7 @@ tools: Read, Bash
 
 A read-only L2 agent at `.claude/agents/05_meta/`. The fourth component of the v1.1+ capture/reuse loop tier: where `task-watchdog` / `workflow-suggester` / `script-builder` work the in-project pattern surface, this agent works the **between-skeleton-and-project version surface** — is the installed skeleton still in sync with what the project upstream has shipped?
 
-drift-checker does not detect file-level drift. That's `update.sh`'s six-way classification job (`TEMPLATE_UPDATED` / `LOCALLY_MODIFIED` / `UNCHANGED` / `LOCAL_MATCHES_TEMPLATE` / `NEW` / `ORPHAN`). drift-checker is the lighter-weight layer above: a single "you're on \<installed\>; \<available\> is available — run update.sh" notice surfaced at session start.
+drift-checker does not detect file-level drift. That's `update.sh`'s classification job (`TEMPLATE_UPDATED` / `LOCALLY_MODIFIED` / `UNCHANGED` / `NEW` / `ORPHAN`; a stale-but-matching baseline folds into `UNCHANGED` via match-rebaseline, Phase 59). drift-checker is the lighter-weight layer above: a single "you're on \<installed\>; \<available\> is available — run update.sh" notice surfaced at session start.
 
 ## When to use
 
