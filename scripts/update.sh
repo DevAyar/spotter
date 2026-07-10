@@ -784,7 +784,8 @@ print(tags[-1][1])
   } | write_marker_json "$marker" \
         "$MARKER_VERSION" "$MARKER_COMMIT" "$MARKER_INSTALLED_AT" \
         "${MARKER_MODE:-merge}" "${MARKER_CLAUDE_ONLY:-false}" "$MARKER_SOURCE" \
-        "$MARKER_UPDATED_AT" "$latest_tag" "$ts"
+        "$MARKER_UPDATED_AT" "$latest_tag" "$ts" \
+        "$MARKER_INSTALL_UUID" "$MARKER_INSTALL_LABEL" "$MARKER_INSTALL_CREATED"
 
   ok "drift cache refreshed"
   printf '  cached: %s\n' "$latest_tag"
@@ -1129,11 +1130,17 @@ if [ ${#NEW_FILES[@]} -eq 0 ] \
    && [ ${#LOCALLY_MODIFIED_FILES[@]} -eq 0 ] \
    && [ ${#ORPHAN_FILES[@]} -eq 0 ]; then
   ok "everything up to date"
-  if { [ "$BACKFILL_MODE" = true ] || [ "$MIGRATED" = true ] || [ "$IDENTITY_BACKFILLED" = true ]; } && [ "$DRY_RUN" = false ]; then
+  # Phase 62: RAW_BASELINE_REBASED / RAW_BASELINE_BACKFILLED must reach this
+  # guard too — a rebase-only or backfill-only run has all four action buckets
+  # empty, so this early exit is exactly the path where Phase 59's catch-up
+  # would otherwise be computed, printed, and discarded.
+  if { [ "$BACKFILL_MODE" = true ] || [ "$MIGRATED" = true ] || [ "$IDENTITY_BACKFILLED" = true ] || [ "$RAW_BASELINE_BACKFILLED" = true ] || [ "$RAW_BASELINE_REBASED" = true ]; } && [ "$DRY_RUN" = false ]; then
     write_version_marker
     [ "$BACKFILL_MODE" = true ] && ok "marker migrated to per-file-hash schema (0.8.0)"
     [ "$MIGRATED" = true ] && ok "marker upgraded with raw-template baselines (Phase 52)"
     [ "$IDENTITY_BACKFILLED" = true ] && ok "marker backfilled with install identity (Phase 47a)"
+    [ "$RAW_BASELINE_BACKFILLED" = true ] && ok "marker raw baselines backfilled for files the marker didn't know"
+    [ "$RAW_BASELINE_REBASED" = true ] && ok "match-rebaseline: ${REBASED_COUNT} entrie(s) caught up to the current template hash"
   fi
   exit 0
 fi

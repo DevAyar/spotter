@@ -1416,6 +1416,109 @@ scenario_match_rebaseline() {
   echo "PASS match-rebaseline"
 }
 
+# Phase 62: the rebase-ONLY path — all four action buckets empty — must still
+# persist the marker. Pre-fix, the "everything up to date" early exit dropped
+# RAW_BASELINE_REBASED, so the catch-up was computed, printed, and discarded.
+scenario_rebase_only_persist() {
+  echo ">> rebase-only-persist: stale-but-matching entry with NOTHING else pending -> baseline persisted through the early-exit path (Phase 62)"
+  TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-rebonly)
+  local src="$TEST_DIR/src" target="$TEST_DIR/target"
+  git clone -q --depth 1 "file://$SKELETON_DIR" "$src"
+  mkdir -p "$target"
+  ( cd "$target" && git init -q && git config user.email "ci@test.local" \
+      && git config user.name "CI Test" && printf '# t\n' > README.md \
+      && git add README.md && git commit -q -m init )
+  bash "$src/scripts/install.sh" --source "$src" --target "$target" \
+    --mode=fresh --claude-only > /dev/null 2>&1
+
+  local rel=".claude/agents/01_research/research-helper.md"
+  local marker="$target/.claude/.skeleton-version"
+  base_of() { python -c "import json,sys; print(json.load(open(sys.argv[1]))['raw_template_baselines'][sys.argv[2]])" "$1" "$2"; }
+  local base_before
+  base_before=$(base_of "$marker" "$rel")
+
+  # Stale-but-matching, and ONLY that: identical edit in source template and
+  # target, no other divergence -> NEW/TEMPLATE_UPDATED/LOCALLY_MODIFIED/ORPHAN
+  # all empty -> the run takes the "everything up to date" early exit.
+  printf '\n<!-- rebase-only test -->\n' >> "$src/template/$rel"
+  printf '\n<!-- rebase-only test -->\n' >> "$target/$rel"
+
+  local out
+  out=$(bash "$src/scripts/update.sh" --source "$src" --target "$target" < /dev/null 2>&1)
+  assert_contains "$out" "everything up to date"
+  assert_contains "$out" "match-rebaseline"
+
+  local base_after cur_hash
+  base_after=$(base_of "$marker" "$rel")
+  cur_hash=$(sha256_of "$target/$rel")
+  if [ "$base_after" != "$cur_hash" ] || [ "$base_after" = "$base_before" ]; then
+    echo "ERROR: rebase-only run did not persist the baseline (before=$base_before after=$base_after cur=$cur_hash)" >&2
+    exit 1
+  fi
+  echo "  baseline persisted through the early-exit path OK"
+
+  # Second dry-run: the class must be drained — 0 pending.
+  local out2
+  out2=$(bash "$src/scripts/update.sh" --source "$src" --target "$target" --dry-run < /dev/null 2>&1)
+  if printf '%s' "$out2" | grep -q "match-rebaseline"; then
+    echo "ERROR: match-rebaseline still pending after rebase-only run — marker write was dropped" >&2
+    exit 1
+  fi
+  echo "PASS rebase-only-persist"
+}
+
+# Phase 62: --check-remote must round-trip install identity verbatim. Pre-fix
+# it passed 10 of 13 args to write_marker_json, silently deleting
+# install_uuid/install_label/install_created; the next full update then minted
+# a NEW uuid, orphaning shared-memory history keyed by the old one.
+scenario_check_remote_identity() {
+  echo ">> check-remote-identity: --check-remote preserves install_uuid/label/created byte-identical (Phase 62)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only
+  local marker="$TEST_DIR/.claude/.skeleton-version"
+  id_fields() { python -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+print(d.get('install_uuid'), d.get('install_label'), d.get('install_created'))
+" "$1"; }
+  local before
+  before=$(id_fields "$marker")
+  case "$before" in *None*) echo "ERROR: fresh install did not mint identity: $before" >&2; exit 1 ;; esac
+
+  # Mock remote with a semver tag (same recipe as check-remote-cached).
+  local mock_work="$TEST_DIR/mock-skeleton"
+  local mock_bare="$TEST_DIR/mock-skeleton.git"
+  git init -q --bare "$mock_bare"
+  git init -q "$mock_work"
+  (
+    cd "$mock_work"
+    git config user.email "ci@test.local"
+    git config user.name "CI Test"
+    printf 'mock\n' > README.md
+    git add README.md
+    git commit -q -m "init"
+    git tag v1.0.0
+    git remote add origin "$mock_bare"
+    git push -q origin HEAD --tags
+  )
+  SKELETON_REPO_URL="$mock_bare" bash "$SKELETON_DIR/scripts/update.sh" \
+    --target "$TEST_DIR" --check-remote > "$TEST_DIR/check-remote.out" 2>&1
+
+  local after
+  after=$(id_fields "$marker")
+  assert_eq "$after" "$before"
+  # And the cache still refreshed (the call keeps doing its day job).
+  python -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+if d.get('cached_skeleton_head') != '1.0.0':
+    sys.exit(f'ERROR: cached_skeleton_head not refreshed: {d.get(\"cached_skeleton_head\")!r}')
+" "$marker"
+  echo "PASS check-remote-identity (identity byte-identical)"
+}
+
 scenario_replace_with_yes_piped() {
   echo ">> replace-with-yes-piped: --mode=replace overwrites with YES piped to stdin"
   init_target
@@ -1560,6 +1663,8 @@ case "${1:-}" in
   cruft-check-fixture)              scenario_cruft_check_fixture ;;
   watchdog-transcript-resolution)   scenario_watchdog_transcript_resolution ;;
   match-rebaseline)                 scenario_match_rebaseline ;;
+  rebase-only-persist)              scenario_rebase_only_persist ;;
+  check-remote-identity)            scenario_check_remote_identity ;;
   replace-with-yes-piped)           scenario_replace_with_yes_piped ;;
   hook-fp-exemption-git-commit-message) scenario_hook_fp_exemption_git_commit_message ;;
   all)
@@ -1598,6 +1703,8 @@ case "${1:-}" in
     scenario_cruft_check_fixture
     scenario_watchdog_transcript_resolution
     scenario_match_rebaseline
+    scenario_rebase_only_persist
+    scenario_check_remote_identity
     scenario_replace_with_yes_piped
     scenario_hook_fp_exemption_git_commit_message
     echo "ALL SCENARIOS PASSED"
@@ -1642,6 +1749,8 @@ Scenarios:
   cruft-check-fixture          Broken markdown link → cruft-check.sh heuristic-i observation (Phase 30b H5).
   watchdog-transcript-resolution  Encoded-dir + cwd-fallback transcript resolution emits observations (Phase 57).
   match-rebaseline             Stale-but-matching baseline -> UNCHANGED + caught up; converse stays LOCALLY_MODIFIED (Phase 59).
+  rebase-only-persist          Rebase-only run (all buckets empty) persists the marker through the early exit (Phase 62).
+  check-remote-identity        --check-remote round-trips install_uuid/label/created byte-identical (Phase 62).
   replace-with-yes-piped       printf 'YES' | install.sh --mode=replace overwrites locally-modified file (Phase 30b H7).
   hook-fp-exemption-git-commit-message  Parser exempts -m bodies + heredoc/here-string payloads; counter-tests verify outside-region patterns still deny (Phase 30c).
   all                          Run every scenario in sequence.
