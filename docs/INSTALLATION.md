@@ -231,15 +231,21 @@ sentinels to. The trust model is single-user-multi-install: one person's
 installs to one of that person's own remotes. It is **off by default**;
 nothing is shared until you opt in.
 
-Phase 47a shipped identity + opt-in; **Phase 47b** adds the producers.
-When share is enabled, `.claude/scripts/shared-memory-produce.sh` writes
-redacted JSON events into a local staging tree at `.claude/shared-memory/`
+Phase 47a shipped identity + opt-in; **47b** the producers; **47c** the
+push cadence. When share is enabled,
+`.claude/scripts/shared-memory-produce.sh` writes redacted JSON events
+into a local staging tree at `.claude/shared-memory/`
 (`<producer>/<install_uuid>/<date>/`) for captures, observations,
-telemetry, and version. Nothing is **pushed** yet — 47b writes locally
-only; the SessionEnd push cadence + git push land in 47c. Envelope
-contract: `.claude/lib/shared-memory.schema.md`.
+telemetry, and version — and at every **SessionEnd**, the
+`sessionend-observe.sh` hook runs
+`.claude/scripts/shared-memory-push.sh`, which pushes those events to
+your remote **only if something changed** since the last push. The push
+is fail-soft: an unreachable remote never blocks or delays session end —
+the next SessionEnd (or a manual `/share-push`) retries and catches up.
+Nothing beyond the redacted envelopes is sent. Envelope contract:
+`.claude/lib/shared-memory.schema.md`.
 
-Three commands manage it:
+Five commands manage it:
 
 - `/share-enable <remote-url>` — opt in. Clones the remote, initializes
   the shared tree if it is an empty bare repo, writes a sentinel at
@@ -247,10 +253,19 @@ Three commands manage it:
   literal word `enable` — commits and pushes it, then writes
   `.claude/share-config.json`. Needs `install_uuid` in the marker (run
   `update.sh` first if it is missing).
+- `/share-push` — push now instead of waiting for the SessionEnd push.
+  Same on-change gate, same fail-soft behavior — it only changes *when*
+  the push runs.
+- `/share-preview` — dry-run of the next push: runs the real flow but
+  stops before the commit/push, reporting the would-include file count,
+  a per-producer breakdown, and one sample path. The remote is
+  untouched.
 - `/share-disable` — stop future pushes. Flips `share-config.json` to
   `enabled: false` and stamps `disabled_at`, preserving `remote_url` and
-  `enabled_at`. Data already on the remote is untouched (a
-  `--purge-remote` flag is deferred to 47c+).
+  `enabled_at`. Plain disable leaves data already on the remote
+  untouched; `--purge-remote` additionally deletes **this install's**
+  `installs/<install_uuid>/` subtree from the remote after you type the
+  literal word `purge` — other installs' data is never touched.
 - `/share-status` — report current state (configured / enabled /
   disabled, remote URL, timestamps, install UUID + label). Read-only.
 
