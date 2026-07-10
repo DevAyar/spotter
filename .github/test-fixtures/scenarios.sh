@@ -1557,6 +1557,141 @@ if d.get('cached_skeleton_head') != '1.0.0':
   echo "PASS check-remote-identity (identity byte-identical)"
 }
 
+# Phase 63: the Phase 46 telemetry generator must produce schema-valid
+# artifacts from a synthetic transcript via the cwd-match FALLBACK path —
+# the transcript lives under a wrongly-encoded project dir, so the encoded
+# lookup misses and resolution relies on the bounded multi-line cwd scan
+# (the first line carries no cwd, matching real transcripts). Guards the
+# Phase 63 fallback fixes: reachability, multi-line scan, normalized compare.
+scenario_telemetry_generator_fixture() {
+  echo ">> telemetry-generator-fixture: synthetic transcript -> events + rollup + observation via cwd fallback (Phase 63)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only > /dev/null
+  local pybin=""
+  local cand
+  for cand in python python3; do
+    if command -v "$cand" >/dev/null 2>&1 && "$cand" -c 'pass' >/dev/null 2>&1; then
+      pybin="$cand"; break
+    fi
+  done
+  [ -n "$pybin" ] || { echo "SKIP telemetry-generator-fixture (no working python)"; return 0; }
+  # Embedded cwd must equal what the generator's python sees in ITS argv
+  # (MSYS converts Unix-form argv when invoking python.exe — same-channel
+  # technique from the watchdog scenario).
+  local cwd_as_python_sees
+  cwd_as_python_sees=$("$pybin" -c 'import sys; print(sys.argv[1])' "$TEST_DIR")
+  # WRONGLY-encoded dir name: the primary lookup must miss; the fallback
+  # must match by cwd on a non-first line.
+  local fx="$TEST_DIR/projects/not-the-encoded-name"
+  mkdir -p "$fx"
+  cat > "$fx/sess.jsonl.tmpl" <<'JSONL'
+{"type":"summary","sessionId":"sess-tg-1","timestamp":"2026-07-01T00:00:00Z"}
+{"type":"assistant","sessionId":"sess-tg-1","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T00:01:00Z","message":{"usage":{"input_tokens":100,"output_tokens":40,"cache_read_input_tokens":10,"cache_creation_input_tokens":5},"content":[{"type":"tool_use","id":"t1","name":"Read","input":{"file_path":"docs/x.md"}}]}}
+{"type":"assistant","sessionId":"sess-tg-1","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T00:02:00Z","message":{"usage":{"input_tokens":60,"output_tokens":20,"cache_read_input_tokens":0,"cache_creation_input_tokens":0},"content":[{"type":"tool_use","id":"t2","name":"Bash","input":{"command":"ls"}}]}}
+JSONL
+  sed "s|__CWD__|$cwd_as_python_sees|g" "$fx/sess.jsonl.tmpl" > "$fx/sess.jsonl"
+  rm -f "$fx/sess.jsonl.tmpl"
+
+  CLAUDE_PROJECT_DIR="$TEST_DIR" CLAUDE_PROJECTS_DIR_OVERRIDE="$TEST_DIR/projects" \
+  CLAUDE_HOOK_SESSION_ID= CLAUDE_HOOK_TRANSCRIPT_PATH= \
+    bash "$TEST_DIR/.claude/lib/generate-session-telemetry.sh" > "$TEST_DIR/gen.out" 2>&1
+
+  local ev="$TEST_DIR/.claude/telemetry/events/sess-tg-1.jsonl"
+  local md="$TEST_DIR/.claude/telemetry/sessions/sess-tg-1.md"
+  local obs="$TEST_DIR/.claude/observations/token-telemetry-sess-tg-1.json"
+  if [ ! -f "$ev" ]; then
+    echo "ERROR: events JSONL missing — transcript resolution failed" >&2
+    cat "$TEST_DIR/gen.out" >&2 2>/dev/null || true
+    ls "$TEST_DIR/.claude/telemetry/events" >&2 2>/dev/null || true
+    exit 1
+  fi
+  assert_eq "$(grep -c . "$ev")" "2"
+  grep -q '"tool_name": "Read"' "$ev" || { echo "ERROR: Read tool line missing in events JSONL" >&2; exit 1; }
+  assert_contains "$(cat "$md")" "total_tokens_in: 160"
+  assert_contains "$(cat "$md")" "total_tokens_out: 60"
+  assert_contains "$(cat "$md")" "data_available: true"
+  "$pybin" -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+required = ['pattern_id','source','pattern_type','occurrences','first_seen','last_seen','resolved_at','evidence','confidence','privacy_class']
+missing = [k for k in required if k not in d]
+if missing: sys.exit(f'ERROR: observation missing schema fields: {missing}')
+if d['total_tokens_in'] != 160: sys.exit(f\"ERROR: total_tokens_in {d['total_tokens_in']} != 160\")
+if d['pattern_type'] != 'token_telemetry': sys.exit('ERROR: wrong pattern_type')
+print('  observation schema fields + totals OK')
+" "$obs"
+  echo "PASS telemetry-generator-fixture"
+}
+
+# Phase 63: python3-only guard. A failing `python` stub on PATH simulates
+# the Windows Store execution alias (found by `command -v`, exits nonzero);
+# a `python3` shim execs the real interpreter. A presence-only probe goes
+# silent-inert here — the pre-63 generator wrote ZERO artifacts. The
+# execution-validated probe must reject the stub, fall back to python3,
+# and produce real telemetry through the PRIMARY encoded-dir lookup
+# (which also exercises the portable ls -1t newest-first path).
+scenario_telemetry_python3_only() {
+  echo ">> telemetry-python3-only: failing python stub + real python3 -> probe falls back, artifacts written (Phase 63)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only > /dev/null
+  local realpy=""
+  local cand
+  for cand in python python3; do
+    if command -v "$cand" >/dev/null 2>&1 && "$cand" -c 'pass' >/dev/null 2>&1; then
+      realpy=$(command -v "$cand"); break
+    fi
+  done
+  [ -n "$realpy" ] || { echo "SKIP telemetry-python3-only (no working python)"; return 0; }
+  local shim="$TEST_DIR/shim-bin"
+  mkdir -p "$shim"
+  printf '#!/usr/bin/env bash\nexit 9\n' > "$shim/python"
+  printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "$realpy" > "$shim/python3"
+  chmod +x "$shim/python" "$shim/python3"
+  # Mirror of the lib's encode_cwd — keep in sync (correctly-encoded dir:
+  # this scenario exercises the primary lookup).
+  te_encode() {
+    local p="$1"
+    case "$p" in
+      /[A-Za-z]/*)
+        local d="${p:1:1}"
+        p="$(printf '%s' "$d" | tr '[:lower:]' '[:upper:]'):${p:2}"
+        ;;
+    esac
+    printf '%s' "$p" | sed 's/[^A-Za-z0-9]/-/g'
+  }
+  local enc cwd_as_python_sees
+  enc=$(te_encode "$TEST_DIR")
+  cwd_as_python_sees=$("$realpy" -c 'import sys; print(sys.argv[1])' "$TEST_DIR")
+  local fx="$TEST_DIR/projects/$enc"
+  mkdir -p "$fx"
+  cat > "$fx/sess.jsonl.tmpl" <<'JSONL'
+{"type":"summary","sessionId":"sess-tp-1","timestamp":"2026-07-01T00:00:00Z"}
+{"type":"assistant","sessionId":"sess-tp-1","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T00:01:00Z","message":{"usage":{"input_tokens":100,"output_tokens":40,"cache_read_input_tokens":10,"cache_creation_input_tokens":5},"content":[{"type":"tool_use","id":"t1","name":"Read","input":{"file_path":"docs/x.md"}}]}}
+JSONL
+  sed "s|__CWD__|$cwd_as_python_sees|g" "$fx/sess.jsonl.tmpl" > "$fx/sess.jsonl"
+  rm -f "$fx/sess.jsonl.tmpl"
+
+  PATH="$shim:$PATH" \
+  CLAUDE_PROJECT_DIR="$TEST_DIR" CLAUDE_PROJECTS_DIR_OVERRIDE="$TEST_DIR/projects" \
+  CLAUDE_HOOK_SESSION_ID= CLAUDE_HOOK_TRANSCRIPT_PATH= \
+    bash "$TEST_DIR/.claude/lib/generate-session-telemetry.sh" > "$TEST_DIR/gen.out" 2>&1
+
+  local md="$TEST_DIR/.claude/telemetry/sessions/sess-tp-1.md"
+  if [ ! -f "$md" ]; then
+    echo "ERROR: no rollup written — probe went silent-inert under the failing python stub" >&2
+    cat "$TEST_DIR/gen.out" >&2 2>/dev/null || true
+    find "$TEST_DIR/.claude/telemetry" -type f >&2 2>/dev/null || true
+    exit 1
+  fi
+  assert_contains "$(cat "$md")" "data_available: true"
+  assert_contains "$(cat "$md")" "total_tokens_in: 100"
+  echo "PASS telemetry-python3-only (probe rejected the stub, fell back to python3)"
+}
+
 # Phase 62 rework: replace-mode re-runs on installed targets are now refused
 # (install.sh is first-install only). The YES-pipe overwrite coverage (Phase
 # 30b H7) moves to replace mode's remaining surface: first install into a
@@ -1707,6 +1842,8 @@ case "${1:-}" in
   match-rebaseline)                 scenario_match_rebaseline ;;
   rebase-only-persist)              scenario_rebase_only_persist ;;
   check-remote-identity)            scenario_check_remote_identity ;;
+  telemetry-generator-fixture)      scenario_telemetry_generator_fixture ;;
+  telemetry-python3-only)           scenario_telemetry_python3_only ;;
   replace-with-yes-piped)           scenario_replace_with_yes_piped ;;
   hook-fp-exemption-git-commit-message) scenario_hook_fp_exemption_git_commit_message ;;
   all)
@@ -1748,6 +1885,8 @@ case "${1:-}" in
     scenario_match_rebaseline
     scenario_rebase_only_persist
     scenario_check_remote_identity
+    scenario_telemetry_generator_fixture
+    scenario_telemetry_python3_only
     scenario_replace_with_yes_piped
     scenario_hook_fp_exemption_git_commit_message
     echo "ALL SCENARIOS PASSED"
@@ -1795,6 +1934,8 @@ Scenarios:
   match-rebaseline             Stale-but-matching baseline -> UNCHANGED + caught up; converse stays LOCALLY_MODIFIED (Phase 59).
   rebase-only-persist          Rebase-only run (all buckets empty) persists the marker through the early exit (Phase 62).
   check-remote-identity        --check-remote round-trips install_uuid/label/created byte-identical (Phase 62).
+  telemetry-generator-fixture  Synthetic transcript -> events/rollup/observation via the cwd-match fallback (Phase 63).
+  telemetry-python3-only       Failing python stub + real python3 -> execution-validated probe falls back (Phase 63).
   replace-with-yes-piped       printf 'YES' | install.sh --mode=replace overwrites locally-modified file (Phase 30b H7).
   hook-fp-exemption-git-commit-message  Parser exempts -m bodies + heredoc/here-string payloads; counter-tests verify outside-region patterns still deny (Phase 30c).
   all                          Run every scenario in sequence.

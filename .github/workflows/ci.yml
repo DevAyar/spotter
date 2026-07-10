@@ -199,3 +199,11 @@ jobs:
       - name: Scenario - install-rerun-refuse
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh install-rerun-refuse
+
+      - name: Scenario - telemetry-generator-fixture
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh telemetry-generator-fixture
+
+      - name: Scenario - telemetry-python3-only
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh telemetry-python3-only
