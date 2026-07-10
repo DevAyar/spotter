@@ -195,3 +195,7 @@ jobs:
       - name: Scenario - check-remote-identity
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh check-remote-identity
+
+      - name: Scenario - install-rerun-refuse
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh install-rerun-refuse

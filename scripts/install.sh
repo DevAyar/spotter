@@ -302,6 +302,17 @@ preflight() {
     die "source == target ($SOURCE_PATH); use --claude-only for skeleton-on-skeleton self-install"
   fi
 
+  # Phase 62: install.sh is first-install only. A marker means an existing
+  # install; re-running would mint a new install identity (uuid) and reset
+  # per-file baselines to only the files copied this run — silently breaking
+  # update.sh classification and orphaning shared-memory history.
+  if [ -f "$TARGET_PATH/.claude/.skeleton-version" ]; then
+    die "target already has a claude-skeleton install (.claude/.skeleton-version present).
+install.sh is for first-time installs only — re-running it would mint a new install identity and reset per-file baselines.
+To update this install, run:  bash scripts/update.sh --target $TARGET_PATH
+If a from-scratch reinstall is genuinely intended: delete .claude/.skeleton-version first and re-run — be aware this mints a new install identity, resets baselines, and orphans any shared-memory history keyed to the old uuid."
+  fi
+
   if [ "$MODE" = "fresh" ] && [ -d "$TARGET_PATH/.claude" ]; then
     local found
     found=$(find "$TARGET_PATH/.claude" -type f ! -name '.gitkeep' 2>/dev/null | head -1 || true)

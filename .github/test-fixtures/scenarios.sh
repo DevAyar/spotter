@@ -1003,32 +1003,70 @@ scenario_fresh_refuse() {
   echo "PASS fresh-refuse (marker unchanged)"
 }
 
-scenario_merge_add() {
-  echo ">> merge-add: delete a file, re-run --mode=merge, expect re-add"
+# Phase 62: install.sh is first-install only. A re-run on an installed target
+# used to silently rewrite the marker (fresh uuid, only-this-run baselines);
+# now it refuses, naming both the update.sh redirect and the explicit
+# delete-the-marker escape hatch. update.sh's NEW class owns re-adds.
+scenario_install_rerun_refuse() {
+  echo ">> install-rerun-refuse: re-run on installed target refuses; update.sh re-adds (Phase 62)"
   init_target
   bash "$SKELETON_DIR/scripts/install.sh" \
     --source "$SKELETON_DIR" --target "$TEST_DIR" \
     --mode=fresh --claude-only
-  local target_file="$TEST_DIR/.claude/commands/commit.md"
-  [ -f "$target_file" ] || { echo "ERROR: setup file missing"; exit 1; }
-  # Capture hashes of two unrelated files to confirm they're untouched.
-  local untouched_a untouched_b before_a after_a before_b after_b
-  untouched_a="$TEST_DIR/.claude/agents/01_research/research-helper.md"
-  untouched_b="$TEST_DIR/.claude/settings.json"
-  before_a=$(sha256_of "$untouched_a")
-  before_b=$(sha256_of "$untouched_b")
-  rm "$target_file"
+  local marker="$TEST_DIR/.claude/.skeleton-version"
+  local removed="$TEST_DIR/.claude/commands/commit.md"
+  rm "$removed"
+  local marker_before uuid_before
+  marker_before=$(sha256_of "$marker")
+  uuid_before=$(python -c "import json,sys; print(json.load(open(sys.argv[1]))['install_uuid'])" "$marker")
+  local out rc=0
+  out=$(bash "$SKELETON_DIR/scripts/install.sh" \
+          --source "$SKELETON_DIR" --target "$TEST_DIR" \
+          --mode=merge --claude-only 2>&1) || rc=$?
+  [ "$rc" -ne 0 ] || { echo "ERROR: re-run on installed target should have refused" >&2; exit 1; }
+  assert_contains "$out" "update.sh"
+  assert_contains "$out" "delete .claude/.skeleton-version first"
+  assert_eq "$(sha256_of "$marker")" "$marker_before"
+  echo "  refusal: exit=$rc, marker byte-identical, message has redirect + escape hatch OK"
+  # The redirect works: update.sh re-adds the deleted file (NEW class) and
+  # the install identity survives.
+  printf 'y\n' | bash "$SKELETON_DIR/scripts/update.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" > "$TEST_DIR/update.out" 2>&1 || true
+  [ -f "$removed" ] || { echo "ERROR: update.sh did not re-add the deleted file" >&2; cat "$TEST_DIR/update.out" >&2; exit 1; }
+  local uuid_after
+  uuid_after=$(python -c "import json,sys; print(json.load(open(sys.argv[1]))['install_uuid'])" "$marker")
+  assert_eq "$uuid_after" "$uuid_before"
+  echo "PASS install-rerun-refuse (redirect re-added the file; uuid stable)"
+}
+
+# Phase 62 rework: install.sh re-runs on installed targets are now refused
+# (see install-rerun-refuse; update.sh's NEW class owns re-adds). merge mode's
+# remaining surface is the FIRST install into a marker-less target with
+# pre-existing .claude/ content — custom files preserved, name-collisions
+# skipped, missing template files added, marker created.
+scenario_merge_add() {
+  echo ">> merge-add: first install --mode=merge into marker-less target with pre-existing .claude content"
+  init_target
+  # Pre-existing project content: a custom agent (no template counterpart)
+  # and a customized copy of a file the template also ships (name collision).
+  mkdir -p "$TEST_DIR/.claude/agents/custom" "$TEST_DIR/.claude/commands"
+  printf '# my custom agent\n' > "$TEST_DIR/.claude/agents/custom/mine.md"
+  printf '# pre-existing customized deploy\n' > "$TEST_DIR/.claude/commands/deploy.md"
+  local custom="$TEST_DIR/.claude/agents/custom/mine.md"
+  local collision="$TEST_DIR/.claude/commands/deploy.md"
+  local custom_before collision_before
+  custom_before=$(sha256_of "$custom")
+  collision_before=$(sha256_of "$collision")
   local out
   out=$(bash "$SKELETON_DIR/scripts/install.sh" \
           --source "$SKELETON_DIR" --target "$TEST_DIR" \
           --mode=merge --claude-only)
-  [ -f "$target_file" ] || { echo "ERROR: deleted file was not re-added"; exit 1; }
-  assert_contains "$out" "copied:   1"
-  after_a=$(sha256_of "$untouched_a")
-  after_b=$(sha256_of "$untouched_b")
-  assert_eq "$after_a" "$before_a"
-  assert_eq "$after_b" "$before_b"
-  echo "PASS merge-add"
+  # Missing template files added; both pre-existing files untouched; marker created.
+  [ -f "$TEST_DIR/.claude/commands/commit.md" ] || { echo "ERROR: template file not added" >&2; exit 1; }
+  assert_eq "$(sha256_of "$custom")" "$custom_before"
+  assert_eq "$(sha256_of "$collision")" "$collision_before"
+  [ -f "$TEST_DIR/.claude/.skeleton-version" ] || { echo "ERROR: marker not created" >&2; exit 1; }
+  echo "PASS merge-add (collision skipped, custom preserved, template added, marker created)"
 }
 
 scenario_local_mod_detect() {
@@ -1519,14 +1557,17 @@ if d.get('cached_skeleton_head') != '1.0.0':
   echo "PASS check-remote-identity (identity byte-identical)"
 }
 
+# Phase 62 rework: replace-mode re-runs on installed targets are now refused
+# (install.sh is first-install only). The YES-pipe overwrite coverage (Phase
+# 30b H7) moves to replace mode's remaining surface: first install into a
+# marker-less target that already carries a modified copy of a template file.
 scenario_replace_with_yes_piped() {
-  echo ">> replace-with-yes-piped: --mode=replace overwrites with YES piped to stdin"
+  echo ">> replace-with-yes-piped: --mode=replace overwrites pre-existing marker-less content with YES piped"
   init_target
-  bash "$SKELETON_DIR/scripts/install.sh" \
-    --source "$SKELETON_DIR" --target "$TEST_DIR" \
-    --mode=fresh --claude-only
-  local target_file="$TEST_DIR/.claude/agents/01_research/research-helper.md"
-  # Modify the file so we have something to overwrite.
+  local rel=".claude/agents/01_research/research-helper.md"
+  local target_file="$TEST_DIR/$rel"
+  mkdir -p "$(dirname "$target_file")"
+  cp "$SKELETON_DIR/template/$rel" "$target_file"
   printf '\n# CI replace-mod\n' >> "$target_file"
   local hash_modified
   hash_modified=$(sha256_of "$target_file")
@@ -1653,6 +1694,7 @@ case "${1:-}" in
   graduation-review-report)     scenario_graduation_review_report ;;
   graduation-review-disabled)   scenario_graduation_review_disabled ;;
   fresh-refuse)                 scenario_fresh_refuse ;;
+  install-rerun-refuse)         scenario_install_rerun_refuse ;;
   merge-add)                    scenario_merge_add ;;
   local-mod-detect)             scenario_local_mod_detect ;;
   local-mod-preserve)           scenario_local_mod_preserve ;;
@@ -1693,6 +1735,7 @@ case "${1:-}" in
     scenario_graduation_review_report
     scenario_graduation_review_disabled
     scenario_fresh_refuse
+    scenario_install_rerun_refuse
     scenario_merge_add
     scenario_local_mod_detect
     scenario_local_mod_preserve
@@ -1739,7 +1782,8 @@ Scenarios:
   graduation-review-report     graduation-review groups captures/observations across installs vs the 15/75 threshold; telemetry excluded (Phase 47d).
   graduation-review-disabled   graduation-review with share off → nothing to review, exits 0 (Phase 47d).
   fresh-refuse                 Populated target → --mode=fresh exits non-zero; marker unchanged.
-  merge-add                    Delete a file → --mode=merge re-adds only that file.
+  install-rerun-refuse         Re-run on installed target refuses (redirect + escape hatch); update.sh re-adds (Phase 62).
+  merge-add                    First --mode=merge into marker-less target: collision skipped, custom preserved, missing added.
   local-mod-detect             Modify a file → update.sh --dry-run reports LOCALLY_MODIFIED.
   local-mod-preserve           Modify a file → update.sh with [K]eep leaves it intact.
   backfill-migrate             Legacy shell marker → update.sh migrates to JSON.
