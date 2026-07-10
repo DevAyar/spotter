@@ -31,7 +31,17 @@ FAMILIES=(
 # (none - the python blocks below own the merge + counter lifecycles)
 
 # ---- main ----
-PYBIN=$(command -v python || command -v python3) || exit 0
+# python||python3 validated by EXECUTION, not presence — the Windows Store
+# alias stub passes `command -v` but exits nonzero, silently no-oping every
+# "$PYBIN" block below (the Phase 57 silent-inert class; hardened Phase 63).
+PYBIN=""
+for _cand in python python3; do
+  if command -v "$_cand" >/dev/null 2>&1 && "$_cand" -c 'pass' >/dev/null 2>&1; then
+    PYBIN="$_cand"
+    break
+  fi
+done
+[ -n "$PYBIN" ] || exit 0
 
 # Phase 53: mechanical session counter (runs every session end, fail-soft).
 [ -d "$TELEM" ] && "$PYBIN" - "$OPT_STATE" <<'PYEOF' 2>/dev/null

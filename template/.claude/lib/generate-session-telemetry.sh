@@ -32,7 +32,9 @@
 # Graceful degradation:
 #   - No transcript JSONL found → write stub rollup with
 #     data_available: false; observation written with null token fields.
-#   - python not on PATH → log to stderr, skip telemetry, exit 0.
+#   - no WORKING python/python3 on PATH (a presence-only probe would
+#     accept the Windows Store alias stub) → log to stderr, skip
+#     telemetry, exit 0.
 #   - jq not on PATH → still works (Python writes JSON directly).
 #   - usage field absent on a turn → that turn's tokens are null
 #     (not omitted from the running totals as 0; they're left out of the
@@ -51,15 +53,39 @@ OBS_DIR="$PROJECT_DIR/.claude/observations"
 CAPTURES_DIR="$PROJECT_DIR/.claude/captures"
 PROJECTS_DIR="${CLAUDE_PROJECTS_DIR_OVERRIDE:-${HOME}/.claude/projects}"
 NOTICE_PREFIX="[generate-session-telemetry]"
+# python||python3, validated by EXECUTION not presence: stock macOS and
+# Debian/Ubuntu ship python3 only, and the Windows Store publishes a
+# python/python3 execution-alias stub that passes `command -v` but exits
+# nonzero — either way a presence-only probe silently no-ops this script
+# (the Phase 57 silent-inert class; ported from task-watchdog.sh, Phase 63).
+PYBIN=""
+for _cand in python python3; do
+  if command -v "$_cand" >/dev/null 2>&1 && "$_cand" -c 'pass' >/dev/null 2>&1; then
+    PYBIN="$_cand"
+    break
+  fi
+done
 
 # ---- helpers ----
+# encode_cwd <absolute-path>
+# Mirrors Claude Code's project-dir encoding: EVERY non-alphanumeric
+# character becomes `-` (so C:\Users\x -> C--Users-x, and a dotted dir
+# like .claude-mem -> -claude-mem). A Git-Bash form (/c/Users/x) is
+# normalized to drive form FIRST — on Windows the hook receives
+# CLAUDE_PROJECT_DIR in Git-Bash form, and encoding it raw yields
+# `-c-Users-x`, which matches nothing (the Phase 57 diagnosis; this lib
+# carried the pre-57 narrow `[:\\/]` class until Phase 63). Known
+# ambiguity: a genuine Unix path with a single-letter top dir (/x/proj)
+# is misread as a drive; the cwd-match fallback rescues that case.
 encode_cwd() {
-  # CC encodes project dirs by replacing each of ':', '\', '/' with '-'.
-  # Use sed (clearer than tr's backslash-quoting gotchas in the shell).
-  # Examples:
-  #   C:\Users\darre\Dev\Claude-Skeleton → C--Users-darre-Dev-Claude-Skeleton
-  #   /home/u/proj                       → -home-u-proj
-  printf '%s' "$1" | sed 's/[:\\/]/-/g'
+  local p="$1"
+  case "$p" in
+    /[A-Za-z]/*)
+      local drive="${p:1:1}"
+      p="$(printf '%s' "$drive" | tr '[:lower:]' '[:upper:]'):${p:2}"
+      ;;
+  esac
+  printf '%s' "$p" | sed 's/[^A-Za-z0-9]/-/g'
 }
 
 # find_current_jsonl: emit the path of the NEWEST JSONL whose `cwd`
@@ -93,39 +119,61 @@ find_current_jsonl() {
   fi
   local primary_dir="$PROJECTS_DIR/$encoded"
   if [ -d "$primary_dir" ]; then
-    find "$primary_dir" -maxdepth 1 -type f -name '*.jsonl' -printf '%T@\t%p\n' 2>/dev/null \
-      | sort -rn \
-      | awk 'NR==1 {print $2}'
-    return
+    # Portable newest-first (find -printf is GNU-only; macOS lacks it).
+    # ls -t is line-based: fine for per-file lines, pathological only for
+    # filenames containing newlines. Only return on a hit — an existing
+    # but empty dir must fall through to the cwd-match fallback (the old
+    # unconditional return made the fallback unreachable, Phase 63).
+    local newest
+    newest=$(ls -1t "$primary_dir"/*.jsonl 2>/dev/null | head -n 1)
+    if [ -n "$newest" ]; then
+      printf '%s\n' "$newest"
+      return
+    fi
   fi
-  # Fallback: scan all project dirs, pick newest JSONL whose first
-  # event names $PROJECT_DIR. Bounded by maxdepth + early-break on
-  # first-event match.
+  # Fallback: scan all project dirs, pick the newest JSONL whose early
+  # events name $PROJECT_DIR. Real transcripts don't carry `cwd` on the
+  # FIRST line (Phase 57 diagnosis: first lines are summary/meta events),
+  # so scan a bounded number of lines; paths are compared normalized
+  # (drive form, forward slashes, case-folded) so Git-Bash and Windows
+  # forms match.
   [ -d "$PROJECTS_DIR" ] || return
-  command -v python >/dev/null 2>&1 || return
-  python - "$PROJECTS_DIR" "$PROJECT_DIR" <<'PYFALLBACK'
-import json, os, sys
+  [ -n "$PYBIN" ] || return
+  "$PYBIN" - "$PROJECTS_DIR" "$PROJECT_DIR" <<'PYFALLBACK'
+import json, os, re, sys
 projects_dir, target = sys.argv[1], sys.argv[2]
+
+def norm(p):
+    if not isinstance(p, str): return ''
+    p = p.replace('\\', '/')
+    m = re.match(r'^/([A-Za-z])/(.*)$', p)      # /c/Users/x -> C:/Users/x
+    if m: p = m.group(1).upper() + ':/' + m.group(2)
+    return p.rstrip('/').lower()
+
+target_n = norm(target)
 candidates = []
 for entry in os.scandir(projects_dir):
-    if not entry.is_dir():
-        continue
-    for f in os.scandir(entry.path):
-        if not f.name.endswith('.jsonl') or not f.is_file():
-            continue
+    if not entry.is_dir(): continue
+    try:
+        files = list(os.scandir(entry.path))
+    except OSError:
+        continue                     # one unreadable project dir must not abort the scan
+    for f in files:
+        if not f.name.endswith('.jsonl') or not f.is_file(): continue
         try:
             with open(f.path, encoding='utf-8', errors='replace') as fh:
-                for line in fh:
+                for i, line in enumerate(fh):
+                    if i >= 40: break            # bounded scan for a cwd event
                     line = line.strip()
-                    if not line:
-                        continue
+                    if not line: continue
                     try:
                         ev = json.loads(line)
                     except Exception:
                         continue
-                    if ev.get('cwd') == target:
-                        candidates.append((f.stat().st_mtime, f.path))
-                    break
+                    if 'cwd' in ev:
+                        if norm(ev.get('cwd')) == target_n:
+                            candidates.append((f.stat().st_mtime, f.path))
+                        break                    # first cwd event settles it
         except OSError:
             continue
 candidates.sort(reverse=True)
@@ -135,16 +183,26 @@ PYFALLBACK
 }
 
 # ---- main ----
-if ! command -v python >/dev/null 2>&1; then
-  printf '%s python not on PATH — skipping telemetry\n' "$NOTICE_PREFIX" >&2
+if [ -z "$PYBIN" ]; then
+  printf '%s no working python/python3 on PATH — skipping telemetry\n' "$NOTICE_PREFIX" >&2
   exit 0
 fi
 
 mkdir -p "$EVENTS_DIR" "$SESSIONS_DIR" "$OBS_DIR" 2>/dev/null || exit 0
 
 JSONL_PATH=$(find_current_jsonl)
+# Fail-soft, but not fail-silent: if transcripts exist yet resolution
+# missed, surface ONE line before writing the documented stub — an
+# unresolvable transcript dir stayed invisible for eight weeks before
+# Phase 57 caught the same class in task-watchdog.
+if { [ -z "$JSONL_PATH" ] || [ ! -f "$JSONL_PATH" ]; } \
+   && [ -d "$PROJECTS_DIR" ] \
+   && find "$PROJECTS_DIR" -maxdepth 2 -name '*.jsonl' -print -quit 2>/dev/null | grep -q .; then
+  printf '%s transcript not resolved for %s under %s — writing stub telemetry (check project-dir encoding)\n' \
+    "$NOTICE_PREFIX" "$PROJECT_DIR" "$PROJECTS_DIR" >&2
+fi
 
-python - \
+"$PYBIN" - \
   "${JSONL_PATH:-}" \
   "$EVENTS_DIR" \
   "$SESSIONS_DIR" \

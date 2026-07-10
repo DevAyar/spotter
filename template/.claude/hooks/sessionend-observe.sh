@@ -38,8 +38,11 @@ mkdir -p "$OBS_DIR"
 # Phase 46 telemetry: generate per-event JSONL + per-session markdown
 # rollup + token-telemetry observation from the current session's JSONL
 # transcript. Lib always exits 0; failures here MUST NOT block the hook.
+# Its stderr is NOT swallowed (Phase 63): the lib is fail-soft by contract
+# and emits at most one notice line — a resolution miss or missing python
+# must be able to surface instead of dying invisibly here.
 if [ -x "$TELEMETRY_LIB" ] || [ -f "$TELEMETRY_LIB" ]; then
-  bash "$TELEMETRY_LIB" 2>/dev/null || true
+  bash "$TELEMETRY_LIB" || true
 fi
 
 # Phase 47c-1: cross-project shared-memory push. Pure git/bash, fail-soft —
