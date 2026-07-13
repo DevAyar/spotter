@@ -1,5 +1,10 @@
 # Session log — {{PROJECT_NAME}}
 
+> **Note (Phase 65):** the automated writer originally designed for this log
+> (`session-observer`) was retired in Phase 58 — nothing writes here
+> automatically, and no live mechanism reads it (`precompact-backup.sh` backs
+> it up only if present). Treat it as an optional, manually-maintained record.
+
 Per-session record. Reverse-chronological — newest at top. Each entry captures what was attempted, what landed, and what's next.
 
 ## Format
