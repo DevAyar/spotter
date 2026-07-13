@@ -128,8 +128,29 @@ def fmt(n):
     return f"{n / 1e6:.1f}M" if n >= 100_000 else f"{n:,}"
 
 newest_key = max(lineages, key=lambda k: lineages[k][-1][0])
-last_ended, last = lineages[newest_key][-1]
-last_usd = usd(last)
+newest_rollups = lineages[newest_key]
+last_ended, last = newest_rollups[-1]
+lineage_usd = usd(last)
+
+# Phase 66: the headline is the PER-SITTING delta — latest rollup minus the
+# previous checkpoint in the SAME lineage. A resumed lineage's latest rollup
+# is a multi-day CUMULATIVE figure; labeling it "session" created false
+# premises and permanently tripped warn_usd_per_session once cumulative
+# spend crossed the fixed value. Single-rollup lineages: delta == total.
+prev = newest_rollups[-2][1] if len(newest_rollups) > 1 else None
+if prev is not None:
+    sitting_usd = lineage_usd - usd(prev)
+    if sitting_usd < 0:
+        # defensive: malformed checkpoint ordering must not print a negative
+        # dollar — fall back to the lineage total (and drop the context).
+        sitting_usd = lineage_usd
+        sit = last
+        prev = None
+    else:
+        sit = {k: max(0, last[k] - prev[k]) for k in last}
+else:
+    sitting_usd = lineage_usd
+    sit = last
 
 # 7d figure = per-lineage window deltas, not a raw-rollup sum.
 window_start = last_ended - datetime.timedelta(days=7)
@@ -153,12 +174,17 @@ for key, rollups in lineages.items():
     if contrib > 0:
         week_usd += contrib
         week_n += 1
-cache = last["total_cache_read"] + last["total_cache_creation"]
+cache = sit["total_cache_read"] + sit["total_cache_creation"]
 
-line = (f"[token-cost] last session ~${last_usd:,.2f} "
-        f"(in {fmt(last['total_tokens_in'])} / out {fmt(last['total_tokens_out'])} / "
-        f"cache {fmt(cache)} @ {model} rates) | "
-        f"7d ~${week_usd:,.2f} across {week_n} lineage(s)")
+# Lineage cumulative as context, only when a prior checkpoint exists —
+# on a fresh lineage the delta IS the total and the context is noise.
+lineage_ctx = (f"| lineage ~${lineage_usd:,.2f} since {newest_key[:10]} "
+               if prev is not None else "")
+line = (f"[token-cost] last sitting ~${sitting_usd:,.2f} "
+        f"(in {fmt(sit['total_tokens_in'])} / out {fmt(sit['total_tokens_out'])} / "
+        f"cache {fmt(cache)} @ {model} rates) "
+        f"{lineage_ctx}"
+        f"| 7d ~${week_usd:,.2f} across {week_n} lineage(s)")
 
 def threshold(v):
     # bool is an int subclass; a stray JSON true must not become a $1 threshold
@@ -166,8 +192,8 @@ def threshold(v):
 
 over = []
 ws, w7 = threshold(cost.get("warn_usd_per_session")), threshold(cost.get("warn_usd_per_7d"))
-if ws is not None and last_usd > ws:
-    over.append(f"session>{ws:g}")
+if ws is not None and sitting_usd > ws:
+    over.append(f"sitting>{ws:g}")
 if w7 is not None and week_usd > w7:
     over.append(f"7d>{w7:g}")
 if over:

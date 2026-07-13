@@ -1656,6 +1656,64 @@ print('  stub emission honest (confidence, resolved_at, filename, summary) OK')
   echo "PASS telemetry-generator-fixture"
 }
 
+# Phase 66: the SessionStart cost line's headline must be the PER-SITTING
+# delta (latest rollup minus the prior checkpoint in the same lineage), not
+# the newest lineage's cumulative total — and warn_usd_per_session compares
+# the sitting delta. Pre-66, a resumed lineage printed its multi-day
+# cumulative as "last session" and permanently tripped the warn once
+# cumulative spend crossed the fixed value.
+scenario_cost_line_sitting_delta() {
+  echo ">> cost-line-sitting-delta: resumed lineage prints delta with no false trip; heavy single sitting still trips (Phase 66)"
+  TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-cost)
+  local root="$TEST_DIR/proj"
+  mkdir -p "$root/.claude/telemetry/sessions"
+  # Fixture pricing: $1 per Mtok in/out, no cache multipliers -> USD == Mtok in.
+  cat > "$root/.claude/telemetry/model-pricing.json" <<'JSON'
+{"models": {"test-model": {"input_per_mtok": 1, "output_per_mtok": 1}}, "cache_read_multiplier": 0, "cache_write_multiplier_5m": 0}
+JSON
+  cat > "$root/.claude/gate-config.json" <<'JSON'
+{"cost": {"enabled": true, "assumed_model": "test-model", "warn_usd_per_session": 5, "warn_usd_per_7d": 10000}}
+JSON
+  mk_rollup() { # <path> <started> <ended> <in_tokens>
+    cat > "$1" <<EOF
+---
+session_id: $(basename "$1" .md)
+started: $2
+ended: $3
+total_tokens_in: $4
+total_tokens_out: 0
+total_cache_creation: 0
+total_cache_read: 0
+turns_with_usage: 1
+data_available: true
+---
+EOF
+  }
+  # One lineage, resumed: checkpoint 5M in (\$5), cumulative 8M (\$8). Sitting = \$3.
+  mk_rollup "$root/.claude/telemetry/sessions/ckpt.md" "2026-07-01T00:00:00Z" "2026-07-10T00:00:00Z" 5000000
+  mk_rollup "$root/.claude/telemetry/sessions/cum.md"  "2026-07-01T00:00:00Z" "2026-07-12T00:00:00Z" 8000000
+  local out
+  out=$(CLAUDE_PROJECT_DIR="$root" bash "$SKELETON_DIR/.claude/hooks/sessionstart-cost-summary.sh" 2>&1)
+  assert_contains "$out" "last sitting ~\$3.00"
+  assert_contains "$out" "lineage ~\$8.00 since 2026-07-01"
+  if printf '%s' "$out" | grep -q '!!'; then
+    echo "ERROR: resumed lineage falsely tripped the per-sitting threshold: $out" >&2
+    exit 1
+  fi
+  echo "  leg 1: sitting-delta headline + lineage context + no false trip OK"
+  # Converse leg: a genuinely heavy SINGLE sitting (9M in = \$9 > 5) must still trip.
+  local root2="$TEST_DIR/proj2"
+  mkdir -p "$root2/.claude/telemetry/sessions"
+  cp "$root/.claude/telemetry/model-pricing.json" "$root2/.claude/telemetry/model-pricing.json"
+  cp "$root/.claude/gate-config.json" "$root2/.claude/gate-config.json"
+  mk_rollup "$root2/.claude/telemetry/sessions/big.md" "2026-07-12T00:00:00Z" "2026-07-12T02:00:00Z" 9000000
+  local out2
+  out2=$(CLAUDE_PROJECT_DIR="$root2" bash "$SKELETON_DIR/.claude/hooks/sessionstart-cost-summary.sh" 2>&1)
+  assert_contains "$out2" "last sitting ~\$9.00"
+  assert_contains "$out2" "sitting>5"
+  echo "PASS cost-line-sitting-delta"
+}
+
 # Phase 63: python3-only guard. A failing `python` stub on PATH simulates
 # the Windows Store execution alias (found by `command -v`, exits nonzero);
 # a `python3` shim execs the real interpreter. A presence-only probe goes
@@ -1875,6 +1933,7 @@ case "${1:-}" in
   check-remote-identity)            scenario_check_remote_identity ;;
   telemetry-generator-fixture)      scenario_telemetry_generator_fixture ;;
   telemetry-python3-only)           scenario_telemetry_python3_only ;;
+  cost-line-sitting-delta)          scenario_cost_line_sitting_delta ;;
   replace-with-yes-piped)           scenario_replace_with_yes_piped ;;
   hook-fp-exemption-git-commit-message) scenario_hook_fp_exemption_git_commit_message ;;
   all)
@@ -1918,6 +1977,7 @@ case "${1:-}" in
     scenario_check_remote_identity
     scenario_telemetry_generator_fixture
     scenario_telemetry_python3_only
+    scenario_cost_line_sitting_delta
     scenario_replace_with_yes_piped
     scenario_hook_fp_exemption_git_commit_message
     echo "ALL SCENARIOS PASSED"
@@ -1967,6 +2027,7 @@ Scenarios:
   check-remote-identity        --check-remote round-trips install_uuid/label/created byte-identical (Phase 62).
   telemetry-generator-fixture  Synthetic transcript -> events/rollup/observation via the cwd-match fallback (Phase 63).
   telemetry-python3-only       Failing python stub + real python3 -> execution-validated probe falls back (Phase 63).
+  cost-line-sitting-delta      Cost headline = per-sitting delta; no false trip on resumed lineages (Phase 66).
   replace-with-yes-piped       printf 'YES' | install.sh --mode=replace overwrites locally-modified file (Phase 30b H7).
   hook-fp-exemption-git-commit-message  Parser exempts -m bodies + heredoc/here-string payloads; counter-tests verify outside-region patterns still deny (Phase 30c).
   all                          Run every scenario in sequence.

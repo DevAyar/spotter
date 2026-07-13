@@ -207,3 +207,7 @@ jobs:
       - name: Scenario - telemetry-python3-only
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh telemetry-python3-only
+
+      - name: Scenario - cost-line-sitting-delta
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh cost-line-sitting-delta
