@@ -22,7 +22,7 @@ Each level watches the one below:
 | **L0** | Project work itself — code, content, features the team ships. | (no helpers — this is the work) |
 | **L1** | Project meta-management — watching project work. | `audit-helper`, `research-helper`, `monitoring-helper`, `plan-coordinator` |
 | **L2** | Meta-system management — watching the meta-system itself. | `self-audit-helper`, `agent-slicer`, `system-memory-helper`, `workflow-suggester` |
-| **L3** | Reserved for v1.2+ — watching how the manager decides. | (`manager-optimizer`, future) |
+| **L3** | Watching how the manager decides. | `manager-optimizer` (Phase 53, shipped v1) |
 
 Levels (responsibility) are independent from tiers (ship-mode, below). A helper can be T1 always-on at L2, or T3 opt-in at L1 — the axes don't collapse.
 
@@ -290,16 +290,22 @@ Helpers live in `.claude/agents/`. The baseline roster:
 | 5 | `project-tuner-helper` | `05_meta/` | L2 | Post-install customization. Inspects target, fills placeholders, generates approved customizations. |
 | 6 | `system-memory-helper` | `05_meta/` | L2 | System inventory — lists installed agents, skills, scripts, commands, hooks, plugins. |
 | 7 | `agent-slicer` | `05_meta/` | L2 | Surgical edits to existing agent files with frontmatter validation. |
-| 8 | `workflow-suggester` | `05_meta/` | L2 | Pattern detection over `SESSION_LOG.md`; suggests captures. |
+| 8 | `workflow-suggester` | `05_meta/` | L2 | Pattern detection over `.claude/observations/`; suggests captures. |
 | 9 | `self-audit-helper` | `05_meta/` | L2 | Meta-system drift detection (orphans, dead refs, doc drift, missing routes). |
 | 10 | `drift-checker` | `05_meta/` | L2 | Read-only version-drift check against `.skeleton-version`; surfaced by SessionStart hook. |
 | 11 | `task-watchdog` | `05_meta/` | L2 | Retrospective observer: long-running bash calls + recurring failures in prior session; invoked by SessionStart hook. |
+| 12 | `integration-installer` | `05_meta/` | L2 | Judgment companion to `scripts/install.sh` — target-state detection, conflict strategy, structured install plan. |
+| 13 | `script-builder` | `05_meta/` | L2 | Drafts bash scripts from approved `script` captures into `.claude/scripts/drafts/`; user reviews and promotes. |
+| 14 | `code-quality-auditor` | `05_meta/` | L2 | Plugin-source verification (three narrow heuristics); auto-fires at SessionStart with a 24h cooldown. |
+| 15 | `token-cost-monitor` | `05_meta/` | L2 | Reads Phase 46 telemetry + pricing + gate-config thresholds; ambient spend summaries, draft re-tier proposals. |
+| 16 | `manager-optimizer` | `05_meta/` | L3 | Watches the AI-decision and human/gate layers; drafts `CLAUDE_MANAGER.md` / `gate-config.json` refinements (Phase 53, shipped v1). |
+| 17 | `artifact-fit-analyzer` | `05_meta/` | L2 | OVERLAP / GAP / MISFIT / ORPHAN findings across the artifact set; drafts consolidation captures (Phase 56). |
 
 <!-- TEMPLATE STUB — project-tuner-helper extends this roster with project-specific helpers. -->
 
 ## Tier system
 
-- **T1 — Always-on baseline.** The eleven helpers above (four core + seven meta), the two scripts (commit/deploy), the two hooks (SessionStart/PreCompact), the six skills (`schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, `bash-safety`, `token-efficiency-monitor`, `plugin-roster-search`). Ships in every install.
+- **T1 — Always-on baseline.** The seventeen helpers above (four core + thirteen meta), the ten scripts under `.claude/scripts/`, the seven hook scripts wired across four events (PreCompact, PreToolUse, SessionStart, SessionEnd), the six skills (`schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, `bash-safety`, `token-efficiency-monitor`, `plugin-roster-search`). Ships in every install. Counts are re-derived mechanically when this line changes (see § Roster and doc surfaces update in the same phase).
 - **T2 — Escalation.** Helpers and scripts added for this project's specific needs. Loaded by default but project-specific.
 - **T3 — On-demand plugins.** Opt-in tooling (e.g. `browser-tester`). The manager only invokes T3 when explicitly relevant.
 
@@ -324,7 +330,7 @@ The A/B/C rhythm above is the default for medium-sized work. Two adjacent shapes
 
 - **Small fix** — one commit, no smoke test. Surgical doc-rot, single-file or byte-identical mirror edits, no mechanism change, no new artifact. Examples: field-count corrections, illustrative-example genericization, version-string updates in non-historical prose.
 - **Medium phase** — three-commit cadence (A/B/C above), smoke test before Commit A. New agent + script + hook wiring, schema extension, new artifact type. Examples: cruft-checker rollout, prior X-builder phases.
-- **Large overhaul** — split further, smoke test per slice. Multi-component sprints, cross-tier changes, anything spanning >1 agent + >1 schema simultaneously. Examples: future manager-optimizer rollout.
+- **Large overhaul** — split further, smoke test per slice. Multi-component sprints, cross-tier changes, anything spanning >1 agent + >1 schema simultaneously. Examples: the Phase 53 manager-optimizer rollout.
 
 Decision tree: ask "does this introduce new mechanism or only edit existing prose?" → small if prose-only; ask "does this span multiple new artifacts?" → large if yes; else medium.
 
@@ -335,6 +341,10 @@ Every shipped phase ships a `[Unreleased]` CHANGELOG bullet, regardless of size.
 ### Test-fixture updates land with the file change
 
 When a phase adds or removes files under `template/`, CI fixture counts in `.github/test-fixtures/` MUST update in the same commit. The Phase 46 → 46b → 46c arc is the canonical lesson: Phase 46 added 4 install-counted files (`.gitkeep` files skip per `scripts/install.sh:357`) but the `verify_marker 45` calls in `scenarios.sh` stayed stale, CI went red on both Phase 46 and Phase 46b, and Phase 46c shipped purely to bump the count. The fixture edit is two characters; a red CI tail is a separate phase. Don't ship the file change without the fixture update.
+
+### Roster and doc surfaces update in the same phase
+
+Any phase that adds, retires, or renames an artifact (agent, skill, script, command, hook) updates the roster/doc surfaces that enumerate it — the Helper roster + Tier system in this file, `ROUTING.md`, and `docs/ARCHITECTURE.md` — in the same phase, or records an explicit exemption in the phase's CHANGELOG bullet. **Why:** these surfaces have no other update trigger, so they rot silently — the canonical case is the drift Phase 64 reconciled, where eight phases of shipped components left the roster claiming 11 helpers while 17 shipped, ROUTING covering roughly half the handler surface, and ARCHITECTURE frozen at 0.9.0. **How to apply:** before the phase's final commit, grep the artifact's name into the three surfaces; a row or line each is the whole cost. Counts stated on these surfaces are re-derived mechanically (`ls | wc`) at edit time, never incremented from memory.
 
 ### Verify wiring claims against the commit, not the working tree
 
@@ -397,13 +407,15 @@ Mechanical stubs in this file (resolved at install by `project-tuner-helper`):
 - The `/goals` and `integration-checker` future-hook callouts (v1.1+ — text stays, stubs disappear when those land).
 - The helper-roster extension marker (`<!-- TEMPLATE STUB — project-tuner-helper extends this roster… -->`).
 
-**How per-project edits flow.** Tuning-surface edits land in the target project's local `.claude/` first. If a pattern proves itself across multiple projects (≥75% of installs / target 90%+, minimum 15 projects / target 20+, ≥4 weeks stable, zero negative observations — see `docs/ROADMAP.md` § Multi-project graduation), it graduates into the shared template. Before claude-skeleton's install base supports cross-install pattern detection, graduation happens manually via strategist judgment; v3+ formalizes it via `meta-session-observer` + `template-promoter` (relocated from v1.2.0 per Phase 44 — see `docs/ROADMAP.md` § v3.0+). Until graduation, the pattern stays local — each install's discipline diverges from the shared template by design. Locked-principle changes are still upstream — those land as PRs against claude-skeleton (or `docs/scratch/` audits followed by amendment phases like Phase 40 → 41). Tuning-surface tweaks are local-first.
+**How per-project edits flow.** Tuning-surface edits land in the target project's local `.claude/` first. If a pattern proves itself across multiple projects (≥75% of installs / target 90%+, minimum 15 projects / target 20+, stable through sufficient consecutive sessions and observation cycles, zero negative observations — see `docs/ROADMAP.md` § Multi-project graduation), it graduates into the shared template. Before claude-skeleton's install base supports cross-install pattern detection, graduation happens manually via strategist judgment; v3+ formalizes it via `meta-session-observer` + `template-promoter` (relocated from v1.2.0 per Phase 44 — see `docs/ROADMAP.md` § v3.0+). Until graduation, the pattern stays local — each install's discipline diverges from the shared template by design. Locked-principle changes are still upstream — those land as PRs against claude-skeleton (or `docs/scratch/` audits followed by amendment phases like Phase 40 → 41). Tuning-surface tweaks are local-first.
 
 ## Dogfood mirror invariants
 
 Skeleton repo root acts as the skeleton's own first installed project. Template-root files (`CLAUDE.md.template`, `CLAUDE_MANAGER.md.template`, `ROUTING.md.template`) have byte-identical dogfood mirrors at skeleton repo root, differing ONLY in resolved placeholder values (skeleton-as-project values). When editing any template-root file, the resolved dogfood mirror MUST be updated in the same commit.
 
 Dogfood-only artifacts explicitly scoped to dogfood per their phase brief (e.g. `cruft-checker`, which audits the skeleton's own roadmap; or `/graduation-review` (Phase 47d), the cross-install shared-memory maintainer report — neither has an analogue in target projects) are EXEMPT from template parity — this is a scoping decision, not a mirror gap. The phase brief that introduced the artifact records the dogfood-only scoping; absent that explicit scoping, mirror parity is the default.
+
+The converse exemption also exists (recorded Phase 64): two shipped-to-targets files are deliberately absent from the dogfood install — `docs/STATUS.md` and `PLUGINS.md` (both ship via their `.template` files). The skeleton's own operating record is `docs/SESSION_LOG.md` + `docs/CHANGELOG.md`, and its plugin installs are recorded in `docs/PLUGIN-INSTALLS-v1.1.4.md`. References to STATUS.md / PLUGINS.md on mirrored surfaces describe the convention targets receive; in dogfood the equivalents above apply. Nothing mechanical requires the files to exist — the only script touching either is `precompact-backup.sh`, which guards with backup-if-exists.
 
 ## Baseline semantics under update.sh
 

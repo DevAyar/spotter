@@ -1,10 +1,18 @@
 # Hooks
 
-Baseline Claude Code hooks that ship with claude-skeleton. Three events are wired up by default in `settings.json`:
+Baseline Claude Code hooks that ship with claude-skeleton. Four events are wired by default in `settings.json` — eight registrations across the seven hook scripts here plus one `.claude/scripts/` script wired as a hook:
 
-- **SessionStart** → `sessionstart-rules.sh` — does two jobs in one hook: (1) re-injects durable rules from `compactPrompt`, and (2) invokes `.claude/scripts/drift-check.sh` and folds any drift notice into the same `additionalContext` block. Fires on every SessionStart event (no `matcher` restriction). Failure of drift-check (missing/malformed `.skeleton-version`, missing jq) is swallowed — the hook always emits cleanly and never blocks session start.
 - **PreCompact** → `precompact-backup.sh` — backs up STATUS.md, SESSION_LOG.md, and CLAUDE.md before auto-compaction.
-- **SessionEnd** → `sessionend-observe.sh` — generates Phase 46 session telemetry and runs the shared-memory push when share mode is enabled. (Its session-boundary marker duty retired with `session-observer`, Phase 58.)
+- **PreToolUse** → `pretooluse-bash-safety.sh` + `pretooluse-powershell-safety.sh` — destructive-pattern gate on Bash / PowerShell tool calls. Fail-closed: a missing pattern lib or unparseable input denies rather than allows.
+- **SessionStart** → three registrations:
+  - `sessionstart-rules.sh` — three jobs in one hook: (1) re-injects durable rules from `compactPrompt`, (2) invokes `.claude/scripts/drift-check.sh` and folds any drift notice into the same `additionalContext` block, (3) invokes `.claude/scripts/task-watchdog.sh` to emit observations from the prior session's transcript. Failures of the sub-steps are swallowed — the hook always emits cleanly and never blocks session start.
+  - `.claude/scripts/plugin-quality-check.sh --hook` — code-quality-auditor's mechanical layer over installed plugin source; 24h cooldown.
+  - `sessionstart-cost-summary.sh` — one ambient token-spend line from Phase 46 telemetry against `gate-config.json` thresholds, plus the cooldown-gated Phase 53 optimizer nudge.
+- **SessionEnd** → two registrations:
+  - `sessionend-observe.sh` — generates Phase 46 session telemetry (via `.claude/lib/generate-session-telemetry.sh`) and runs the shared-memory push when share mode is enabled. (Its session-boundary marker duty retired with `session-observer`, Phase 58.)
+  - `sessionend-cost-proposals.sh` — folds staged retier/optimizer draft proposals into their ledgers at the session seam; increments the optimizer session counter.
+
+(The skeleton's own dogfood install wires one additional SessionStart entry, the dogfood-only `cruft-check.sh` — not shipped to targets.)
 
 ## What does NOT ship: `PostToolUse` and `SubagentStop`
 
@@ -36,4 +44,6 @@ If you're adding `PostToolUse` or `SubagentStop`, **re-read the finding above** 
 
 - `sessionstart-rules.sh` requires `jq`. If jq is missing the hook no-ops; the session still starts cleanly.
 - `precompact-backup.sh` requires nothing beyond standard POSIX tools.
-- `sessionend-observe.sh` requires nothing beyond standard POSIX tools (uses `mkdir`, `printf`, `date`).
+- `pretooluse-bash-safety.sh` / `pretooluse-powershell-safety.sh` require `jq` and their destructive-pattern libs under `.claude/lib/` — anything missing fails CLOSED (deny), never open.
+- `sessionstart-cost-summary.sh` / `sessionend-cost-proposals.sh` require a working `python` or `python3` (execution-validated probe, Phase 63); with neither present they exit 0 silently and the session is unaffected.
+- `sessionend-observe.sh` needs standard POSIX tools plus `jq` for CC's stdin payload; its telemetry lib needs a working python (same Phase 63 probe) and fail-softs to a stub rollup otherwise.

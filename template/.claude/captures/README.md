@@ -16,11 +16,12 @@ See [`../agents/05_meta/workflow-suggester.schema.md`](../agents/05_meta/workflo
 
 Each capture's `status` frontmatter field controls its lifecycle:
 
-- **`draft`** — set by `workflow-suggester` on creation. Awaiting human review. Future X-builders ignore.
-- **`approved`** — user manually edits the frontmatter to this. Future X-builders pick the capture up to generate the actual artifact.
+- **`draft`** — set by `workflow-suggester` on creation. Awaiting human review. X-builders ignore.
+- **`approved`** — user manually edits the frontmatter to this. X-builders pick the capture up to generate the actual artifact.
 - **`rejected`** — user manually edits to this. workflow-suggester respects as "do not re-suggest." The file persists as a do-not-re-suggest marker; don't delete it.
+- **`shipped`** — terminal success state (see `workflow-suggester.schema.md`): the artifact the capture proposed has landed. Set alongside a `shipped_to:` field naming the artifact path when the promotion happens.
 
-All three values count as "already considered" for `workflow-suggester`'s idempotency check. Re-running the agent against the same observations + the same captures produces zero new files.
+All four values count as "already considered" for `workflow-suggester`'s idempotency check. Re-running the agent against the same observations + the same captures produces zero new files.
 
 ## Operator notes
 
@@ -37,5 +38,5 @@ All three values count as "already considered" for `workflow-suggester`'s idempo
 
 ## Consumers (v1.1+, in sequence)
 
-- **`script-builder`** (Phase 3, not yet built) — reads captures with `status: approved` AND `suggested_artifact_type: script`. Generates an actual shell script under `.claude/scripts/` following the 5-section discipline.
+- **`script-builder`** (Phase 3, shipped) — reads captures with `status: approved` AND `suggested_artifact_type: script`. Drafts a shell script at `.claude/scripts/drafts/<source_pattern_id>.sh.draft` following the 5-section discipline; the user reviews, renames it into `.claude/scripts/`, and optionally flips the capture to `shipped` with `shipped_to:`.
 - Future `skill-builder` / `agent-builder` / `command-builder` — same shape, different `suggested_artifact_type` values.

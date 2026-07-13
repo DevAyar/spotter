@@ -1,5 +1,12 @@
-# TODO: Phase 4b — baseline .gitignore additions for target projects.
-# These entries get merged into the target's existing .gitignore (non-destructive).
+# claude-skeleton baseline .gitignore for target projects.
+#
+# How this lands (install.sh's real behavior, not a merge): install.sh copies
+# this file only when the target has NO top-level .gitignore — existing
+# top-level files are never overwritten or merged. If your repo already has a
+# .gitignore, add the entries below to it manually; the skeleton's hooks write
+# these runtime paths in EVERY install, and without the excludes they show up
+# as untracked noise. (A guarded merge/propagation mechanism is the known
+# Phase 49 gap — until it ships, this note is the honest contract.)
 
 # Claude Code session-local state
 .claude/agent-memory/
@@ -9,4 +16,27 @@
 
 # Hook runtime artifacts — per-session noise from SessionStart/SessionEnd hooks
 docs/SESSION_LOG.md
-.claude/observations/.session-ended
+
+# Observation layer (task-watchdog / code-quality-auditor / session-end
+# telemetry): persistent on disk for workflow-suggester consumption, but
+# per-install runtime data, not source-of-truth.
+.claude/observations/*.json
+.claude/observations/.last-watchdog-session
+.claude/.last-plugin-quality-check
+
+# Phase 46 telemetry: per-session JSONL + markdown rollups are per-install
+# local data. The .gitkeep + README in each telemetry subdir stay tracked.
+.claude/telemetry/events/*.jsonl
+.claude/telemetry/sessions/*.md
+
+# Phase 53 optimizer runtime: the session counter mutates every SessionEnd,
+# and staged drafts are transient (folded into their ledger at the seam).
+# The tracked ledger seeds (retier-proposals.json, optimizer-proposals.json)
+# stay in.
+.claude/telemetry/optimizer-state.json
+.claude/telemetry/*.draft.json
+
+# Phase 47 shared-memory (opt-in): local staging clone of the share remote +
+# last-push marker. Per-install runtime state.
+.claude/shared-memory/
+.claude/.last-shared-push
