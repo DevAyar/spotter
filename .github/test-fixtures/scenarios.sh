@@ -1600,7 +1600,10 @@ JSONL
 
   local ev="$TEST_DIR/.claude/telemetry/events/sess-tg-1.jsonl"
   local md="$TEST_DIR/.claude/telemetry/sessions/sess-tg-1.md"
-  local obs="$TEST_DIR/.claude/observations/token-telemetry-sess-tg-1.json"
+  # Phase 65: the schema mandates <pattern_id>.json as the filename.
+  local obs_pid obs
+  obs_pid=$("$pybin" -c "import hashlib; print(hashlib.sha256(('token_telemetry\n' + 'sess-tg-1').encode()).hexdigest())")
+  obs="$TEST_DIR/.claude/observations/$obs_pid.json"
   if [ ! -f "$ev" ]; then
     echo "ERROR: events JSONL missing — transcript resolution failed" >&2
     cat "$TEST_DIR/gen.out" >&2 2>/dev/null || true
@@ -1612,16 +1615,44 @@ JSONL
   assert_contains "$(cat "$md")" "total_tokens_in: 160"
   assert_contains "$(cat "$md")" "total_tokens_out: 60"
   assert_contains "$(cat "$md")" "data_available: true"
+  [ -f "$obs" ] || { echo "ERROR: observation not at <pattern_id>.json (Phase 65 filename rule)" >&2; ls "$TEST_DIR/.claude/observations" >&2 2>/dev/null; exit 1; }
   "$pybin" -c "
-import json, sys
+import json, os, sys
 d = json.load(open(sys.argv[1]))
 required = ['pattern_id','source','pattern_type','occurrences','first_seen','last_seen','resolved_at','evidence','confidence','privacy_class']
 missing = [k for k in required if k not in d]
 if missing: sys.exit(f'ERROR: observation missing schema fields: {missing}')
 if d['total_tokens_in'] != 160: sys.exit(f\"ERROR: total_tokens_in {d['total_tokens_in']} != 160\")
 if d['pattern_type'] != 'token_telemetry': sys.exit('ERROR: wrong pattern_type')
-print('  observation schema fields + totals OK')
+# Phase 65 schema-conformance counts:
+if os.path.basename(sys.argv[1]) != d['pattern_id'] + '.json': sys.exit('ERROR: filename != <pattern_id>.json')
+if d['resolved_at'] is not None: sys.exit(f\"ERROR: resolved_at non-null at emission: {d['resolved_at']}\")
+ev0 = d['evidence'][0]
+if not ev0.get('summary') or len(ev0['summary']) > 120: sys.exit('ERROR: evidence summary missing or >120 chars')
+if d['confidence'] != 'high': sys.exit(f\"ERROR: data-case confidence should be high, got {d['confidence']}\")
+print('  observation schema fields + totals + Phase 65 conformance OK')
 " "$obs"
+
+  # Phase 65 stub leg: an empty projects dir must produce an HONEST stub —
+  # confidence not 'high', resolved_at null, filename == pattern_id, summary present.
+  local target2="$TEST_DIR/target2"
+  mkdir -p "$target2/.claude" "$target2/projects-empty"
+  CLAUDE_PROJECT_DIR="$target2" CLAUDE_PROJECTS_DIR_OVERRIDE="$target2/projects-empty" \
+  CLAUDE_HOOK_SESSION_ID= CLAUDE_HOOK_TRANSCRIPT_PATH= \
+    bash "$TEST_DIR/.claude/lib/generate-session-telemetry.sh" > "$TEST_DIR/gen2.out" 2>&1
+  local stub
+  stub=$(ls "$target2/.claude/observations/"*.json 2>/dev/null | head -n 1)
+  [ -n "$stub" ] || { echo "ERROR: stub observation not written" >&2; cat "$TEST_DIR/gen2.out" >&2 2>/dev/null; exit 1; }
+  "$pybin" -c "
+import json, os, sys
+d = json.load(open(sys.argv[1]))
+if d['data_available'] is not False: sys.exit('ERROR: stub should carry data_available false')
+if d['confidence'] == 'high': sys.exit('ERROR: no-data stub must not claim confidence high')
+if d['resolved_at'] is not None: sys.exit('ERROR: stub resolved_at non-null at emission')
+if os.path.basename(sys.argv[1]) != d['pattern_id'] + '.json': sys.exit('ERROR: stub filename != <pattern_id>.json')
+if not d['evidence'][0].get('summary'): sys.exit('ERROR: stub evidence summary missing')
+print('  stub emission honest (confidence, resolved_at, filename, summary) OK')
+" "$stub"
   echo "PASS telemetry-generator-fixture"
 }
 

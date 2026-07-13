@@ -471,10 +471,17 @@ except OSError:
 
 # ---- write token-telemetry observation ----
 obs_pid = hashlib.sha256(('token_telemetry\n' + session_id).encode('utf-8')).hexdigest()
-obs_path = os.path.join(obs_dir, f'token-telemetry-{session_id}.json')
+# Schema rule (session-observer.schema.md :17): the filename IS
+# <pattern_id>.json. The old human-readable token-telemetry-<session_id>.json
+# prefix violated it (fixed Phase 65); target_resource keeps the session
+# identification. pattern_id stays sha256(pattern_type + signature), so
+# re-runs against the same session merge (idempotent).
+obs_path = os.path.join(obs_dir, f'{obs_pid}.json')
 
-# Use a fixed observation pattern_id derived from session_id so re-runs against
-# the same session merge (idempotent). filename prefix is human-readable.
+if data_available and turns_with_usage > 0:
+    ev_summary = f'session {session_id[:8]}: {total_in} in / {total_out} out across {turns_with_usage} turns'
+else:
+    ev_summary = 'no transcript data at SessionEnd - stub emission'
 out = {
     'pattern_id': obs_pid,
     'source': 'session-end-telemetry',
@@ -482,12 +489,15 @@ out = {
     'occurrences': 1,
     'first_seen': session_start,
     'last_seen': session_end,
-    'resolved_at': session_end,  # telemetry observations are point-in-time, not active patterns
+    # Point-in-time, session-bounded producer: emits null and never resolves
+    # (schema resolution-lifecycle asymmetry list, registered Phase 65).
+    'resolved_at': None,
     'evidence': [{
         'timestamp': session_end,
         'kind': 'session_summary',
+        'summary': ev_summary[:120],
     }],
-    'confidence': 'high',
+    'confidence': 'high' if (data_available and turns_with_usage > 0) else 'low',
     'privacy_class': 'safe-to-share',
     'target_resource': f'session:{session_id}',
     'total_tokens_in': total_in if turns_with_usage > 0 else None,
