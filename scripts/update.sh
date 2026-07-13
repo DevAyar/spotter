@@ -395,9 +395,10 @@ recorded in .claude/.skeleton-version. Classifies each file:
 Options:
   --source PATH    Path to a claude-skeleton checkout. Default: auto-detect or clone.
   --target PATH    Target project root. Default: current git repo root.
-  --auto-apply     Apply all template diffs without per-file prompts. New files still
-                   ask once; LOCALLY_MODIFIED and ORPHAN files still require explicit
-                   user input.  DISABLED during the first run after a 0.7.x→0.8.0
+  --auto-apply     Apply template diffs without per-file prompts: TEMPLATE_UPDATED and
+                   NEW files are applied with no prompt; ORPHAN files are kept with no
+                   prompt (--auto-apply never deletes); LOCALLY_MODIFIED files still
+                   prompt per-file.  DISABLED during the first run after a 0.7.x→0.8.0
                    schema migration (backfill mode).
   --dry-run        Print the update plan without changing anything.
   --check-remote   Fetch the latest released version from the skeleton repo

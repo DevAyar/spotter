@@ -35,8 +35,9 @@ rewrite.
 - **Version:** v1.1.4. The substrate has shipped — observation layer,
   capture/reuse loop, audit triad, vetted plugin bundle, and hook infrastructure
   all live and stable.
-- **Latest:** the closed-loop tuner-baseline fix landed at `789d2cd` —
-  per-project tuner customizations now survive `update.sh` byte-identical.
+- **Latest:** see [docs/CHANGELOG.md](docs/CHANGELOG.md) `[Unreleased]` — the
+  running record of landed phases, kept current by commit discipline (this
+  bullet deliberately names no commit, so it can't rot).
 - **In production:** Trainer-View (Flutter + Firebase), Echoes-Of-Gill (Godot),
   Pinball (starting up), plus the skeleton's own dogfood install.
 - **Forward direction:** compose with the ecosystem, don't compete with it. See

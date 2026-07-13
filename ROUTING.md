@@ -20,6 +20,11 @@ This table is the mechanical "for X, dispatch Y" map. The strategic "when to dis
 | Recursive scan / project-wide file count (`find`, `grep -r`, `wc` on globs) | `bash-safety` | Skill | Command scope + project root |
 | Session start after compact | `sessionstart-rules.sh` | Hook | `compactPrompt` from settings |
 | Before auto-compact | `precompact-backup.sh` | Hook | STATUS.md, SESSION_LOG.md, CLAUDE.md |
+| Bash / PowerShell tool call (destructive-pattern gate, fail-closed) | `pretooluse-bash-safety.sh` / `pretooluse-powershell-safety.sh` | Hook | Pattern libs in `.claude/lib/` |
+| Session start (plugin-source audit, 24h cooldown) | `.claude/scripts/plugin-quality-check.sh --hook` | Hook | Installed plugin cache |
+| Session start (ambient cost line + optimizer nudge) | `sessionstart-cost-summary.sh` | Hook | `.claude/telemetry/` + `gate-config.json` |
+| Session end (telemetry + shared-memory push) | `sessionend-observe.sh` | Hook | CC stdin payload → `generate-session-telemetry.sh` |
+| Session end (retier/optimizer draft fold) | `sessionend-cost-proposals.sh` | Hook | Staged `.claude/telemetry/*.draft.json` |
 | "Install / re-install / troubleshoot install of claude-skeleton" | `integration-installer` | Agent | Target path + desired mode |
 | "Set up new project / install skeleton / tune skeleton to this project" | `project-tuner-helper` | Agent | (no preload — inspects target on dispatch) |
 | "What do I have available / list installed agents / where is X" | `system-memory-helper` | Agent | (no preload — walks `.claude/` on dispatch) |
@@ -27,10 +32,22 @@ This table is the mechanical "for X, dispatch Y" map. The strategic "when to dis
 | "Modify agent N's tools / scope / description" | `agent-slicer` | Agent | Target agent file |
 | "Audit the meta-system for drift / orphans / dead refs" | `self-audit-helper` | Agent | (no preload — walks `.claude/` on dispatch) |
 | Token usage on subtask exceeds 1.5× expected envelope | `token-efficiency-monitor` | Skill | Task type + actual cost |
-| "What patterns are recurring / what should be automated" | `workflow-suggester` | Agent | `docs/SESSION_LOG.md` |
+| "What patterns are recurring / what should be automated" | `workflow-suggester` | Agent | `.claude/observations/` (+ existing captures for idempotency) |
+| "Am I up to date with skeleton?" | `drift-checker` | Agent | (no preload — reads `.claude/.skeleton-version`) |
+| "Did the prior session have anything slow or failing?" | `task-watchdog` | Agent | (no preload — reads the prior session's transcript) |
+| "Build the approved script capture(s)" | `script-builder` | Agent | Approved `script` captures in `.claude/captures/` |
+| "Vet plugin X / audit installed plugin source" | `code-quality-auditor` | Agent | Plugin name or cache path |
+| "What did that session cost / which helpers burn tokens / should anything re-tier?" | `token-cost-monitor` | Agent | (no preload — reads `.claude/telemetry/`) |
+| "What should this project's manager do differently / review the gates" | `manager-optimizer` | Agent | (no preload — closed input list per its definition) |
+| "Audit artifact fit / overlap / gaps across the artifact set" | `artifact-fit-analyzer` | Agent | (no preload — walks `.claude/` on dispatch) |
 | `/commit "<message>"` | `.claude/commands/commit.md` → `commit.sh` | Slash command | Commit message |
 | `/audit <doc>:<section>` | `.claude/commands/audit.md` → `audit-helper` | Slash command | Doc path + section header |
 | `/deploy [flags]` | `.claude/commands/deploy.md` → `deploy.sh` | Slash command | Deploy flags. Requires `N/A — skeleton has no deploy step; published as git tags + GitHub Release` placeholder filled by `project-tuner-helper`. |
 | `/smoke-test` | `.claude/commands/smoke-test.md` (T3 plugin marker) | Slash command | Last deploy target. Real impl lives in `browser-tester` plugin; manual fallback if not installed. |
+| `/share-enable <remote-url>` | `.claude/commands/share-enable.md` → `share-enable.sh` | Slash command | Remote URL + typed `enable` confirmation |
+| `/share-disable [--purge-remote]` | `.claude/commands/share-disable.md` → `share-disable.sh` | Slash command | (typed `purge` confirmation for the purge path) |
+| `/share-status` | `.claude/commands/share-status.md` → `share-status.sh` | Slash command | (read-only) |
+| `/share-push` | `.claude/commands/share-push.md` → `shared-memory-push.sh --manual` | Slash command | (no input — on-change gate) |
+| `/share-preview` | `.claude/commands/share-preview.md` → `shared-memory-push.sh --preview` | Slash command | (no input — dry-run) |
 
 <!-- Project-specific routes: project-tuner-helper extends below -->

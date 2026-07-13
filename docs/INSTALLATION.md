@@ -44,7 +44,9 @@ bash /path/to/claude-skeleton/scripts/install.sh
 
 Top-level files (`CLAUDE.md`, `README`, `.gitignore`, etc.) are
 **never** overwritten regardless of mode — only `.claude/` obeys mode
-semantics. Re-running install never clobbers project-level docs.
+semantics. And since Phase 62, `install.sh` refuses to run at all on a
+target that already has `.claude/.skeleton-version` — install is
+first-time-only; updating an existing install is `update.sh`'s job.
 
 ### Skeleton-on-skeleton self-install
 
@@ -124,8 +126,14 @@ It **never** applies to `LOCALLY_MODIFIED` or `ORPHAN` — those
 always require explicit input.
 
 Top-level files (`CLAUDE.md`, etc.) are not updated by `update.sh` —
-they're project-specific. Re-run `install.sh` manually if you want
-to refresh them.
+they're project-specific. Refreshing them on an installed target is
+currently **manual** (copy what you want from the skeleton's
+`template/` by hand): `install.sh` refuses to re-run on an installed
+target (Phase 62). If a from-scratch reinstall is genuinely intended,
+the escape hatch is deleting `.claude/.skeleton-version` first — be
+aware this mints a new install identity, resets per-file baselines,
+and orphans any shared-memory history keyed to the old uuid. The
+missing top-level refresh path is a known limitation.
 
 ### Per-file baselines in `.skeleton-version`
 

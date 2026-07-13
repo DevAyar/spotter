@@ -144,7 +144,7 @@ Either stage can be invoked independently:
 
 ## Helper roster overview
 
-`template/.claude/agents/` ships organized by numbered tier folders, each holding helpers of a related role. The skeleton-baseline roster at 0.9.0:
+`template/.claude/agents/` ships organized by numbered tier folders, each holding helpers of a related role. The current skeleton-baseline roster (17 agents; counts re-derived mechanically at edit time per `CLAUDE_MANAGER.md` § Roster and doc surfaces update in the same phase):
 
 | Tier | Folder | Helpers | Role |
 |---|---|---|---|
@@ -152,11 +152,11 @@ Either stage can be invoked independently:
 | 2 | `02_audit/` | `audit-helper` | Drift detection between docs and reality. |
 | 3 | `03_monitoring/` | `monitoring-helper` | Session retro and grading. |
 | 4 | `04_planning/` | `plan-coordinator` | Multi-file cross-cutting change planning. |
-| 5 | `05_meta/` | `project-tuner-helper`, `system-memory-helper`, `agent-slicer`, `workflow-suggester`, `self-audit-helper`, `integration-installer` | Meta-management — customizes, inspects, modifies, audits, and installs. |
+| 5 | `05_meta/` | `project-tuner-helper`, `system-memory-helper`, `agent-slicer`, `workflow-suggester`, `self-audit-helper`, `integration-installer`, `drift-checker`, `task-watchdog`, `script-builder`, `code-quality-auditor`, `token-cost-monitor`, `manager-optimizer`, `artifact-fit-analyzer` | Meta-management — customizes, inspects, modifies, audits, installs, observes, and optimizes. |
 
-`template/.claude/skills/` ships six baseline skills at 0.9.0: `schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, and `bash-safety` (behavioral conventions for the manager), plus `token-efficiency-monitor` and `plugin-roster-search` (meta-management observers).
+`template/.claude/skills/` ships six baseline skills: `schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, and `bash-safety` (behavioral conventions for the manager), plus `token-efficiency-monitor` and `plugin-roster-search` (meta-management observers).
 
-The `05_meta/` tier is what makes the skeleton self-managing: `project-tuner-helper` customizes a fresh install, `self-audit-helper` watches the meta-system for drift, `agent-slicer` modifies agents safely, `system-memory-helper` answers "what's installed," `workflow-suggester` proposes captures for recurring patterns, and `integration-installer` is the judgment companion to `scripts/install.sh`. Each is context-aware — it inspects whatever `.claude/` is active where it runs, so it works inside `claude-skeleton` itself and inside any target project after install.
+The `05_meta/` tier is what makes the skeleton self-managing: `project-tuner-helper` customizes a fresh install, `self-audit-helper` watches the meta-system for drift, `agent-slicer` modifies agents safely, `system-memory-helper` answers "what's installed," `workflow-suggester` proposes captures for recurring patterns, and `integration-installer` is the judgment companion to `scripts/install.sh`. The v1.1.x–v1.2.0 additions extend the same self-management loop: `drift-checker` and `task-watchdog` observe (version drift, prior-session patterns), `script-builder` builds from approved captures, `code-quality-auditor` vets plugin source, `token-cost-monitor` watches spend, `manager-optimizer` watches the manager itself, and `artifact-fit-analyzer` audits the artifact set for overlap and gaps. Each is context-aware — it inspects whatever `.claude/` is active where it runs, so it works inside `claude-skeleton` itself and inside any target project after install.
 
 ## Where things live
 
