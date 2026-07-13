@@ -13,7 +13,7 @@ This table is the mechanical "for X, dispatch Y" map. The strategic "when to dis
 | "Grade the last N sessions" | `monitoring-helper` | Agent | Rubric + session count |
 | "Plan a multi-file change to X" | `plan-coordinator` | Agent | Goal + constraints |
 | "Commit the staged changes" | `.claude/scripts/commit.sh` | Script | Commit message |
-| "Deploy the project" | `.claude/scripts/deploy.sh` | Script | Deploy flags. Requires `N/A — skeleton has no deploy step; published as git tags + GitHub Release` placeholder filled by `project-tuner-helper` before the script is usable. |
+| "Deploy the project" | `.claude/scripts/deploy.sh` | Script | Deploy flags. Deploy command resolved by `project-tuner-helper` as N/A — the skeleton has no deploy step (releases publish as git tags + GitHub Release), so the script is unused in this install. |
 | "About to edit `.claude/settings.json` / `package.json` / `tsconfig.json` / workflow YAML" | `schema-verify-before-edit` | Skill | The file being edited |
 | "About to Read a file > 1000 lines" | `god-file-grep-first` | Skill | Target symbol / section |
 | Edit on source file under `src/` or `lib/` | `post-edit-test-suggest` | Skill | Test command |
@@ -42,7 +42,7 @@ This table is the mechanical "for X, dispatch Y" map. The strategic "when to dis
 | "Audit artifact fit / overlap / gaps across the artifact set" | `artifact-fit-analyzer` | Agent | (no preload — walks `.claude/` on dispatch) |
 | `/commit "<message>"` | `.claude/commands/commit.md` → `commit.sh` | Slash command | Commit message |
 | `/audit <doc>:<section>` | `.claude/commands/audit.md` → `audit-helper` | Slash command | Doc path + section header |
-| `/deploy [flags]` | `.claude/commands/deploy.md` → `deploy.sh` | Slash command | Deploy flags. Requires `N/A — skeleton has no deploy step; published as git tags + GitHub Release` placeholder filled by `project-tuner-helper`. |
+| `/deploy [flags]` | `.claude/commands/deploy.md` → `deploy.sh` | Slash command | Deploy flags. Deploy command resolved as N/A — the skeleton has no deploy step (releases publish as git tags + GitHub Release), so the command is unused in this install. |
 | `/smoke-test` | `.claude/commands/smoke-test.md` (T3 plugin marker) | Slash command | Last deploy target. Real impl lives in `browser-tester` plugin; manual fallback if not installed. |
 | `/share-enable <remote-url>` | `.claude/commands/share-enable.md` → `share-enable.sh` | Slash command | Remote URL + typed `enable` confirmation |
 | `/share-disable [--purge-remote]` | `.claude/commands/share-disable.md` → `share-disable.sh` | Slash command | (typed `purge` confirmation for the purge path) |

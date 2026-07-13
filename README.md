@@ -39,7 +39,7 @@ rewrite.
   running record of landed phases, kept current by commit discipline (this
   bullet deliberately names no commit, so it can't rot).
 - **In production:** Trainer-View (Flutter + Firebase), Echoes-Of-Gill (Godot),
-  Pinball (starting up), plus the skeleton's own dogfood install.
+  plus the skeleton's own dogfood install.
 - **Forward direction:** compose with the ecosystem, don't compete with it. See
   [`docs/ROADMAP.md`](docs/ROADMAP.md) for the readiness-gated sequence.
 

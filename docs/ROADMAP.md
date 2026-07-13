@@ -49,15 +49,15 @@ Three tracks open immediately — no prior gate to wait on.
 **Phase 35 evaluation window.** The v1.1.4 substrate evaluation is open now. Four observations accruing in parallel:
 
 - **Skeleton dogfood baseline.** Claude Code restart with all six ecosystem plugins active. Observation of how the manager handles a typical session under the new substrate.
-- **Pinball install.** Pinball is the first target installed via fresh-mode `install.sh`. This is the bootstrap-on-empty-project test case.
+- **Pinball install (leg retired).** Pinball was the planned fresh-mode `install.sh` bootstrap-on-empty-project test case; the project was retired (2026-07) before contributing signal. The fresh-install path is covered by CI's `fresh-install` scenario instead.
 - **Trainer-View update.** TV runs `bash <skeleton>/scripts/update.sh` to refresh from v1.0 to v1.1.4. This is the existing-project update test case with significant local modifications.
 - **Echoes-Of-Gill update.** EoG runs the same update flow, staggered after TV so they don't share noise in the observation stream.
 
-Phase 35 closes when empirical data from all four installs is available — when each has run for enough sessions to surface real signals. From there, Phase 36 decisions get made on data, not vibes.
+Phase 35 closes when empirical data from the three remaining installs (dogfood, TV, EoG) is available — when each has run for enough sessions to surface real signals. From there, Phase 36 decisions get made on data, not vibes.
 
 After Phase 35 closes: Phase 36 handles component retire/repurpose decisions. `plan-coordinator` is on the evaluation list. `commit.sh` and `audit-helper` are already ratified as keepers per a recent CC-side audit. Phase 37 codifies the audit-as-skeleton-primitive workflow into `CLAUDE_MANAGER.md` as a `## Strategic audit cycle` section.
 
-The skeleton itself receives every tier through direct commits — the skeleton edits itself. Target projects (TV, EoG, Pinball, plus any future installs) receive each tier through `bash <skeleton>/scripts/update.sh` run from inside the project. The update mechanism classifies each file as `UNCHANGED`, `TEMPLATE_UPDATED`, `LOCALLY_MODIFIED`, `NEW`, or `ORPHAN` (a stale-but-matching baseline folds into `UNCHANGED` via match-rebaseline, Phase 59) and prompts before any destructive change. Updates are safe by default — the script refuses to overwrite local modifications without explicit user say-so.
+The skeleton itself receives every tier through direct commits — the skeleton edits itself. Target projects (TV, EoG, plus any future installs) receive each tier through `bash <skeleton>/scripts/update.sh` run from inside the project. The update mechanism classifies each file as `UNCHANGED`, `TEMPLATE_UPDATED`, `LOCALLY_MODIFIED`, `NEW`, or `ORPHAN` (a stale-but-matching baseline folds into `UNCHANGED` via match-rebaseline, Phase 59) and prompts before any destructive change. Updates are safe by default — the script refuses to overwrite local modifications without explicit user say-so.
 
 ## Gated on first-project signal sufficiency
 
@@ -67,7 +67,7 @@ This is the big architectural reframe from the strategist session that opened Ph
 
 This matters because the projects are different. **Pinball governs pinball. Trainer-View governs TV.** Each project's discipline diverges naturally over time because the work itself differs — a mobile app with a deployed backend has different audit needs than a game in active gameplay development, which has different needs again from a pinball prototype starting up. A single shared manager-optimizer would either over-fit to one project's patterns and force them on the others, or stay vague enough to be useless. Per-project instances let each project tune itself without contaminating its siblings.
 
-Per-project mechanisms don't need cross-install validation — that's a v3+ concern. The previous monolithic gating was over-gating for per-project mechanisms whose design only needs one project's data. Trainer-View (mobile-deployed Firebase) + Echoes-Of-Gill (Godot game) remain the canonical first samples for per-project component design — they cover real structural variation between a deployed mobile backend and a game in active development. Pinball joins as anticipated additive sample whenever it arrives — enriches the per-project mechanism's reach, not gating to its design.
+Per-project mechanisms don't need cross-install validation — that's a v3+ concern. The previous monolithic gating was over-gating for per-project mechanisms whose design only needs one project's data. Trainer-View (mobile-deployed Firebase) + Echoes-Of-Gill (Godot game) remain the canonical first samples for per-project component design — they cover real structural variation between a deployed mobile backend and a game in active development. A third sample was anticipated from Pinball, but that project was retired (2026-07) before contributing — additional installs enrich the per-project mechanism's reach; none gate its design.
 
 The bar separation matters: v1.2.0 design start is per-project mechanism design (one project's data suffices); v3+ graduation needs broad install-base evidence (≥15 projects, 75%+ adoption). Conflating the two bars over-gates v1.2.0 work that doesn't depend on cross-install signal.
 
