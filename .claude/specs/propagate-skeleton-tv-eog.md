@@ -1,6 +1,6 @@
 ---
 id: propagate-skeleton-tv-eog
-status: draft
+status: approved
 created: 2026-07-14T04:55:00Z
 schedule: 2026-07-15
 goal: Propagate skeleton Phases 48-68 to Trainer-View and Echoes-of-Gill via update.sh
@@ -34,6 +34,16 @@ goal: Propagate skeleton Phases 48-68 to Trainer-View and Echoes-of-Gill via upd
 
 ## Locked decisions
 
+- (Spec review, 2026-07-14) `update.sh --check-remote` runs as STEP ONE of
+  each leg — Phase-62-fixed and CI-guarded, costs seconds, and silences the
+  drift-checker's empty-cache nag with a truthful answer instead of a
+  standing lie-by-omission.
+- (Spec review, 2026-07-14) `warn_usd_per_session` retuning WAITS for
+  sitting-scale data — retune per install after ~a week. Retuning at
+  propagation time guesses the distribution the measurement fix exists to
+  measure (the P1-rejection discipline applied to its own descendant); the
+  interim over-threshold markers, or silence, are honest signal, not a
+  defect.
 - update.sh from inside each repo's own session; never install.sh.
 - Order: Trainer-View first (largest customization surface — best early
   signal on LOCALLY_MODIFIED handling), then Echoes-of-Gill, staggered so
@@ -62,7 +72,5 @@ in the target's own notes.
 
 ## Open questions
 
-- Run `update.sh --check-remote` first in each target to refresh the drift
-  cache? Harmless post-62; nice-to-have, not blocking.
-- Retune EoG's / TV's `warn_usd_per_session` in the same sitting, or after a
-  week of sitting-scale data? (Lean: wait for data.)
+None — both resolved at spec review (2026-07-14) and recorded in Locked
+decisions above.
