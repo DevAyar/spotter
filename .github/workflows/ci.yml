@@ -184,6 +184,10 @@ jobs:
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh watchdog-transcript-resolution
 
+      - name: Scenario - watchdog-dedup-reobserve
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh watchdog-dedup-reobserve
+
       - name: Scenario - match-rebaseline
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh match-rebaseline

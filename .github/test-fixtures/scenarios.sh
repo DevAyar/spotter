@@ -1390,6 +1390,120 @@ JSONL
   echo "PASS watchdog-transcript-resolution"
 }
 
+# Phase 67: producer fixes. (1) Resumed-session transcripts REPLAY the full
+# prior history under a new sessionId (the Phase 66 lineage phenomenon) — the
+# merge path must dedup by event identity or occurrences double and evidence
+# arrives twice. (2) Bash failure signatures narrow by exit code + command
+# head so heterogeneous one-offs stay in separate sub-threshold buckets.
+scenario_watchdog_dedup_reobserve() {
+  echo ">> watchdog-dedup-reobserve: replayed lineage merges without duplication; heterogeneous one-offs stay sub-threshold (Phase 67)"
+  TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-wdd)
+  git clone -q --depth 1 "file://$SKELETON_DIR" "$TEST_DIR/skel"
+  (
+    cd "$TEST_DIR/skel"
+    clone_dir="$PWD"
+    fx="$TEST_DIR/projects"
+    # Mirror of task-watchdog.sh's encode_cwd — keep in sync.
+    wd_encode() {
+      local p="$1"
+      case "$p" in
+        /[A-Za-z]/*)
+          local d="${p:1:1}"
+          p="$(printf '%s' "$d" | tr '[:lower:]' '[:upper:]'):${p:2}"
+          ;;
+      esac
+      printf '%s' "$p" | sed 's/[^A-Za-z0-9]/-/g'
+    }
+    pybin=""
+    for cand in python python3; do
+      if command -v "$cand" >/dev/null 2>&1 && "$cand" -c 'pass' >/dev/null 2>&1; then
+        pybin="$cand"; break
+      fi
+    done
+    [ -n "$pybin" ] || { echo "SKIP watchdog-dedup-reobserve (no working python)"; exit 0; }
+    cwd_as_python_sees=$("$pybin" -c 'import sys; print(sys.argv[1])' "$clone_dir")
+    enc=$(wd_encode "$clone_dir")
+    dir="$fx/$enc"; mkdir -p "$dir"
+
+    # fail_pair <sid> <ts_use> <ts_result> <tool_id> <command> <error_content>
+    fail_pair() {
+      printf '{"type":"assistant","sessionId":"%s","isSidechain":false,"cwd":"%s","timestamp":"%s","message":{"content":[{"type":"tool_use","id":"%s","name":"Bash","input":{"command":"%s"}}]}}\n' "$1" "$cwd_as_python_sees" "$2" "$4" "$5"
+      printf '{"type":"user","sessionId":"%s","isSidechain":false,"cwd":"%s","timestamp":"%s","toolUseResult":{"exitCode":1},"message":{"content":[{"type":"tool_result","tool_use_id":"%s","content":"%s","is_error":true}]}}\n' "$1" "$cwd_as_python_sees" "$3" "$4" "$6"
+    }
+
+    # Leg 1 — dedup. Prior session: 3 SAME-signature failures (same command,
+    # same exit, same error line — a legitimate recurrence).
+    {
+      printf '{"type":"summary","sessionId":"wd67-a","timestamp":"2026-07-01T00:00:00Z"}\n'
+      fail_pair wd67-a "2026-07-01T00:01:00Z" "2026-07-01T00:01:30Z" a1 "pytest" "assert failed: widget count mismatch"
+      fail_pair wd67-a "2026-07-01T00:02:00Z" "2026-07-01T00:02:30Z" a2 "pytest" "assert failed: widget count mismatch"
+      fail_pair wd67-a "2026-07-01T00:03:00Z" "2026-07-01T00:03:30Z" a3 "pytest" "assert failed: widget count mismatch"
+    } > "$dir/one.jsonl"
+    printf '{"type":"summary","sessionId":"wd67-b","timestamp":"2026-07-02T00:00:00Z"}\n{"type":"user","sessionId":"wd67-b","isSidechain":false,"cwd":"%s","timestamp":"2026-07-02T00:00:01Z","message":{"content":[]}}\n' "$cwd_as_python_sees" > "$dir/two.jsonl"
+    touch -t 202607010000 "$dir/one.jsonl"
+    touch -t 202607020000 "$dir/two.jsonl"
+    rm -f .claude/observations/.last-watchdog-session
+    CLAUDE_PROJECT_DIR="$clone_dir" CLAUDE_PROJECTS_DIR_OVERRIDE="$fx" \
+      bash .claude/scripts/task-watchdog.sh > /dev/null 2>&1
+    obs=$(grep -l '"pattern_type": "recurring_failure"' .claude/observations/*.json 2>/dev/null | head -n 1)
+    [ -n "$obs" ] || { echo "ERROR: first observation not emitted" >&2; exit 1; }
+    "$pybin" -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert d['occurrences'] == 3, f\"first pass occ {d['occurrences']} != 3\"
+assert len(d['evidence']) == 3, f\"first pass ev {len(d['evidence'])} != 3\"
+print('  first pass: occ=3, ev=3 OK')
+" "$obs"
+
+    # The resume: a NEW sessionId whose transcript REPLAYS the same 3 events
+    # (cumulative lineage), plus a fresh newest placeholder so the replayed
+    # transcript is second-newest.
+    {
+      printf '{"type":"summary","sessionId":"wd67-c","timestamp":"2026-07-03T00:00:00Z"}\n'
+      fail_pair wd67-c "2026-07-01T00:01:00Z" "2026-07-01T00:01:30Z" a1 "pytest" "assert failed: widget count mismatch"
+      fail_pair wd67-c "2026-07-01T00:02:00Z" "2026-07-01T00:02:30Z" a2 "pytest" "assert failed: widget count mismatch"
+      fail_pair wd67-c "2026-07-01T00:03:00Z" "2026-07-01T00:03:30Z" a3 "pytest" "assert failed: widget count mismatch"
+    } > "$dir/three.jsonl"
+    printf '{"type":"summary","sessionId":"wd67-d","timestamp":"2026-07-04T00:00:00Z"}\n{"type":"user","sessionId":"wd67-d","isSidechain":false,"cwd":"%s","timestamp":"2026-07-04T00:00:01Z","message":{"content":[]}}\n' "$cwd_as_python_sees" > "$dir/four.jsonl"
+    touch -t 202607030000 "$dir/three.jsonl"
+    touch -t 202607040000 "$dir/four.jsonl"
+    CLAUDE_PROJECT_DIR="$clone_dir" CLAUDE_PROJECTS_DIR_OVERRIDE="$fx" \
+      bash .claude/scripts/task-watchdog.sh > /dev/null 2>&1
+    "$pybin" -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+ts = [e['timestamp'] for e in d['evidence']]
+assert d['occurrences'] == 3, f\"replay doubled occurrences: {d['occurrences']} != 3\"
+assert len(ts) == len(set(ts)), f'replay duplicated evidence: {ts}'
+print('  replayed lineage: occ stays 3, evidence unique OK')
+" "$obs"
+
+    # Leg 2 — heterogeneous one-offs: 3 DIFFERENT commands each failing once
+    # with the generic exit-code content. Must NOT aggregate into one bucket.
+    rm -f .claude/observations/*.json .claude/observations/.last-watchdog-session
+    rm -rf "$fx"
+    dir="$fx/$enc"; mkdir -p "$dir"
+    {
+      printf '{"type":"summary","sessionId":"wd67-e","timestamp":"2026-07-05T00:00:00Z"}\n'
+      fail_pair wd67-e "2026-07-05T00:01:00Z" "2026-07-05T00:01:30Z" e1 "alpha --run" "Exit code 1"
+      fail_pair wd67-e "2026-07-05T00:02:00Z" "2026-07-05T00:02:30Z" e2 "beta --run" "Exit code 1"
+      fail_pair wd67-e "2026-07-05T00:03:00Z" "2026-07-05T00:03:30Z" e3 "gamma --run" "Exit code 1"
+    } > "$dir/five.jsonl"
+    printf '{"type":"summary","sessionId":"wd67-f","timestamp":"2026-07-06T00:00:00Z"}\n{"type":"user","sessionId":"wd67-f","isSidechain":false,"cwd":"%s","timestamp":"2026-07-06T00:00:01Z","message":{"content":[]}}\n' "$cwd_as_python_sees" > "$dir/six.jsonl"
+    touch -t 202607050000 "$dir/five.jsonl"
+    touch -t 202607060000 "$dir/six.jsonl"
+    CLAUDE_PROJECT_DIR="$clone_dir" CLAUDE_PROJECTS_DIR_OVERRIDE="$fx" \
+      bash .claude/scripts/task-watchdog.sh > /dev/null 2>&1
+    if grep -l '"pattern_type": "recurring_failure"' .claude/observations/*.json >/dev/null 2>&1; then
+      echo "ERROR: heterogeneous one-off failures aggregated into a false recurrence" >&2
+      grep -l '"pattern_type": "recurring_failure"' .claude/observations/*.json >&2
+      exit 1
+    fi
+    echo "  heterogeneous one-offs: separate sub-threshold buckets, no observation OK"
+  )
+  echo "PASS watchdog-dedup-reobserve"
+}
+
 scenario_match_rebaseline() {
   echo ">> match-rebaseline: stale-but-matching entry -> UNCHANGED + baseline caught up; converse stays LOCALLY_MODIFIED (Phase 59)"
   # Clone the skeleton as a MUTABLE source — the live repo is never mutated.
@@ -1928,6 +2042,7 @@ case "${1:-}" in
   hook-fail-closed-bash-safety)     scenario_hook_fail_closed_bash_safety ;;
   cruft-check-fixture)              scenario_cruft_check_fixture ;;
   watchdog-transcript-resolution)   scenario_watchdog_transcript_resolution ;;
+  watchdog-dedup-reobserve)         scenario_watchdog_dedup_reobserve ;;
   match-rebaseline)                 scenario_match_rebaseline ;;
   rebase-only-persist)              scenario_rebase_only_persist ;;
   check-remote-identity)            scenario_check_remote_identity ;;
@@ -1972,6 +2087,7 @@ case "${1:-}" in
     scenario_hook_fail_closed_bash_safety
     scenario_cruft_check_fixture
     scenario_watchdog_transcript_resolution
+    scenario_watchdog_dedup_reobserve
     scenario_match_rebaseline
     scenario_rebase_only_persist
     scenario_check_remote_identity
@@ -2022,6 +2138,7 @@ Scenarios:
   hook-fail-closed-bash-safety Missing lib → PreToolUse hook emits deny JSON (Phase 30b H5).
   cruft-check-fixture          Broken markdown link → cruft-check.sh heuristic-i observation (Phase 30b H5).
   watchdog-transcript-resolution  Encoded-dir + cwd-fallback transcript resolution emits observations (Phase 57).
+  watchdog-dedup-reobserve     Replayed lineage merges without x2 duplication; heterogeneous one-offs sub-threshold (Phase 67).
   match-rebaseline             Stale-but-matching baseline -> UNCHANGED + caught up; converse stays LOCALLY_MODIFIED (Phase 59).
   rebase-only-persist          Rebase-only run (all buckets empty) persists the marker through the early exit (Phase 62).
   check-remote-identity        --check-remote round-trips install_uuid/label/created byte-identical (Phase 62).

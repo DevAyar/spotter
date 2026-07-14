@@ -307,6 +307,17 @@ with fh:
                 ) or content_str.startswith('<tool_use_error>')
                 if failed:
                     sig = normalize_error_signature(content_str)
+                    # Phase 67: "exit code n" alone bucketed unrelated one-off
+                    # commands into false recurrences (four heterogeneous
+                    # failures aggregated x8 in the first triage circuit).
+                    # Bash failures narrow by exit code + command head; a
+                    # genuinely recurring failure (same script, same exit,
+                    # same error line) still accumulates. Thresholds unmoved.
+                    if sig and tu['name'] == 'Bash':
+                        cmd0 = tu['input'].get('command', '') if isinstance(tu['input'], dict) else ''
+                        head = cmd0.strip().split(None, 1)[0] if cmd0.strip() else ''
+                        head = os.path.basename(re.sub(r'\d+', 'N', head))[:40]
+                        sig = f"{sig}|exit:{exit_code}|cmd:{head}"
                     if sig:
                         errors[sig].append({
                             'tool_name': tu['name'],
@@ -353,11 +364,27 @@ def write_observation(pid, ptype, signature, events, notes=None):
         new_evidence.append(entry)
 
     if existing:
-        occurrences = int(existing.get('occurrences', 0)) + len(events)
-        first_seen = existing.get('first_seen') or new_evidence[0]['timestamp']
-        last_seen = new_evidence[-1]['timestamp']
         prior_evidence = existing.get('evidence') or []
-        combined = (prior_evidence + new_evidence)[-evidence_cap:]
+        # Phase 67: resumed-session transcripts REPLAY the full prior event
+        # history under a NEW sessionId (the Phase 66 lineage phenomenon), so
+        # re-observing a lineage re-detects every old event. Pre-67 this
+        # branch appended blindly — occurrences doubled and evidence arrived
+        # twice (the exact x2 shape the first triage circuit surfaced). Merge
+        # by event identity: only genuinely new evidence counts.
+        def _ident(e):
+            return (e.get('timestamp'), e.get('kind'),
+                    e.get('tool_name'), e.get('summary'))
+        seen = {_ident(e) for e in prior_evidence if isinstance(e, dict)}
+        kept = [e for e in new_evidence if _ident(e) not in seen]
+        if not kept:
+            # Nothing new — a pure replay. True no-op: do not rewrite the
+            # file (a rewrite would also regression-reset resolved_at on a
+            # triaged observation for zero new signal).
+            return
+        occurrences = int(existing.get('occurrences', 0)) + len(kept)
+        first_seen = existing.get('first_seen') or new_evidence[0]['timestamp']
+        last_seen = kept[-1]['timestamp']
+        combined = (prior_evidence + kept)[-evidence_cap:]
         source = existing.get('source', 'task-watchdog')
     else:
         occurrences = len(events)
