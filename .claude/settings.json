@@ -16,7 +16,7 @@
       "Agent"
     ]
   },
-  "compactPrompt": "Durable rules:\n- TWO .claude/ dirs exist: ./.claude/ (working ON the meta-system) and ./template/.claude/ (gets installed INTO target projects). Never conflate.\n- Template files use .template suffix. Don't edit them as live config.\n- Non-destructive install: code that touches a target project's .claude/ must merge, never overwrite.\n- Plan before structural changes. This project is the foundation other projects inherit.\n- Verify file existence before recommending a path or command.",
+  "compactPrompt": "Durable rules:\n- TWO .claude/ dirs exist: ./.claude/ (working ON the meta-system) and ./template/.claude/ (gets installed INTO target projects). Never conflate.\n- Template files use .template suffix. Don't edit them as live config.\n- Non-destructive install: code that touches a target project's .claude/ must merge, never overwrite.\n- Plan before structural changes. This project is the foundation other projects inherit.\n- Verify file existence before recommending a path or command.\n- After compaction, Read the anchor region before the first Edit to any file — read-state does not survive summarization.",
   "hooks": {
     "PreCompact": [
       {
