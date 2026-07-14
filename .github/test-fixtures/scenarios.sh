@@ -107,7 +107,7 @@ scenario_fresh_install() {
   bash "$SKELETON_DIR/scripts/install.sh" \
     --source "$SKELETON_DIR" --target "$TEST_DIR" \
     --mode=fresh --claude-only
-  verify_marker 74
+  verify_marker 75
   echo "PASS fresh-install"
 }
 
@@ -1138,7 +1138,7 @@ LEGACY
     cat "$TEST_DIR/.claude/.skeleton-version" >&2
     exit 1
   fi
-  verify_marker 74
+  verify_marker 75
   echo "PASS backfill-migrate"
 }
 
@@ -1193,7 +1193,7 @@ with open(sys.argv[1]) as f:
     d = json.load(f)
 raw = d.get('raw_template_baselines')
 n = len(raw) if isinstance(raw, dict) else None
-if n != 74:
+if n != 75:
     sys.exit(f'ERROR: expected 71 raw_template_baselines after migration, got {n}')
 print(f'  raw_template_baselines present after migration: {n} entries')
 " "$marker"
@@ -1828,6 +1828,60 @@ EOF
   echo "PASS cost-line-sitting-delta"
 }
 
+# Phase 68: the scheduled-goals surfacer prints exactly ONE ambient line for
+# approved+due specs and NOTHING for drafts — a draft never surfaces as
+# actionable (the approval gate is load-bearing) — and --hook honors the
+# 24h cooldown marker.
+scenario_goals_surface() {
+  echo ">> goals-surface: approved+due -> one line; overdue-but-draft -> silent; --hook cooldown (Phase 68)"
+  TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-goals)
+  local root="$TEST_DIR/proj"
+  mkdir -p "$root/.claude/specs"
+  mk_spec() { # <path> <status> <schedule> <id>
+    cat > "$1" <<EOF
+---
+id: $4
+status: $2
+created: 2026-07-01T00:00:00Z
+schedule: $3
+goal: fixture goal for $4
+---
+
+## Research findings
+- fixture
+EOF
+  }
+  # Leg 1: approved + past date -> exactly one [goals] line naming the slug,
+  # cooldown marker written.
+  mk_spec "$root/.claude/specs/ship-widget.md" approved 2026-01-01 ship-widget
+  local out
+  out=$(CLAUDE_PROJECT_DIR="$root" bash "$SKELETON_DIR/.claude/scripts/goals-surface.sh" 2>&1)
+  assert_contains "$out" "[goals] 1 scheduled goal(s) due"
+  assert_contains "$out" "ship-widget"
+  assert_eq "$(printf '%s\n' "$out" | grep -c .)" "1"
+  [ -f "$root/.claude/.last-goals-surface" ] || { echo "ERROR: cooldown marker not written" >&2; exit 1; }
+  echo "  leg 1: one line, slug named, marker written OK"
+  # Leg 2: overdue but DRAFT -> silent.
+  local root2="$TEST_DIR/proj2"
+  mkdir -p "$root2/.claude/specs"
+  mk_spec "$root2/.claude/specs/still-draft.md" draft 2026-01-01 still-draft
+  local out2
+  out2=$(CLAUDE_PROJECT_DIR="$root2" bash "$SKELETON_DIR/.claude/scripts/goals-surface.sh" 2>&1)
+  if [ -n "$out2" ]; then
+    echo "ERROR: draft spec surfaced as actionable: $out2" >&2
+    exit 1
+  fi
+  echo "  leg 2: overdue draft stays silent OK"
+  # Leg 3: --hook honors the cooldown leg 1 just wrote.
+  out=$(CLAUDE_PROJECT_DIR="$root" bash "$SKELETON_DIR/.claude/scripts/goals-surface.sh" --hook 2>&1)
+  if [ -n "$out" ]; then
+    echo "ERROR: cooldown not honored under --hook: $out" >&2
+    exit 1
+  fi
+  echo "  leg 3: --hook cooldown honored OK"
+  echo "PASS goals-surface"
+}
+
 # Phase 63: python3-only guard. A failing `python` stub on PATH simulates
 # the Windows Store execution alias (found by `command -v`, exits nonzero);
 # a `python3` shim execs the real interpreter. A presence-only probe goes
@@ -2049,6 +2103,7 @@ case "${1:-}" in
   telemetry-generator-fixture)      scenario_telemetry_generator_fixture ;;
   telemetry-python3-only)           scenario_telemetry_python3_only ;;
   cost-line-sitting-delta)          scenario_cost_line_sitting_delta ;;
+  goals-surface)                    scenario_goals_surface ;;
   replace-with-yes-piped)           scenario_replace_with_yes_piped ;;
   hook-fp-exemption-git-commit-message) scenario_hook_fp_exemption_git_commit_message ;;
   all)
@@ -2094,6 +2149,7 @@ case "${1:-}" in
     scenario_telemetry_generator_fixture
     scenario_telemetry_python3_only
     scenario_cost_line_sitting_delta
+    scenario_goals_surface
     scenario_replace_with_yes_piped
     scenario_hook_fp_exemption_git_commit_message
     echo "ALL SCENARIOS PASSED"
@@ -2145,6 +2201,7 @@ Scenarios:
   telemetry-generator-fixture  Synthetic transcript -> events/rollup/observation via the cwd-match fallback (Phase 63).
   telemetry-python3-only       Failing python stub + real python3 -> execution-validated probe falls back (Phase 63).
   cost-line-sitting-delta      Cost headline = per-sitting delta; no false trip on resumed lineages (Phase 66).
+  goals-surface                Approved+due spec -> one ambient line; drafts silent; --hook cooldown (Phase 68).
   replace-with-yes-piped       printf 'YES' | install.sh --mode=replace overwrites locally-modified file (Phase 30b H7).
   hook-fp-exemption-git-commit-message  Parser exempts -m bodies + heredoc/here-string payloads; counter-tests verify outside-region patterns still deny (Phase 30c).
   all                          Run every scenario in sequence.

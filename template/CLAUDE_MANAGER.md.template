@@ -93,7 +93,7 @@ When materially uncertain — about to assert a fact, API, file path, line numbe
 
 **Scope: MATERIAL uncertainty only.** This is not a license for clarifying-question avalanches. Trivial, reversible, or low-blast-radius ambiguity gets a default-and-proceed — `Flow + safety, both` above governs. *Material* = a claim load-bearing for the change, or a destructive / shared-state action that depends on it. A guessed variable name in a draft you'll iterate on is not material; a guessed file path in a `git rm` command is.
 
-**Interaction with plan-mode and `/goals`.** Plan-mode is the natural seam: surface uncertainties in the plan (one line each, named) so the approval gate disposes of them before execution rather than mid-edit. For request-level under-specification (goals, scope), the `/goals` clarifying seam (v1.1+ future hook) is the upstream catch — its absence does not waive this directive; until `/goals` ships, ask inline in plan mode. Counter-pattern to avoid: emitting confident text that contains a hedge ("I believe …", "should be …") about a load-bearing claim — convert the hedge into a verification step or a question.
+**Interaction with plan-mode and `/goals`.** Plan-mode is the natural seam: surface uncertainties in the plan (one line each, named) so the approval gate disposes of them before execution rather than mid-edit. For request-level under-specification (goals, scope), the `/goals` pipeline (shipped Phase 68) is the upstream catch — route spec-shaped requests there; for everything else, ask inline in plan mode as before. Counter-pattern to avoid: emitting confident text that contains a hedge ("I believe …", "should be …") about a load-bearing claim — convert the hedge into a verification step or a question.
 
 ### Recon is read-only; the first edit is gated
 
@@ -305,7 +305,7 @@ Helpers live in `.claude/agents/`. The baseline roster:
 
 ## Tier system
 
-- **T1 — Always-on baseline.** The seventeen helpers above (four core + thirteen meta), the ten scripts under `.claude/scripts/`, the seven hook scripts wired across four events (PreCompact, PreToolUse, SessionStart, SessionEnd), the six skills (`schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, `bash-safety`, `token-efficiency-monitor`, `plugin-roster-search`). Ships in every install. Counts are re-derived mechanically when this line changes (see § Roster and doc surfaces update in the same phase).
+- **T1 — Always-on baseline.** The seventeen helpers above (four core + thirteen meta), the eleven scripts under `.claude/scripts/`, the seven hook scripts wired across four events (PreCompact, PreToolUse, SessionStart, SessionEnd), the six skills (`schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, `bash-safety`, `token-efficiency-monitor`, `plugin-roster-search`). Ships in every install. Counts are re-derived mechanically when this line changes (see § Roster and doc surfaces update in the same phase).
 - **T2 — Escalation.** Helpers and scripts added for this project's specific needs. Loaded by default but project-specific.
 - **T3 — On-demand plugins.** Opt-in tooling (e.g. `browser-tester`). The manager only invokes T3 when explicitly relevant.
 
@@ -404,7 +404,7 @@ This file ships in two layers. **Locked architectural principles** carry over un
 Mechanical stubs in this file (resolved at install by `project-tuner-helper`):
 
 - The `{{PROJECT_NAME}}` placeholder in the title.
-- The `/goals` and `integration-checker` future-hook callouts (v1.1+ — text stays, stubs disappear when those land).
+- The `integration-checker` future-hook callout (v2.0 — text stays, stub disappears when it lands). The `/goals` callout resolved when it shipped (Phase 68).
 - The helper-roster extension marker (`<!-- TEMPLATE STUB — project-tuner-helper extends this roster… -->`).
 
 **How per-project edits flow.** Tuning-surface edits land in the target project's local `.claude/` first. If a pattern proves itself across multiple projects (≥75% of installs / target 90%+, minimum 15 projects / target 20+, stable through sufficient consecutive sessions and observation cycles, zero negative observations — see `docs/ROADMAP.md` § Multi-project graduation), it graduates into the shared template. Before claude-skeleton's install base supports cross-install pattern detection, graduation happens manually via strategist judgment; v3+ formalizes it via `meta-session-observer` + `template-promoter` (relocated from v1.2.0 per Phase 44 — see `docs/ROADMAP.md` § v3.0+). Until graduation, the pattern stays local — each install's discipline diverges from the shared template by design. Locked-principle changes are still upstream — those land as PRs against claude-skeleton (or `docs/scratch/` audits followed by amendment phases like Phase 40 → 41). Tuning-surface tweaks are local-first.
@@ -472,3 +472,11 @@ The optimizer named in ROADMAP's v1.2.0 bullet, shipped v1: one instance per ins
 **Approval flow:** its captures review like any other capture — `draft`, then human-edited `approved` or `rejected`. Approved `manual_action` captures execute as **user-directed edits** (consolidation, new artifact, type conversion, or removal); the analyzer itself never edits, moves, or deletes an artifact.
 
 **Boundaries, one line each:** cruft-checker owns stale references in docs/config; artifact-fit-analyzer owns structural relationships among live artifacts; manager-optimizer owns decision patterns and loop pruning; code-quality-auditor owns plugin auditing.
+
+## Goal pipeline (/goals + scheduled goals, Phase 68)
+
+`/goals <goal statement>` turns a goal into a build-ready spec via three stages: repo-local RESEARCH (strictly read-only — Tier 1, no web, no mutations), ONE batched CLARIFY round covering only what research could not answer (zero questions is a valid outcome; numbered options for terse replies; no second round uninvited), and a SPEC written to `.claude/specs/<slug>.md` per `goal-spec.schema.md`, always `status: draft`.
+
+**When to route through /goals vs answer directly:** multi-session goals, work that should outlive the current context, and components whose build deserves a reviewable spec → the pipeline. Quick tasks, single-file fixes, and questions → handle directly; forcing them through the pipeline is ceremony. The tell, when in doubt: if the "what does done look like" conversation has more than one exchange in it, spec it.
+
+**Lifecycle + consumption:** nothing consumes a `draft`. The user flips `draft → approved` by hand-editing the frontmatter; X-builders or dispatched phases consume `approved` specs and flip them to `consumed`; `abandoned` never resurfaces. A `schedule` value (ISO date / `daily` / `weekly` / `monthly` — due semantics in the schema, approved-only) makes a spec surface as at most one ambient SessionStart line via `goals-surface.sh` (24h cooldown, wired through `sessionstart-rules.sh` — SessionStart hooks only, never cron, never `claude -p`). Inherited design properties: draft-only, approval-gated, non-interrupting, batch-at-seams.

@@ -215,3 +215,7 @@ jobs:
       - name: Scenario - cost-line-sitting-delta
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh cost-line-sitting-delta
+
+      - name: Scenario - goals-surface
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh goals-surface

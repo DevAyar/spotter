@@ -49,5 +49,7 @@ This table is the mechanical "for X, dispatch Y" map. The strategic "when to dis
 | `/share-status` | `.claude/commands/share-status.md` → `share-status.sh` | Slash command | (read-only) |
 | `/share-push` | `.claude/commands/share-push.md` → `shared-memory-push.sh --manual` | Slash command | (no input — on-change gate) |
 | `/share-preview` | `.claude/commands/share-preview.md` → `shared-memory-push.sh --preview` | Slash command | (no input — dry-run) |
+| `/goals <goal statement>` | `.claude/commands/goals.md` (research → one clarify round → spec) | Slash command | Goal statement; writes `.claude/specs/<slug>.md` draft |
+| Session start (due scheduled goals, 24h cooldown) | `goals-surface.sh` via `sessionstart-rules.sh` | Hook | `.claude/specs/` approved+scheduled frontmatter |
 
 <!-- Project-specific routes: project-tuner-helper extends below -->
