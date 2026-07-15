@@ -49,7 +49,9 @@ repo. Existing install: `bash <skeleton-checkout>/scripts/update.sh` — it
 classifies every file (unchanged / template-updated / locally-modified / new /
 orphan) and never overwrites your local modifications without a per-file
 prompt. `install.sh` refuses to re-run on an installed target, so the two
-paths can't be confused. Details: [`docs/INSTALLATION.md`](docs/INSTALLATION.md).
+paths can't be confused. First 15 minutes after install:
+[`docs/GETTING-STARTED.md`](docs/GETTING-STARTED.md). Mechanics:
+[`docs/INSTALLATION.md`](docs/INSTALLATION.md).
 
 ## What it is not
 
