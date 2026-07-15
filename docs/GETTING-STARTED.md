@@ -68,6 +68,9 @@ Line by line:
   cosmetic; ignorable.)
 - **The plugin auditor ran silently** — it checks installed plugin source on
   a 24h cooldown and only writes observation files; no news is good news.
+  (Plugins are opt-in — see
+  [`PLUGINS-GETTING-STARTED.md`](PLUGINS-GETTING-STARTED.md) for the vetted
+  bundle and the eyes-open install pattern.)
 - **No cost line yet** — it needs a completed session's telemetry. From your
   second session it looks like:
 
