@@ -1,6 +1,6 @@
 ---
 id: propagate-skeleton-tv-eog
-status: approved
+status: consumed
 created: 2026-07-14T04:55:00Z
 schedule: 2026-07-15
 goal: Propagate skeleton Phases 48-68 to Trainer-View and Echoes-of-Gill via update.sh
@@ -74,3 +74,11 @@ in the target's own notes.
 
 None — both resolved at spec review (2026-07-14) and recorded in Locked
 decisions above.
+
+## Consumption record (2026-07-14)
+
+- Trainer-View leg: landed at `ae642bc`.
+- Echoes-of-Gill leg: landed at `7ecd96c` (LOCAL — push held per the
+  standing contingency, unpushed backlog present in that repo).
+- Follow-up carried by Locked decisions: per-install `warn_usd_per_session`
+  re-read after ~a week of sitting-scale data.
