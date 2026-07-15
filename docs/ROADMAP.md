@@ -2,9 +2,9 @@
 
 The sequencing doc for claude-skeleton. v1.0 → v2.0+. Living — updated as slices land. For backward-looking history see [`CHANGELOG.md`](CHANGELOG.md). For the project's identity and locked principles in plain-English form, see [`STORY.md`](STORY.md). For orchestration mechanics, strategic judgment patterns, plugin discipline rules, and the three-commit cadence rubric, see [`../CLAUDE_MANAGER.md`](../CLAUDE_MANAGER.md).
 
-The substrate has shipped — **v1.1.4** is the current version, with the observation layer, capture/reuse loop, audit triad, plugin bundle, and hook infrastructure all live and stable. The governance vision is now locked: claude-skeleton is a structural immune system for projects, with per-project governance as the centerpiece principle. The road ahead is the sequence by which that vision lands — onboarding next, then ecosystem integration, then per-project manager-optimization (v1.2.0), then mature plugin recommendation (v2.0), then a multi-LLM sibling at some indefinite later point.
+The substrate has shipped — **v1.1.5** is the current version, with the observation layer, capture/reuse loop, audit triad, plugin bundle, and hook infrastructure all live and stable. The governance vision is now locked: claude-skeleton is a structural immune system for projects, with per-project governance as the centerpiece principle. The road ahead is the sequence by which that vision lands — onboarding next, then ecosystem integration, then per-project manager-optimization (v1.2.0), then mature plugin recommendation (v2.0), then a multi-LLM sibling at some indefinite later point.
 
-## Where we are now (v1.1.4)
+## Where we are now (v1.1.5)
 
 Each line below is a governance capability the substrate already supports — not a feature recap.
 

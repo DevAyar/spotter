@@ -66,7 +66,7 @@ paths can't be confused. First 15 minutes after install:
 
 ## Where it is now
 
-- **Version:** v1.1.4, with the running record in
+- **Version:** v1.1.5, with the running record in
   [docs/CHANGELOG.md](docs/CHANGELOG.md) `[Unreleased]` (this bullet
   deliberately names no commit, so it can't rot).
 - **In production:** Trainer-View (Flutter + Firebase), Echoes-Of-Gill

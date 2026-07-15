@@ -57,7 +57,7 @@ Durable rules:
 (Generic defaults - dispatch project-tuner-helper to tune this block to your project.)
 
 [skeleton-drift] cache empty (no last-known remote version).
-  installed: 1.1.4
+  installed: 1.1.5
   refresh:   bash scripts/update.sh --check-remote
 
 [task-watchdog] transcript not resolved for <your project> — check project-dir encoding
