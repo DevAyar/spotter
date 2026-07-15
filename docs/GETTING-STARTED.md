@@ -43,7 +43,18 @@ Transcribed from a real fresh install — you'll see something very close to
 this, folded into your session context:
 
 ```
-{{COMPACT_PROMPT}}
+[claude-skeleton] First session in this project — welcome.
+The skeleton added agents, skills, scripts, commands, and hooks under .claude/ —
+all of it observes and drafts; nothing changes your project without your approval.
+A quiet first session is correct: the system speaks when it has observed something.
+First move worth trying:  /goals <a real small goal>
+The 15-minute tour: docs/GETTING-STARTED.md in the skeleton checkout
+
+Durable rules:
+- Plan before structural changes; anything that changes files waits for approval.
+- Verify file existence before recommending a path or command.
+- After compaction, Read the anchor region before the first Edit to any file - read-state does not survive summarization.
+(Generic defaults - dispatch project-tuner-helper to tune this block to your project.)
 
 [skeleton-drift] cache empty (no last-known remote version).
   installed: 1.1.4
@@ -54,10 +65,11 @@ this, folded into your session context:
 
 Line by line:
 
-- **`{{COMPACT_PROMPT}}`** — yes, a literal placeholder. Install copies
-  templates as-is; the tuner fills them. Dispatch `project-tuner-helper`
-  (the install's closing line told you the same) and this becomes your
-  project's durable-rules block. Looks like a bug; isn't.
+- **The welcome block** — fires exactly once per install (a flag the install
+  dropped and this first session consumed); you'll never see it again.
+- **`Durable rules`** — the generic defaults every install ships with; the
+  block's own last line says the move: dispatch `project-tuner-helper` to
+  tune it to your project.
 - **`[skeleton-drift] cache empty`** — the marker has no cached remote
   version yet. Optional: run `bash <skeleton>/scripts/update.sh
   --check-remote` once and this goes silent until a new skeleton release
