@@ -346,9 +346,11 @@ Two follow-up agents handle the post-install customization:
   the install (mode selection, conflict resolution). Optional;
   `install.sh` is self-contained.
 - **`project-tuner-helper`** — inspects the target project after
-  install, recommends placeholder fills for the nine `{{...}}`
-  placeholders in `CLAUDE.md`, `CLAUDE_MANAGER.md`, `ROUTING.md`,
-  and `settings.json`, generates approved customizations.
+  install, recommends placeholder fills for the seven `{{...}}`
+  placeholders in `CLAUDE.md`, `CLAUDE_MANAGER.md`, and `ROUTING.md`
+  (`settings.json` ships a generic compactPrompt default the tuner
+  refines rather than a placeholder, Phase 72), and generates
+  approved customizations.
 
 Both are documented in [`ARCHITECTURE.md`](ARCHITECTURE.md#install-flow).
 

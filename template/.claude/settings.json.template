@@ -16,7 +16,7 @@
       "Agent"
     ]
   },
-  "compactPrompt": "{{COMPACT_PROMPT}}",
+  "compactPrompt": "Durable rules:\n- Plan before structural changes; anything that changes files waits for approval.\n- Verify file existence before recommending a path or command.\n- After compaction, Read the anchor region before the first Edit to any file - read-state does not survive summarization.\n(Generic defaults - dispatch project-tuner-helper to tune this block to your project.)",
   "hooks": {
     "PreCompact": [
       {

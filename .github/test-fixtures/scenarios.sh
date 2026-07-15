@@ -119,12 +119,12 @@ scenario_fresh_install() {
   fi
   grep -q "Durable rules" "$TEST_DIR/.claude/settings.json" \
     || { echo "ERROR: generic compactPrompt default missing" >&2; exit 1; }
-  # The resolved settings.json classifies LOCALLY_MODIFIED (fleet-standard
-  # protected state, same as every tuned install) — NOT TEMPLATE_UPDATED,
-  # which would offer to regress the default back to the raw placeholder.
+  # The default ships IN the template (no placeholder, no install-time
+  # substitution), so a fresh install's settings.json is genuinely
+  # UNCHANGED — no spurious prompt on the very first update.
   local dout
   dout=$(bash "$SKELETON_DIR/scripts/update.sh" --source "$SKELETON_DIR" --target "$TEST_DIR" --dry-run < /dev/null 2>&1)
-  assert_contains "$dout" "locally modified files:       1"
+  assert_contains "$dout" "locally modified files:       0"
   assert_contains "$dout" "template updates available:   0"
   echo "PASS fresh-install"
 }
