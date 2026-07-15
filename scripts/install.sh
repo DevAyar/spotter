@@ -527,4 +527,11 @@ confirm_replace
 [ "$DRY_RUN" = true ] && info "DRY RUN — planned operations:"
 plan_and_execute
 write_version_marker
+# Phase 73: drop the gitignored first-run flag — the SessionStart rules
+# chain consumes it exactly once to print the welcome. update.sh never
+# creates it, so existing installs never see the welcome. Runtime state
+# outside the template inventory: cannot perturb classification.
+if [ "$DRY_RUN" = false ]; then
+  date -u +"%Y-%m-%dT%H:%M:%SZ" > "$TARGET_PATH/.claude/.first-run" 2>/dev/null || true
+fi
 summary

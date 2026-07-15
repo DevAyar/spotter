@@ -126,6 +126,25 @@ scenario_fresh_install() {
   dout=$(bash "$SKELETON_DIR/scripts/update.sh" --source "$SKELETON_DIR" --target "$TEST_DIR" --dry-run < /dev/null 2>&1)
   assert_contains "$dout" "locally modified files:       0"
   assert_contains "$dout" "template updates available:   0"
+  # Phase 73: the first-run welcome fires exactly once, then never again.
+  [ -f "$TEST_DIR/.claude/.first-run" ] || { echo "ERROR: install did not drop .first-run flag" >&2; exit 1; }
+  local hout1 hout2 hout3
+  hout1=$(cd "$TEST_DIR" && CLAUDE_PROJECT_DIR="$TEST_DIR" bash .claude/hooks/sessionstart-rules.sh 2>/dev/null || true)
+  assert_contains "$hout1" "First session in this project"
+  assert_contains "$hout1" "Durable rules"
+  [ ! -f "$TEST_DIR/.claude/.first-run" ] || { echo "ERROR: welcome did not consume the flag" >&2; exit 1; }
+  hout2=$(cd "$TEST_DIR" && CLAUDE_PROJECT_DIR="$TEST_DIR" bash .claude/hooks/sessionstart-rules.sh 2>/dev/null || true)
+  if printf '%s' "$hout2" | grep -q "First session in this project"; then
+    echo "ERROR: welcome fired twice" >&2; exit 1
+  fi
+  # Existing-install leg: an update run never recreates the flag.
+  bash "$SKELETON_DIR/scripts/update.sh" --source "$SKELETON_DIR" --target "$TEST_DIR" < /dev/null > /dev/null 2>&1 || true
+  [ ! -f "$TEST_DIR/.claude/.first-run" ] || { echo "ERROR: update.sh recreated the first-run flag" >&2; exit 1; }
+  hout3=$(cd "$TEST_DIR" && CLAUDE_PROJECT_DIR="$TEST_DIR" bash .claude/hooks/sessionstart-rules.sh 2>/dev/null || true)
+  if printf '%s' "$hout3" | grep -q "First session in this project"; then
+    echo "ERROR: welcome resurfaced after update" >&2; exit 1
+  fi
+  echo "  first-run welcome: once, consumed, never again (incl. post-update) OK"
   echo "PASS fresh-install"
 }
 

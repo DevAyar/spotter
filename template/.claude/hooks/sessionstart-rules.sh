@@ -3,7 +3,7 @@
 # surface any signals produced by drift-check.sh / task-watchdog.sh /
 # goals-surface.sh.
 #
-# Four pieces of work in one hook:
+# Five pieces of work in one hook:
 #   1. Read `compactPrompt` from .claude/settings.json (the durable
 #      rules block re-injected after auto-compact / on session start).
 #   2. Invoke .claude/scripts/drift-check.sh and capture its stdout.
@@ -16,6 +16,11 @@
 #   4. Invoke .claude/scripts/goals-surface.sh --hook (Phase 68) and
 #      capture its stdout — at most one [goals] line when approved
 #      scheduled specs are due, cooldown-gated; silent otherwise.
+#   5. First-run welcome (Phase 73): if .claude/.first-run exists
+#      (dropped by install.sh, gitignored), emit a one-time orientation
+#      block and DELETE the flag — fires exactly once per install
+#      lifetime; existing installs never have the flag. The one
+#      sanctioned exception to the ambient-line budget.
 #
 # All pieces are folded into a single `additionalContext` string
 # (blank-line separated). If all are empty, the hook exits 0 with no
@@ -61,13 +66,28 @@ if [ -f "$GOALS_SCRIPT" ]; then
   GOALS_OUTPUT=$(bash "$GOALS_SCRIPT" --hook 2>/dev/null || true)
 fi
 
-if [ -z "$PROMPT" ] && [ -z "$DRIFT_OUTPUT" ] && [ -z "$WATCHDOG_OUTPUT" ] && [ -z "$GOALS_OUTPUT" ]; then
+# First-run welcome (Phase 73): consume the flag FIRST (deletion is the
+# fire-once absolute), then emit. Flag absent -> zero output, zero cost.
+WELCOME_OUTPUT=""
+FIRST_RUN_FLAG=".claude/.first-run"
+if [ -f "$FIRST_RUN_FLAG" ]; then
+  rm -f "$FIRST_RUN_FLAG" 2>/dev/null || true
+  WELCOME_OUTPUT="[claude-skeleton] First session in this project — welcome.
+The skeleton added agents, skills, scripts, commands, and hooks under .claude/ —
+all of it observes and drafts; nothing changes your project without your approval.
+A quiet first session is correct: the system speaks when it has observed something.
+First move worth trying:  /goals <a real small goal>
+The 15-minute tour: docs/GETTING-STARTED.md in the skeleton checkout
+(https://github.com/DevAyar/claude-skeleton/blob/main/docs/GETTING-STARTED.md)"
+fi
+
+if [ -z "$PROMPT" ] && [ -z "$DRIFT_OUTPUT" ] && [ -z "$WATCHDOG_OUTPUT" ] && [ -z "$GOALS_OUTPUT" ] && [ -z "$WELCOME_OUTPUT" ]; then
   exit 0
 fi
 
-# Combine in fixed order: rules → drift → watchdog → goals. Blank-line
-# separators only between non-empty pieces.
-COMBINED="$PROMPT"
+# Combine in fixed order: welcome → rules → drift → watchdog → goals.
+# Blank-line separators only between non-empty pieces.
+COMBINED=""
 append_block() {
   local block="$1"
   [ -z "$block" ] && return
@@ -77,6 +97,8 @@ append_block() {
     COMBINED="$block"
   fi
 }
+append_block "$WELCOME_OUTPUT"
+append_block "$PROMPT"
 append_block "$DRIFT_OUTPUT"
 append_block "$WATCHDOG_OUTPUT"
 append_block "$GOALS_OUTPUT"

@@ -24,6 +24,7 @@ docs/SESSION_LOG.md
 .claude/observations/.last-watchdog-session
 .claude/.last-plugin-quality-check
 .claude/.last-goals-surface
+.claude/.first-run
 
 # Phase 46 telemetry: per-session JSONL + markdown rollups are per-install
 # local data. The .gitkeep + README in each telemetry subdir stay tracked.

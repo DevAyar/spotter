@@ -35,6 +35,7 @@ Thumbs.db
 .claude/.last-cruft-check
 .claude/.last-plugin-quality-check
 .claude/.last-goals-surface
+.claude/.first-run
 
 # Hook runtime artifacts — per-session noise, not release narrative.
 docs/SESSION_LOG.md
