@@ -104,10 +104,28 @@ have_glob() {
 scenario_fresh_install() {
   echo ">> fresh-install: clean target, --mode=fresh --claude-only"
   init_target
-  bash "$SKELETON_DIR/scripts/install.sh" \
+  local out
+  out=$(bash "$SKELETON_DIR/scripts/install.sh" \
     --source "$SKELETON_DIR" --target "$TEST_DIR" \
-    --mode=fresh --claude-only
+    --mode=fresh --claude-only)
   verify_marker 75
+  # Phase 72: the post-install message points somewhere real, and the
+  # greeting surface carries no literal placeholder.
+  assert_contains "$out" "GETTING-STARTED"
+  assert_contains "$out" "agents"
+  if grep -q '{{' "$TEST_DIR/.claude/settings.json"; then
+    echo "ERROR: literal placeholder survived install in settings.json" >&2
+    exit 1
+  fi
+  grep -q "Durable rules" "$TEST_DIR/.claude/settings.json" \
+    || { echo "ERROR: generic compactPrompt default missing" >&2; exit 1; }
+  # The resolved settings.json classifies LOCALLY_MODIFIED (fleet-standard
+  # protected state, same as every tuned install) — NOT TEMPLATE_UPDATED,
+  # which would offer to regress the default back to the raw placeholder.
+  local dout
+  dout=$(bash "$SKELETON_DIR/scripts/update.sh" --source "$SKELETON_DIR" --target "$TEST_DIR" --dry-run < /dev/null 2>&1)
+  assert_contains "$dout" "locally modified files:       1"
+  assert_contains "$dout" "template updates available:   0"
   echo "PASS fresh-install"
 }
 

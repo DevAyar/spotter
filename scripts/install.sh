@@ -98,6 +98,40 @@ record_installed_hash() {
   INSTALLED_HASHES+=("$rel"$'\t'"$hash")
 }
 
+# ---- Phase 72: default compactPrompt ----
+# install copies templates verbatim, which used to leave a literal
+# {{COMPACT_PROMPT}} greeting every un-tuned install at session start (it
+# re-injects via sessionstart-rules.sh and reads as a bug). When THIS run
+# copied .claude/settings.json, substitute a generic project-agnostic
+# default; the tuner refines it later. The TEMPLATE keeps its placeholder
+# (the tuner's detection surface). Merge runs that skipped an existing
+# settings.json are untouched. The copy-time hash is deliberately NOT
+# re-recorded: the resolved file classifies LOCALLY_MODIFIED under
+# update.sh — the same protected state as every tuned install's
+# settings.json — whereas re-recording would classify it TEMPLATE_UPDATED
+# and offer to regress the default back to the raw placeholder.
+resolve_default_compact_prompt() {
+  [ "$DRY_RUN" = true ] && return 0
+  local settings="$TARGET_PATH/.claude/settings.json"
+  [ -f "$settings" ] || return 0
+  grep -q '{{COMPACT_PROMPT}}' "$settings" 2>/dev/null || return 0
+  "$JSON_TOOL" - "$settings" <<'PYEOF' || die "compactPrompt default substitution failed"
+import json, sys
+path = sys.argv[1]
+default = ("Durable rules:\n"
+           "- Plan before structural changes; anything that changes files waits for approval.\n"
+           "- Verify file existence before recommending a path or command.\n"
+           "- After compaction, Read the anchor region before the first Edit to any file - read-state does not survive summarization.\n"
+           "(Generic defaults - dispatch project-tuner-helper to tune this block to your project.)")
+with open(path, encoding="utf-8") as f:
+    raw = f.read()
+raw = raw.replace("{{COMPACT_PROMPT}}", json.dumps(default)[1:-1])
+with open(path, "w", encoding="utf-8", newline="\n") as f:
+    f.write(raw)
+PYEOF
+  info "compactPrompt: generic defaults substituted (project-tuner-helper refines later)"
+}
+
 # write_marker_json <file> <version> <commit> <installed_at> <mode> <claude_only> <source> <updated_at_or_empty> <cached_skeleton_head_or_empty> <cached_skeleton_head_fetched_at_or_empty>
 # Reads TAB-separated lines from stdin, tagged by destination map:
 #   "F<TAB><relpath><TAB><hash>"  -> files (DEPRECATED back-compat)
@@ -494,10 +528,26 @@ summary() {
   [ "$OVERWRITTEN" -gt 0 ] && printf '  overwrote: %d\n' "$OVERWRITTEN"
   printf '  marker:   %s\n' "$TARGET_PATH/.claude/.skeleton-version"
   echo
+  # Phase 72: the post-install moment is when the user is most oriented —
+  # real counts, one place to read, one first move, one honest reassurance.
+  local n_agents n_skills n_scripts n_commands n_hooks
+  n_agents=$(find "$TARGET_PATH/.claude/agents" -name '*.md' ! -name '*.schema.md' 2>/dev/null | wc -l | tr -d ' ')
+  n_skills=$(find "$TARGET_PATH/.claude/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
+  n_scripts=$(find "$TARGET_PATH/.claude/scripts" -maxdepth 1 -name '*.sh' 2>/dev/null | wc -l | tr -d ' ')
+  n_commands=$(find "$TARGET_PATH/.claude/commands" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+  n_hooks=$(find "$TARGET_PATH/.claude/hooks" -maxdepth 1 -name '*.sh' 2>/dev/null | wc -l | tr -d ' ')
+  printf 'What landed: %s agents, %s skills, %s scripts, %s slash commands, %s hooks.\n' \
+    "$n_agents" "$n_skills" "$n_scripts" "$n_commands" "$n_hooks"
+  printf 'Nothing here runs anything without your approval; every protection has a stated off-switch.\n'
+  echo
+  printf 'Read next:  %s/docs/GETTING-STARTED.md\n' "$SOURCE_PATH"
+  printf '            (or https://github.com/DevAyar/claude-skeleton/blob/main/docs/GETTING-STARTED.md)\n'
+  printf 'First move: /goals <a real small goal>  - research, one round of questions, then a\n'
+  printf '            draft spec in .claude/specs/ that waits for YOUR approval.\n'
   if [ "$CLAUDE_ONLY" = false ]; then
-    printf 'Next: dispatch project-tuner-helper to fill placeholders and tune to this project.\n'
+    printf 'Then:       dispatch project-tuner-helper to fill placeholders and tune to this project.\n'
   fi
-  printf 'See: docs/INSTALLATION.md for update / uninstall.\n'
+  printf 'Mechanics:  docs/INSTALLATION.md (update / uninstall).\n'
 }
 
 # ---- Main ----
@@ -510,5 +560,6 @@ preflight
 confirm_replace
 [ "$DRY_RUN" = true ] && info "DRY RUN — planned operations:"
 plan_and_execute
+resolve_default_compact_prompt
 write_version_marker
 summary
