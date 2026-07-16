@@ -5,7 +5,7 @@
 The wire format for one observation entry under `.claude/observations/<pattern_id>.json`.
 
 This schema is the contract shared by:
-- **Producers**: `task-watchdog` (v1.1+ Phase 5, canonical producer of `recurring_failure` observations and `other`-typed long-running-bash observations), `cruft-checker` (v1.1.x, dogfood-only), `code-quality-auditor` (v1.1.4), session-end telemetry (Phase 46). `session-observer` (v1.1.0, the original producer) retired Phase 58; its `source` enum value remains valid for historical observations. Future producers add their name to the `source` enum without breaking existing consumers.
+- **Producers**: `task-watchdog` (v1.1+ Phase 5, canonical producer of `recurring_failure` observations and `other`-typed long-running-bash observations), `cruft-checker` (v1.1.x, dogfood-only), `code-quality-auditor` (v1.1.4), session-end telemetry (Phase 46), `roadmap-auditor` (Phase 75, dogfood-only — skeleton-level claim integrity). `session-observer` (v1.1.0, the original producer) retired Phase 58; its `source` enum value remains valid for historical observations. Future producers add their name to the `source` enum without breaking existing consumers.
 - **Consumers**: `workflow-suggester` (v1.1+ Phase 2 extension — drafts captures from observation files). Future consumers (v2.0 plugin recommendation system, v1.2+ `manager-optimizer`) read the same schema.
 
 Lock the schema; extend the enums. New producers register a `source` value, new pattern shapes register a `pattern_type` value. Field names and field semantics are stable surface area.
@@ -15,7 +15,7 @@ Lock the schema; extend the enums. New producers register a `source` value, new 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `pattern_id` | string (64-char lowercase hex) | yes | Stable SHA-256 of `pattern_type + normalized_signature`. Same pattern → same id across sessions and across producers. The filename is `<pattern_id>.json`. |
-| `source` | string enum (extensible) | yes | Which producer emitted this observation. v1.1.0 values: `session-observer`, `task-watchdog`, `manual`, `other`. v1.1.x adds `cruft-checker` (skeleton-doc cruft; dogfood-only). v1.1.4 adds `code-quality-auditor` (installed-plugin manifest + security audit; ships in template). Phase 46's SessionEnd telemetry emits `session-end-telemetry` (registered Phase 65). |
+| `source` | string enum (extensible) | yes | Which producer emitted this observation. v1.1.0 values: `session-observer`, `task-watchdog`, `manual`, `other`. v1.1.x adds `cruft-checker` (skeleton-doc cruft; dogfood-only). v1.1.4 adds `code-quality-auditor` (installed-plugin manifest + security audit; ships in template). Phase 46's SessionEnd telemetry emits `session-end-telemetry` (registered Phase 65). Phase 75 adds `roadmap-auditor` (skeleton-level claim integrity; dogfood-only). |
 | `pattern_type` | string enum (extensible) | yes | What kind of pattern. v1.1.0 values: `repeated_command`, `repeated_edit`, `error_resolution`, `recurring_failure` (canonical producer: `task-watchdog`), `other`. v1.1.4 adds `plugin_quality` (emitted by `code-quality-auditor` for the three plugin-verification heuristics — manifest path missing/empty, hooks.json schema violation, destructive shell pattern against unguarded path). Phase 46 adds `token_telemetry` (session-end telemetry; registered Phase 65 — see the `target_resource` requirement below). |
 | `occurrences` | integer (≥ 1) | yes | Count of times this pattern was observed across the producer's inspection windows. Monotonic — updates on re-observation. Minimum 2 for pattern-detection producers (`task-watchdog`; historically also the retired `session-observer`) — a single sighting isn't a pattern. Deterministic-detection producers with full-resolve-pass semantics (`cruft-checker`, `code-quality-auditor`) MAY emit at `occurrences = 1` because each scan is an independent atomic detection — the pattern's existence at scan-time is the observation, and absence in subsequent scans is signaled via `resolved_at` rather than via accumulated occurrence counts. |
 | `first_seen` | string (ISO-8601 UTC) | yes | When `pattern_id` was first observed. Set once on creation. Format: `YYYY-MM-DDTHH:MM:SSZ`. |
@@ -61,7 +61,7 @@ The `resolved_at` field is producer-driven, not user-driven. Each producer that 
 
 The mechanism is asymmetric by producer scope:
 
-- `cruft-checker` runs a **full resolve pass** — every scan covers the entire scope, so absence in a scan is meaningful evidence the cruft is gone.
+- `cruft-checker` and `roadmap-auditor` (Phase 75) run a **full resolve pass** — every scan covers the entire scope, so absence in a scan is meaningful evidence the finding is gone.
 - `task-watchdog` is **session-bounded** — each scan covers one prior session, so absence in a scan is not meaningful evidence the pattern is permanently gone. task-watchdog writes `resolved_at: null` on emissions but does NOT actively set timestamps. Older observations stay `null` indefinitely; this is intentional.
 - session-end telemetry is **point-in-time / session-bounded** (registered Phase 65) — each observation describes one completed session; there is nothing to re-scan, so it emits `resolved_at: null` and never resolves. Stays `null` indefinitely; intentional, same rationale as task-watchdog.
 - `session-observer` (retired Phase 58) ran a **scoped resolve pass** — resolving observations whose pattern doesn't appear in the current scan window, with the same regression-reset on re-detection.
@@ -81,6 +81,7 @@ Resolved observations stay on disk as audit trail — consumers filter them, not
 | task-watchdog | `recurring_failure` | `share-with-redaction` | Error signature shareable; command args redact |
 | task-watchdog | `other` (long-bash) | `share-with-redaction` | Duration + tool shareable; command args redact |
 | cruft-checker | `other` (doc_cruft) | `local-only` | Doc names + violations project-specific |
+| roadmap-auditor | `other` (claim integrity, Phase 75) | `local-only` | Doc names + claims project-specific; dogfood-only producer |
 | code-quality-auditor | `plugin_quality` | `share-with-redaction` | Plugin name + heuristic shareable; plugin paths may leak local user info |
 | (SessionEnd telemetry) | `token_telemetry` | `safe-to-share` | Only aggregate metrics; no project content |
 
