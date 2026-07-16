@@ -2,7 +2,7 @@
 
 The sequencing doc for claude-skeleton. v1.0 → v2.0+. Living — updated as slices land. For backward-looking history see [`CHANGELOG.md`](CHANGELOG.md). For the project's identity and locked principles in plain-English form, see [`STORY.md`](STORY.md). For orchestration mechanics, strategic judgment patterns, plugin discipline rules, and the three-commit cadence rubric, see [`../CLAUDE_MANAGER.md`](../CLAUDE_MANAGER.md).
 
-The substrate has shipped — **v1.1.5** is the current version, with the observation layer, capture/reuse loop, audit triad, plugin bundle, and hook infrastructure all live and stable. The governance vision is now locked: claude-skeleton is a structural immune system for projects, with per-project governance as the centerpiece principle. The road ahead is the sequence by which that vision lands — onboarding next, then ecosystem integration, then per-project manager-optimization (v1.2.0), then mature plugin recommendation (v2.0), then a multi-LLM sibling at some indefinite later point.
+The substrate has shipped — **v1.1.5** is the current version, with the observation layer, capture/reuse loop, audit triad, plugin bundle, and hook infrastructure all live and stable. The governance vision is now locked: claude-skeleton is a structural immune system for projects, with per-project governance as the centerpiece principle. The road ahead is the sequence by which that vision lands — onboarding (complete, v1.1.5), then ecosystem integration, then per-project manager-optimization (v1.2.0), then mature plugin recommendation (v2.0), then a multi-LLM sibling at some indefinite later point.
 
 ## Where we are now (v1.1.5)
 
@@ -77,8 +77,8 @@ Components in scope (per-project class):
 - **`artifact-fit-analyzer` (SHIPPED, Phase 56)** — surfaces redundancy, inefficiency, and missing combinations across the project's agents / skills / scripts / commands / hooks. Drafts consolidation, missing-coverage, or removal captures.
 - **Loop pruning (via manager-optimizer)** — retires captures that never get approved and scripts that never get dispatched.
 - **`token-efficiency-monitor` proactive upgrade** — flags before dispatch when planned scope smells over-budget, not just after the fact.
-- **`infrastructure-auditor` (project-level)** — scheduled audit coordinator that dispatches the project-level checkers on a cadence.
-- **`roadmap-auditor` (skeleton-level, dogfood only)** — the skeleton's own auditor of its roadmap, schemas, and cross-phase contracts.
+- **`infrastructure-auditor` (project-level — SHIPPED, Phase 74, as a coordinator, not an agent)** — the audits registry + session counters + rules-chain cadence line that dispatch the project-level checkers.
+- **`roadmap-auditor` (skeleton-level, dogfood only — SHIPPED, Phase 75)** — the skeleton's own auditor of its roadmap, schemas, and cross-phase contracts.
 
 (Pure-design components — `/goals` expanded, scheduled-goals — are in § Available now.)
 

@@ -8,7 +8,7 @@ tools: Read, Bash, Glob, Grep, Write
 
 A read-only L2 observer at `.claude/agents/05_meta/`. The **first v1.1.x component** and the **third observation producer** against the 10-field observation schema (after the since-retired `session-observer` and `task-watchdog`).
 
-cruft-checker is **dogfood-only**: it lives in skeleton's own `.claude/`, NOT in `template/.claude/`. Per the locked **two distinct audit surfaces** principle: skeleton-level audit (this) stays in dogfood; project-level audit ships in v1.2.0's `infrastructure-auditor` under `template/`. The two are intentionally separate.
+cruft-checker is **dogfood-only**: it lives in skeleton's own `.claude/`, NOT in `template/.claude/`. Per the locked **two distinct audit surfaces** principle: skeleton-level audit (this, joined by `roadmap-auditor` in Phase 75) stays in dogfood; project-level audits ship in `template/` and fire via the infrastructure-audit coordinator's registry (Phase 74 — a coordinator, not an agent). The two are intentionally separate.
 
 The mechanic is [`.claude/scripts/cruft-check.sh`](../../scripts/cruft-check.sh) — a 5-section bash wrapper around an inline Python helper that implements all nine heuristics. The agent shell is the dispatchable surface; the script is the contract.
 
