@@ -3,7 +3,7 @@
 # surface any signals produced by drift-check.sh / task-watchdog.sh /
 # goals-surface.sh.
 #
-# Five pieces of work in one hook:
+# Six pieces of work in one hook:
 #   1. Read `compactPrompt` from .claude/settings.json (the durable
 #      rules block re-injected after auto-compact / on session start).
 #   2. Invoke .claude/scripts/drift-check.sh and capture its stdout.
@@ -21,6 +21,11 @@
 #      block and DELETE the flag — fires exactly once per install
 #      lifetime; existing installs never have the flag. The one
 #      sanctioned exception to the ambient-line budget.
+#   6. Dispatch-class audit cadence (Phase 74): read gate-config's
+#      `audits` registry + telemetry/audit-state.json; any enabled
+#      audit past its sessions_between_dispatches -> ONE [infrastructure-audit]
+#      line, 24h anti-repeat marker. The line surfaces; the manager +
+#      human dispatch — nothing auto-runs from here.
 #
 # All pieces are folded into a single `additionalContext` string
 # (blank-line separated). If all are empty, the hook exits 0 with no
@@ -81,7 +86,39 @@ The 15-minute tour: docs/GETTING-STARTED.md in the skeleton checkout
 (https://github.com/DevAyar/claude-skeleton/blob/main/docs/GETTING-STARTED.md)"
 fi
 
-if [ -z "$PROMPT" ] && [ -z "$DRIFT_OUTPUT" ] && [ -z "$WATCHDOG_OUTPUT" ] && [ -z "$GOALS_OUTPUT" ] && [ -z "$WELCOME_OUTPUT" ]; then
+# Dispatch-class audit cadence (Phase 74). Inline bash+jq — this hook
+# already requires jq. Sessions-only cadence (locked principle); the 24h
+# marker is anti-repeat noise-gating, not the cadence.
+AUDIT_OUTPUT=""
+AUDIT_MARKER=".claude/.last-audit-nudge"
+AUDIT_STATE=".claude/telemetry/audit-state.json"
+GATE_CONF=".claude/gate-config.json"
+if [ -f "$GATE_CONF" ] && [ -f "$AUDIT_STATE" ]; then
+  audit_cooldown_ok=true
+  if [ -f "$AUDIT_MARKER" ]; then
+    last=$(cat "$AUDIT_MARKER" 2>/dev/null || echo 0)
+    case "$last" in ''|*[!0-9]*) last=0 ;; esac
+    now=$(date +%s)
+    [ $((now - last)) -lt 86400 ] && audit_cooldown_ok=false
+  fi
+  if [ "$audit_cooldown_ok" = true ]; then
+    DUE=$(jq -r --slurpfile st "$AUDIT_STATE" '
+      [ (.audits // {}) | to_entries[]
+        | select(.value.enabled == true)
+        | . as $a
+        | ($st[0][$a.key].sessions_since_dispatch // 0) as $n
+        | select(($a.value.sessions_between_dispatches // 999999) <= $n)
+        | "\($a.key) (last dispatched \($n) sessions ago)"
+      ] | join(", ")
+    ' "$GATE_CONF" 2>/dev/null || true)
+    if [ -n "$DUE" ]; then
+      AUDIT_OUTPUT="[infrastructure-audit] due: $DUE — the manager dispatches on your go"
+      date +%s > "$AUDIT_MARKER" 2>/dev/null || true
+    fi
+  fi
+fi
+
+if [ -z "$PROMPT" ] && [ -z "$DRIFT_OUTPUT" ] && [ -z "$WATCHDOG_OUTPUT" ] && [ -z "$GOALS_OUTPUT" ] && [ -z "$WELCOME_OUTPUT" ] && [ -z "$AUDIT_OUTPUT" ]; then
   exit 0
 fi
 
@@ -102,6 +139,7 @@ append_block "$PROMPT"
 append_block "$DRIFT_OUTPUT"
 append_block "$WATCHDOG_OUTPUT"
 append_block "$GOALS_OUTPUT"
+append_block "$AUDIT_OUTPUT"
 
 # Emit hook JSON. The canonical SessionStart schema wraps additionalContext
 # inside hookSpecificOutput — Claude Code silently drops a bare top-level
