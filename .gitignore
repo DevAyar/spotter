@@ -54,6 +54,7 @@ docs/SESSION_LOG.md
 # tracked ledger seeds (retier-proposals.json, optimizer-proposals.json)
 # stay in.
 .claude/telemetry/optimizer-state.json
+.claude/telemetry/audit-state.json
 .claude/telemetry/*.draft.json
 
 # Phase 47b shared-memory: the LOCAL staging tree of redacted cross-install

@@ -7,7 +7,8 @@
       "cost": "Live (Phase 48). enabled: master switch for ambient cost surfaces. assumed_model: pricing row from telemetry/model-pricing.json used for dollar estimates (telemetry does not record the model, so estimates must state their assumption). warn_usd_per_session: compared against the PER-SITTING delta (latest rollup minus the prior checkpoint in the same lineage; delta == total for un-resumed sessions) — not the cumulative lineage figure (Phase 66). warn_usd_per_7d: trailing-7-day per-lineage window delta. Both estimates at assumed_model rates.",
       "operation_tiers": "EMPTY SLOT (documented, not yet consumed). Per-tier gate overrides keyed tier_1..tier_5 per ROADMAP Appendix (operation tier classification). The v1.2.0 optimizer drafts entries here; Phase 48 ships the slot only.",
       "friction": "EMPTY SLOT (documented, not yet consumed). Friction knobs for the approval gate (e.g. confirmation verbosity, batching windows). Same consumer and same approval gating as operation_tiers.",
-      "optimizer": "Live (Phase 53). enabled: master switch for the SessionStart nudge line. run_every_sessions: sessions-since-last-run threshold at which the nudge fires. nudge_cooldown_sessions: minimum sessions between nudge lines. The counter itself lives in the gitignored runtime file telemetry/optimizer-state.json."
+      "optimizer": "Live (Phase 53). enabled: master switch for the SessionStart nudge line. run_every_sessions: sessions-since-last-run threshold at which the nudge fires. nudge_cooldown_sessions: minimum sessions between nudge lines. The counter itself lives in the gitignored runtime file telemetry/optimizer-state.json.",
+      "audits": "Live (Phase 74). Registry of dispatch-class audits on session-count cadences (sessions, never calendar time). Per entry: enabled (master switch) + sessions_between_dispatches (the cadence). Counters live in gitignored telemetry/audit-state.json, incremented every SessionEnd for every registered audit; the manager's dispatch flow resets an entry at dispatch. Extensible: future dispatch-class audits register here (anticipated dogfood-only second: roadmap-auditor — not yet built). First registrant: artifact_fit_analyzer."
     },
     "version": 2
   },
@@ -23,5 +24,11 @@
     "enabled": true,
     "run_every_sessions": 12,
     "nudge_cooldown_sessions": 4
+  },
+  "audits": {
+    "artifact_fit_analyzer": {
+      "enabled": true,
+      "sessions_between_dispatches": 18
+    }
   }
 }

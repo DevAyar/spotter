@@ -21,6 +21,8 @@ set -uo pipefail
 ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 TELEM="$ROOT/.claude/telemetry"
 OPT_STATE="$TELEM/optimizer-state.json"
+AUDIT_STATE="$TELEM/audit-state.json"
+GATECONF="$ROOT/.claude/gate-config.json"
 # family table: <staging-prefix> <ledger-file> <timestamp-field>
 FAMILIES=(
   "retier    retier-proposals.json    created_at"
@@ -62,6 +64,52 @@ if not (isinstance(count, int) and not isinstance(count, bool) and count >= 0):
 state["sessions_since_last_run"] = count + 1
 state.setdefault("last_run_at", None)
 state.setdefault("last_nudge_count", None)
+tmp = state_path + f".tmp.{os.getpid()}"
+try:
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(state, f, indent=2)
+        f.write("\n")
+    os.replace(tmp, state_path)
+except Exception:
+    try:
+        os.remove(tmp)
+    except OSError:
+        pass
+PYEOF
+
+# Phase 74: per-audit session counters (the Phase 53 counter pattern reused
+# in the same hook, not a second mechanism). Registry-driven: every audit
+# registered in gate-config's `audits` block gets sessions_since_dispatch
+# incremented here — future audits auto-count the day they register. The
+# manager's dispatch flow resets an entry to 0 at dispatch time. Fail-soft.
+[ -d "$TELEM" ] && [ -f "$GATECONF" ] && "$PYBIN" - "$AUDIT_STATE" "$GATECONF" <<'PYEOF' 2>/dev/null
+import json, os, sys
+
+state_path, gateconf_path = sys.argv[1], sys.argv[2]
+try:
+    audits = (json.load(open(gateconf_path, encoding="utf-8")).get("audits") or {})
+except Exception:
+    sys.exit(0)
+if not isinstance(audits, dict) or not audits:
+    sys.exit(0)
+state = {}
+try:
+    if os.path.exists(state_path):
+        loaded = json.load(open(state_path, encoding="utf-8"))
+        if isinstance(loaded, dict):
+            state = loaded
+except Exception:
+    state = {}                       # malformed state: recreate, don't die
+for name in audits:
+    entry = state.get(name)
+    if not isinstance(entry, dict):
+        entry = {}
+    count = entry.get("sessions_since_dispatch")
+    if not (isinstance(count, int) and not isinstance(count, bool) and count >= 0):
+        count = 0
+    entry["sessions_since_dispatch"] = count + 1
+    entry.setdefault("last_dispatched_at", None)
+    state[name] = entry
 tmp = state_path + f".tmp.{os.getpid()}"
 try:
     with open(tmp, "w", encoding="utf-8", newline="\n") as f:

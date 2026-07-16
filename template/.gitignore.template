@@ -36,6 +36,7 @@ docs/SESSION_LOG.md
 # The tracked ledger seeds (retier-proposals.json, optimizer-proposals.json)
 # stay in.
 .claude/telemetry/optimizer-state.json
+.claude/telemetry/audit-state.json
 .claude/telemetry/*.draft.json
 
 # Phase 47 shared-memory (opt-in): local staging clone of the share remote +

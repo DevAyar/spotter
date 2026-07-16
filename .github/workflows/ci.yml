@@ -219,3 +219,7 @@ jobs:
       - name: Scenario - goals-surface
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh goals-surface
+
+      - name: Scenario - audit-cadence-nudge
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh audit-cadence-nudge

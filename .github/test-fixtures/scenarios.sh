@@ -1865,6 +1865,57 @@ EOF
   echo "PASS cost-line-sitting-delta"
 }
 
+# Phase 74: the infrastructure-audit coordinator — per-audit session counters
+# increment at SessionEnd (registry-driven from gate-config's audits block);
+# the rules chain surfaces ONE due line when an enabled audit passes its
+# sessions_between_dispatches cadence, 24h anti-repeat marker; under-cadence
+# and marker-gated runs stay silent. The line surfaces; nothing auto-runs.
+scenario_audit_cadence_nudge() {
+  echo ">> audit-cadence-nudge: counter increments; past-cadence -> one line; under-cadence + cooldown -> silent (Phase 74)"
+  TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-audit)
+  local root="$TEST_DIR/proj"
+  mkdir -p "$root/.claude/telemetry"
+  printf '{"compactPrompt": ""}\n' > "$root/.claude/settings.json"
+  cat > "$root/.claude/gate-config.json" <<'JSON'
+{"audits": {"artifact_fit_analyzer": {"enabled": true, "sessions_between_dispatches": 18}}}
+JSON
+  # Leg 0: the SessionEnd counter creates/increments the state entry.
+  ( cd "$root" && CLAUDE_PROJECT_DIR="$root" bash "$SKELETON_DIR/.claude/hooks/sessionend-cost-proposals.sh" > /dev/null 2>&1 )
+  python -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert d['artifact_fit_analyzer']['sessions_since_dispatch'] == 1, d
+print('  leg 0: SessionEnd counter created entry at 1 OK')
+" "$root/.claude/telemetry/audit-state.json"
+  # Leg 1: state past cadence -> exactly one due line + marker written.
+  printf '{"artifact_fit_analyzer": {"sessions_since_dispatch": 20, "last_dispatched_at": null}}\n' > "$root/.claude/telemetry/audit-state.json"
+  local out
+  out=$(cd "$root" && bash "$SKELETON_DIR/.claude/hooks/sessionstart-rules.sh" 2>/dev/null || true)
+  assert_contains "$out" "[infrastructure-audit] due: artifact_fit_analyzer (last dispatched 20 sessions ago)"
+  [ -f "$root/.claude/.last-audit-nudge" ] || { echo "ERROR: anti-repeat marker not written" >&2; exit 1; }
+  echo "  leg 1: past-cadence due line + marker OK"
+  # Leg 2: under cadence -> silent.
+  local root2="$TEST_DIR/proj2"
+  mkdir -p "$root2/.claude/telemetry"
+  printf '{"compactPrompt": ""}\n' > "$root2/.claude/settings.json"
+  cp "$root/.claude/gate-config.json" "$root2/.claude/gate-config.json"
+  printf '{"artifact_fit_analyzer": {"sessions_since_dispatch": 3, "last_dispatched_at": null}}\n' > "$root2/.claude/telemetry/audit-state.json"
+  local out2
+  out2=$(cd "$root2" && bash "$SKELETON_DIR/.claude/hooks/sessionstart-rules.sh" 2>/dev/null || true)
+  if printf '%s' "$out2" | grep -q "infrastructure-audit"; then
+    echo "ERROR: under-cadence audit surfaced: $out2" >&2; exit 1
+  fi
+  echo "  leg 2: under-cadence silent OK"
+  # Leg 3: leg 1's root again — the 24h marker gates the repeat.
+  local out3
+  out3=$(cd "$root" && bash "$SKELETON_DIR/.claude/hooks/sessionstart-rules.sh" 2>/dev/null || true)
+  if printf '%s' "$out3" | grep -q "infrastructure-audit"; then
+    echo "ERROR: anti-repeat cooldown not honored: $out3" >&2; exit 1
+  fi
+  echo "  leg 3: cooldown silent OK"
+  echo "PASS audit-cadence-nudge"
+}
+
 # Phase 68: the scheduled-goals surfacer prints exactly ONE ambient line for
 # approved+due specs and NOTHING for drafts — a draft never surfaces as
 # actionable (the approval gate is load-bearing) — and --hook honors the
@@ -2141,6 +2192,7 @@ case "${1:-}" in
   telemetry-python3-only)           scenario_telemetry_python3_only ;;
   cost-line-sitting-delta)          scenario_cost_line_sitting_delta ;;
   goals-surface)                    scenario_goals_surface ;;
+  audit-cadence-nudge)              scenario_audit_cadence_nudge ;;
   replace-with-yes-piped)           scenario_replace_with_yes_piped ;;
   hook-fp-exemption-git-commit-message) scenario_hook_fp_exemption_git_commit_message ;;
   all)
@@ -2187,6 +2239,7 @@ case "${1:-}" in
     scenario_telemetry_python3_only
     scenario_cost_line_sitting_delta
     scenario_goals_surface
+    scenario_audit_cadence_nudge
     scenario_replace_with_yes_piped
     scenario_hook_fp_exemption_git_commit_message
     echo "ALL SCENARIOS PASSED"
@@ -2239,6 +2292,7 @@ Scenarios:
   telemetry-python3-only       Failing python stub + real python3 -> execution-validated probe falls back (Phase 63).
   cost-line-sitting-delta      Cost headline = per-sitting delta; no false trip on resumed lineages (Phase 66).
   goals-surface                Approved+due spec -> one ambient line; drafts silent; --hook cooldown (Phase 68).
+  audit-cadence-nudge          Session counters + past-cadence due line; under-cadence/cooldown silent (Phase 74).
   replace-with-yes-piped       printf 'YES' | install.sh --mode=replace overwrites locally-modified file (Phase 30b H7).
   hook-fp-exemption-git-commit-message  Parser exempts -m bodies + heredoc/here-string payloads; counter-tests verify outside-region patterns still deny (Phase 30c).
   all                          Run every scenario in sequence.
