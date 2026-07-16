@@ -8,7 +8,7 @@
       "operation_tiers": "EMPTY SLOT (documented, not yet consumed). Per-tier gate overrides keyed tier_1..tier_5 per ROADMAP Appendix (operation tier classification). The v1.2.0 optimizer drafts entries here; Phase 48 ships the slot only.",
       "friction": "EMPTY SLOT (documented, not yet consumed). Friction knobs for the approval gate (e.g. confirmation verbosity, batching windows). Same consumer and same approval gating as operation_tiers.",
       "optimizer": "Live (Phase 53). enabled: master switch for the SessionStart nudge line. run_every_sessions: sessions-since-last-run threshold at which the nudge fires. nudge_cooldown_sessions: minimum sessions between nudge lines. The counter itself lives in the gitignored runtime file telemetry/optimizer-state.json.",
-      "audits": "Live (Phase 74). Registry of dispatch-class audits on session-count cadences (sessions, never calendar time). Per entry: enabled (master switch) + sessions_between_dispatches (the cadence). Counters live in gitignored telemetry/audit-state.json, incremented every SessionEnd for every registered audit; the manager's dispatch flow resets an entry at dispatch. Extensible: future dispatch-class audits register here. Registrants: artifact_fit_analyzer (Phase 74, ships in template) + roadmap_auditor (Phase 75, dogfood-only — skeleton-level claim integrity, never ships in template)."
+      "audits": "Live (Phase 74). Registry of dispatch-class audits on session-count cadences (sessions, never calendar time). Per entry: enabled (master switch) + sessions_between_dispatches (the cadence). Counters live in gitignored telemetry/audit-state.json, incremented every SessionEnd for every registered audit; the manager's dispatch flow resets an entry at dispatch. Extensible: future dispatch-class audits register here. Registrants: artifact_fit_analyzer (Phase 74, ships in template) + roadmap_auditor (Phase 75, dogfood-only — skeleton-level claim integrity, never ships in template) + plugin_discovery (Phase 76, ships in template — plugin-ecosystem inventory into the draft recommendation manifest)."
     },
     "version": 2
   },
@@ -33,6 +33,10 @@
     "roadmap_auditor": {
       "enabled": true,
       "sessions_between_dispatches": 25
+    },
+    "plugin_discovery": {
+      "enabled": true,
+      "sessions_between_dispatches": 30
     }
   }
 }

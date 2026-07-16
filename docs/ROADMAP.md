@@ -92,11 +92,11 @@ v1.5 ecosystem integration introduces per-project plugin recommendation foundati
 
 Components in scope:
 
-- **`recommendation.schema.md`** — the per-project plugin recommendation manifest. Frontmatter for project context (stack, audience, discipline preferences), body for recommendation rationale.
+- **`recommendation.schema.md` (SHIPPED, Phase 76)** — the per-project plugin recommendation manifest. Frontmatter for project context (stack markers, `.claude` inventory, observation profile, user-owned discipline preferences), body for per-plugin entries with reasons required both directions. The manifest itself is per-install runtime output (gitignored); the schema is the tracked contract.
 - **`code-quality-auditor` candidate mode** — pre-install vetting against the v1.1.4 heuristics, so the recommender can flag plugins likely to fail the post-install audit before they get installed.
-- **`plugin-discovery-agent`** — surfaces ecosystem candidates relevant to the project's current state.
+- **`plugin-discovery-agent` (SHIPPED, Phase 76)** — surfaces ecosystem candidates relevant to the project's current state. Ships with `scripts/plugin-discovery.sh` (the script is the contract): entries enter as candidate/installed only, draft-only, no network, no verdicts.
 - **`plugin-context-matcher`** — scores discovered candidates against the project's recommendation manifest.
-- **SessionStart hook for plugin-aware suggestions** with a cooldown so the suggestion stream doesn't become noise.
+- **SessionStart plugin-suggestion cadence (SHIPPED, Phase 76 — via the Phase 74 audits registry, not a new hook)** — `plugin_discovery` registers in gate-config's `audits` block; the `[infrastructure-audit]` line surfaces it on a sessions cadence (seed 30) with the existing 24h noise marker. The mechanism this line anticipated was built generically in Phase 74; Phase 76 registered discovery into it.
 - **First-install integration** — when `install.sh` finishes, the recommendation flow can run as an optional next step.
 - **Composition-rule documentation** in `CLAUDE_MANAGER.md.template`.
 

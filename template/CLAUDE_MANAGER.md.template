@@ -300,12 +300,13 @@ Helpers live in `.claude/agents/`. The baseline roster:
 | 15 | `token-cost-monitor` | `05_meta/` | L2 | Reads Phase 46 telemetry + pricing + gate-config thresholds; ambient spend summaries, draft re-tier proposals. |
 | 16 | `manager-optimizer` | `05_meta/` | L3 | Watches the AI-decision and human/gate layers; drafts `CLAUDE_MANAGER.md` / `gate-config.json` refinements (Phase 53, shipped v1). |
 | 17 | `artifact-fit-analyzer` | `05_meta/` | L2 | OVERLAP / GAP / MISFIT / ORPHAN findings across the artifact set; drafts consolidation captures (Phase 56). |
+| 18 | `plugin-discovery-agent` | `05_meta/` | L2 | Plugin-ecosystem inventory into the draft recommendation manifest via `plugin-discovery.sh`; cadence-dispatched or on demand (Phase 76). |
 
 <!-- TEMPLATE STUB — project-tuner-helper extends this roster with project-specific helpers. -->
 
 ## Tier system
 
-- **T1 — Always-on baseline.** The seventeen helpers above (four core + thirteen meta), the eleven scripts under `.claude/scripts/`, the seven hook scripts wired across four events (PreCompact, PreToolUse, SessionStart, SessionEnd), the six skills (`schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, `bash-safety`, `token-efficiency-monitor`, `plugin-roster-search`). Ships in every install. Counts are re-derived mechanically when this line changes (see § Roster and doc surfaces update in the same phase).
+- **T1 — Always-on baseline.** The eighteen helpers above (four core + fourteen meta), the twelve scripts under `.claude/scripts/`, the seven hook scripts wired across four events (PreCompact, PreToolUse, SessionStart, SessionEnd), the six skills (`schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, `bash-safety`, `token-efficiency-monitor`, `plugin-roster-search`). Ships in every install. Counts are re-derived mechanically when this line changes (see § Roster and doc surfaces update in the same phase).
 - **T2 — Escalation.** Helpers and scripts added for this project's specific needs. Loaded by default but project-specific.
 - **T3 — On-demand plugins.** Opt-in tooling (e.g. `browser-tester`). The manager only invokes T3 when explicitly relevant.
 
@@ -487,6 +488,14 @@ Not an agent — a coordinator built from existing surfaces: the `audits` regist
 
 **What the line means:** `[infrastructure-audit] due: <audit> (last dispatched N sessions ago)` — an enabled dispatch-class audit has gone `sessions_between_dispatches` sessions without a dispatch. It surfaces; nothing auto-runs. **The flow:** the human says go → the manager dispatches the named auditor per its own section above → and resets its `audit-state.json` entry (`sessions_since_dispatch` → 0, `last_dispatched_at` → now) as part of the same dispatch. Honest caveat: a dispatch that bypasses this flow skips the recording, and the line simply resurfaces at the next cadence — fail-annoying, not fail-wrong.
 
-**Cadence tuning:** per-install, in `gate-config.json` — units are sessions, never calendar time (locked principle). The 24h anti-repeat marker on the line itself is noise-gating, not the cadence. First registrant: `artifact_fit_analyzer` (seed cadence 18). Future dispatch-class audits register in the same block and are counted automatically; `roadmap-auditor` is registered as the dogfood-only second (Phase 75 — skeleton-level claim integrity, seed cadence 25; it never ships in template, so targets see only this sentence, not the audit).
+**Cadence tuning:** per-install, in `gate-config.json` — units are sessions, never calendar time (locked principle). The 24h anti-repeat marker on the line itself is noise-gating, not the cadence. First registrant: `artifact_fit_analyzer` (seed cadence 18). Future dispatch-class audits register in the same block and are counted automatically; `roadmap-auditor` is registered as the dogfood-only second (Phase 75 — skeleton-level claim integrity, seed cadence 25; it never ships in template, so targets see only this sentence, not the audit). Third registrant: `plugin_discovery` (Phase 76, ships in template — seed cadence 30; see § Plugin recommendation foundations below).
 
 **Three ambient lines, three meanings:** the optimizer nudge = drafted proposals await your review; the `[goals]` line = an approved scheduled spec is due; the `[infrastructure-audit]` line = a dispatch-class auditor is past its session cadence. One each, all cooldown-gated, none of them acts on its own.
+
+## Plugin recommendation foundations (v1.5, Phase 76)
+
+`.claude/recommendations/manifest.md` (contract: `recommendation.schema.md` beside it) is this install's plugin recommendation manifest — per-install runtime output, gitignored, always `status: draft`. `plugin-discovery-agent` creates and refreshes it by running `bash .claude/scripts/plugin-discovery.sh`: every marketplace-indexed plugin enters as `candidate` with file-path evidence, installed plugins as `installed` (never candidate), external-source entries with url + pinned sha + the `source_not_inspected_offline` marker. The schema exists to carry reasons both directions — `recommended` and `not_recommended` each require one, and those verdicts belong to the Phase 77 plugin-context-matcher, not to discovery. The `discipline_preferences` frontmatter block is the user's channel into matching and survives every refresh verbatim.
+
+**When discovery dispatches:** on the `[infrastructure-audit]` cadence line (`plugin_discovery`, registered in gate-config's audits block — counted automatically, reset on dispatch per the flow above) or on demand ("refresh the plugin manifest", after installing or removing a plugin). No hook of its own; no network; no install/enable actions ever — `/plugin` stays the only install path.
+
+**Boundary, one breath:** `code-quality-auditor` audits the internals of plugins you HAVE (manifest honesty, hooks.json schema, destructive patterns); `plugin-discovery-agent` inventories the ecosystem of plugins you COULD have — evidence only, judgment deferred.

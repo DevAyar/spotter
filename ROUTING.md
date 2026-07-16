@@ -40,6 +40,7 @@ This table is the mechanical "for X, dispatch Y" map. The strategic "when to dis
 | "What did that session cost / which helpers burn tokens / should anything re-tier?" | `token-cost-monitor` | Agent | (no preload — reads `.claude/telemetry/`) |
 | "What should this project's manager do differently / review the gates" | `manager-optimizer` | Agent | (no preload — closed input list per its definition) |
 | "Audit artifact fit / overlap / gaps across the artifact set" | `artifact-fit-analyzer` | Agent | (no preload — walks `.claude/` on dispatch) |
+| "What plugins are out there for this project / refresh the plugin manifest" | `plugin-discovery-agent` | Agent | (no preload — runs `plugin-discovery.sh` over marketplace clones + installed registry) |
 | `/commit "<message>"` | `.claude/commands/commit.md` → `commit.sh` | Slash command | Commit message |
 | `/audit <doc>:<section>` | `.claude/commands/audit.md` → `audit-helper` | Slash command | Doc path + section header |
 | `/deploy [flags]` | `.claude/commands/deploy.md` → `deploy.sh` | Slash command | Deploy flags. Deploy command resolved as N/A — the skeleton has no deploy step (releases publish as git tags + GitHub Release), so the command is unused in this install. |
