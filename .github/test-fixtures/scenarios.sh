@@ -108,7 +108,7 @@ scenario_fresh_install() {
   out=$(bash "$SKELETON_DIR/scripts/install.sh" \
     --source "$SKELETON_DIR" --target "$TEST_DIR" \
     --mode=fresh --claude-only)
-  verify_marker 75
+  verify_marker 78
   # Phase 72: the post-install message points somewhere real, and the
   # greeting surface carries no literal placeholder.
   assert_contains "$out" "GETTING-STARTED"
@@ -1175,7 +1175,7 @@ LEGACY
     cat "$TEST_DIR/.claude/.skeleton-version" >&2
     exit 1
   fi
-  verify_marker 75
+  verify_marker 78
   echo "PASS backfill-migrate"
 }
 
@@ -1230,8 +1230,8 @@ with open(sys.argv[1]) as f:
     d = json.load(f)
 raw = d.get('raw_template_baselines')
 n = len(raw) if isinstance(raw, dict) else None
-if n != 75:
-    sys.exit(f'ERROR: expected 71 raw_template_baselines after migration, got {n}')
+if n != 78:
+    sys.exit(f'ERROR: expected 78 raw_template_baselines after migration, got {n}')
 print(f'  raw_template_baselines present after migration: {n} entries')
 " "$marker"
   echo "PASS raw-baseline-migrate"
@@ -1916,6 +1916,93 @@ print('  leg 0: SessionEnd counter created entry at 1 OK')
   echo "PASS audit-cadence-nudge"
 }
 
+# Phase 76: plugin-discovery writes a schema-valid DRAFT manifest — installed
+# plugins enter as installed (never candidate), unversioned entries are
+# tolerated (version is optional by design), external-sha entries carry
+# url + pinned sha + the source_not_inspected_offline marker, discovery
+# emits ZERO verdicts, and the user-owned discipline block survives refresh.
+scenario_plugin_discovery_manifest() {
+  echo ">> plugin-discovery-manifest: draft manifest; installed never candidate; unversioned tolerated; external-sha marked; zero verdicts (Phase 76)"
+  TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-plugdisc)
+  local plugroot="$TEST_DIR/plugins"
+  local root="$TEST_DIR/proj"
+  mkdir -p "$plugroot/marketplaces/fixture-market/.claude-plugin" "$root/.claude"
+  cat > "$plugroot/marketplaces/fixture-market/.claude-plugin/marketplace.json" <<'JSON'
+{"name": "fixture-market", "plugins": [
+  {"name": "alpha-tool", "description": "Repo-hosted fixture plugin with no version field.", "category": "testing", "source": "./plugins/alpha-tool"},
+  {"name": "beta-external", "description": "External fixture plugin pinned at a sha.", "category": "testing", "source": {"source": "git-subdir", "url": "https://example.invalid/beta.git", "path": "plugins/beta", "sha": "0123456789abcdef0123456789abcdef01234567"}},
+  {"name": "gamma-installed", "description": "Repo-hosted fixture plugin the registry marks as already present.", "category": "testing", "source": "./plugins/gamma-installed"}
+]}
+JSON
+  cat > "$plugroot/installed_plugins.json" <<'JSON'
+{"plugins": {"gamma-installed@fixture-market": [{"scope": "user", "version": "2.0.0", "installedAt": "2026-07-01T00:00:00.000Z"}]}}
+JSON
+  local manifest="$root/.claude/recommendations/manifest.md"
+  ( CLAUDE_PROJECT_DIR="$root" \
+    PLUGIN_MARKETPLACES_DIR_OVERRIDE="$plugroot/marketplaces" \
+    INSTALLED_PLUGINS_FILE_OVERRIDE="$plugroot/installed_plugins.json" \
+    bash "$SKELETON_DIR/.claude/scripts/plugin-discovery.sh" > /dev/null )
+  [ -f "$manifest" ] || { echo "ERROR: manifest not written" >&2; exit 1; }
+  # Leg 1: draft status, 2 candidates + 1 installed, ZERO verdict statuses.
+  head -3 "$manifest" | grep -q "^status: draft" \
+    || { echo "ERROR: manifest not status: draft" >&2; exit 1; }
+  assert_eq "$(grep -c '^- status: candidate' "$manifest")" "2"
+  assert_eq "$(grep -c '^- status: installed' "$manifest")" "1"
+  if grep -q "status: recommended\|status: not_recommended" "$manifest"; then
+    echo "ERROR: discovery emitted a verdict status" >&2; exit 1
+  fi
+  echo "  leg 1: draft + 2 candidates + 1 installed + zero verdicts OK"
+  # Leg 2: the installed plugin is installed, never candidate, and carries
+  # the registry version.
+  local gamma
+  gamma=$(sed -n '/^### gamma-installed$/,/^### /p' "$manifest")
+  printf '%s' "$gamma" | grep -q "^- status: installed" \
+    || { echo "ERROR: gamma-installed not status: installed" >&2; exit 1; }
+  if printf '%s' "$gamma" | grep -q "candidate"; then
+    echo "ERROR: installed plugin surfaced as candidate" >&2; exit 1
+  fi
+  printf '%s' "$gamma" | grep -q "^- version: 2.0.0" \
+    || { echo "ERROR: installed registry version not carried" >&2; exit 1; }
+  echo "  leg 2: installed never candidate, registry version carried OK"
+  # Leg 3: unversioned repo-hosted entry tolerated — no version line invented.
+  local alpha
+  alpha=$(sed -n '/^### alpha-tool$/,/^### /p' "$manifest")
+  printf '%s' "$alpha" | grep -q "^- source_class: repo_hosted" \
+    || { echo "ERROR: alpha-tool not repo_hosted" >&2; exit 1; }
+  if printf '%s' "$alpha" | grep -q "^- version:"; then
+    echo "ERROR: version invented for unversioned plugin" >&2; exit 1
+  fi
+  echo "  leg 3: unversioned tolerated (no version line) OK"
+  # Leg 4: external-sha honesty — source url + pinned sha + explicit marker.
+  local beta
+  beta=$(sed -n '/^### beta-external$/,/^### /p' "$manifest")
+  printf '%s' "$beta" | grep -q "^- source_class: external_sha" \
+    || { echo "ERROR: beta-external not external_sha" >&2; exit 1; }
+  printf '%s' "$beta" | grep -q "^- source_url: https://example.invalid/beta.git" \
+    || { echo "ERROR: external source_url missing" >&2; exit 1; }
+  printf '%s' "$beta" | grep -q "^- pinned_sha: 0123456789abcdef0123456789abcdef01234567" \
+    || { echo "ERROR: external pinned_sha missing" >&2; exit 1; }
+  printf '%s' "$beta" | grep -q "^- source_not_inspected_offline: true" \
+    || { echo "ERROR: source_not_inspected_offline marker missing" >&2; exit 1; }
+  echo "  leg 4: external-sha url + sha + offline marker OK"
+  # Leg 5: refresh preserves the user-owned discipline block verbatim.
+  python - "$manifest" <<'PYEOF'
+import io, sys
+p = sys.argv[1]
+s = io.open(p, encoding='utf-8').read()
+s = s.replace('(user-owned:', '(USER EDIT MARKER:', 1)
+io.open(p, 'w', encoding='utf-8', newline='\n').write(s)
+PYEOF
+  ( CLAUDE_PROJECT_DIR="$root" \
+    PLUGIN_MARKETPLACES_DIR_OVERRIDE="$plugroot/marketplaces" \
+    INSTALLED_PLUGINS_FILE_OVERRIDE="$plugroot/installed_plugins.json" \
+    bash "$SKELETON_DIR/.claude/scripts/plugin-discovery.sh" > /dev/null )
+  grep -q "USER EDIT MARKER" "$manifest" \
+    || { echo "ERROR: discipline_preferences not preserved across refresh" >&2; exit 1; }
+  echo "  leg 5: discipline block preserved across refresh OK"
+  echo "PASS plugin-discovery-manifest"
+}
+
 # Phase 68: the scheduled-goals surfacer prints exactly ONE ambient line for
 # approved+due specs and NOTHING for drafts — a draft never surfaces as
 # actionable (the approval gate is load-bearing) — and --hook honors the
@@ -2193,6 +2280,7 @@ case "${1:-}" in
   cost-line-sitting-delta)          scenario_cost_line_sitting_delta ;;
   goals-surface)                    scenario_goals_surface ;;
   audit-cadence-nudge)              scenario_audit_cadence_nudge ;;
+  plugin-discovery-manifest)        scenario_plugin_discovery_manifest ;;
   replace-with-yes-piped)           scenario_replace_with_yes_piped ;;
   hook-fp-exemption-git-commit-message) scenario_hook_fp_exemption_git_commit_message ;;
   all)
@@ -2240,6 +2328,7 @@ case "${1:-}" in
     scenario_cost_line_sitting_delta
     scenario_goals_surface
     scenario_audit_cadence_nudge
+    scenario_plugin_discovery_manifest
     scenario_replace_with_yes_piped
     scenario_hook_fp_exemption_git_commit_message
     echo "ALL SCENARIOS PASSED"
@@ -2293,6 +2382,7 @@ Scenarios:
   cost-line-sitting-delta      Cost headline = per-sitting delta; no false trip on resumed lineages (Phase 66).
   goals-surface                Approved+due spec -> one ambient line; drafts silent; --hook cooldown (Phase 68).
   audit-cadence-nudge          Session counters + past-cadence due line; under-cadence/cooldown silent (Phase 74).
+  plugin-discovery-manifest    Fixture marketplace -> schema-valid draft; installed never candidate; unversioned tolerated; external-sha marked; zero verdicts (Phase 76).
   replace-with-yes-piped       printf 'YES' | install.sh --mode=replace overwrites locally-modified file (Phase 30b H7).
   hook-fp-exemption-git-commit-message  Parser exempts -m bodies + heredoc/here-string payloads; counter-tests verify outside-region patterns still deny (Phase 30c).
   all                          Run every scenario in sequence.

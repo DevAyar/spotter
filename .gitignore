@@ -66,3 +66,9 @@ docs/SESSION_LOG.md
 # Phase 47c-1 push layer: last successful push marker (timestamp + file count),
 # surfaced by /share-status. Per-install runtime state, not source-of-truth.
 .claude/.last-shared-push
+
+# Phase 76 plugin discovery: the recommendation manifest is per-install
+# runtime output refreshed wholesale on every dispatch (hundreds of entries;
+# the diff churn carries no information). The tracked contract is the schema
+# beside it (recommendation.schema.md), which stays in.
+.claude/recommendations/manifest.md
