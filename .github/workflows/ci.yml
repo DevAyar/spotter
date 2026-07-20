@@ -231,3 +231,7 @@ jobs:
       - name: Scenario - watchdog-agent-duration
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh watchdog-agent-duration
+
+      - name: Scenario - plugin-context-matcher
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh plugin-context-matcher

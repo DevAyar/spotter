@@ -10,6 +10,16 @@
 # hits the network. NEVER writes outside .claude/observations/ +
 # .claude/.last-plugin-quality-check. Always exits 0 so the hook chain
 # never blocks.
+#
+# Candidate mode (Phase 77): --candidate-plugin <path> runs the SAME
+# i/ii/iii heuristics against ONE flat pre-install plugin dir (a
+# marketplace clone's plugins/<name>/ — no version level) and prints
+# findings to stdout as "CANDIDATE-FINDING <notes>" lines instead of
+# writing observations — observations are installed-mode's channel;
+# candidate findings belong in the recommendation manifest's reason
+# field. No cooldown, no resolve pass, no writes at all. Invoked by
+# plugin-context-matcher for repo-hosted candidates it is about to
+# verdict; findings are data, so exit stays 0 either way.
 
 set -uo pipefail
 
@@ -20,6 +30,7 @@ OBS_DIR=".claude/observations"
 EVIDENCE_CAP=20
 HOOK_FLAG=false
 PLUGIN_DIR_OVERRIDE=""
+CANDIDATE_PLUGIN=""
 DEFAULT_PLUGIN_DIR="$HOME/.claude/plugins/cache"
 BASH_LIB=".claude/lib/destructive-bash-patterns.sh"
 PS_LIB=".claude/lib/destructive-powershell-patterns.sh"
@@ -30,6 +41,8 @@ while [ "$#" -gt 0 ]; do
     --hook) HOOK_FLAG=true; shift ;;
     --plugin-dir) PLUGIN_DIR_OVERRIDE="${2:-}"; shift 2 ;;
     --plugin-dir=*) PLUGIN_DIR_OVERRIDE="${1#--plugin-dir=}"; shift ;;
+    --candidate-plugin) CANDIDATE_PLUGIN="${2:-}"; shift 2 ;;
+    --candidate-plugin=*) CANDIDATE_PLUGIN="${1#--candidate-plugin=}"; shift ;;
     *) shift ;; # silently ignore unknown args; best-effort
   esac
 done
@@ -51,14 +64,26 @@ check_cooldown() {
 }
 
 # ---- main ----
-check_cooldown
+if [ -z "$CANDIDATE_PLUGIN" ]; then
+  check_cooldown
+  mkdir -p "$OBS_DIR" 2>/dev/null || exit 0
+fi
 
 PLUGIN_DIR="${PLUGIN_DIR_OVERRIDE:-$DEFAULT_PLUGIN_DIR}"
 
-command -v python >/dev/null 2>&1 || exit 0
-mkdir -p "$OBS_DIR" 2>/dev/null || exit 0
+# python||python3 validated by EXECUTION, not presence (Phase 63 probe —
+# bare `python` silently no-ops on python3-only machines, which candidate
+# mode would misreport as a clean audit).
+PYBIN=""
+for _cand in python python3; do
+  if command -v "$_cand" >/dev/null 2>&1 && "$_cand" -c 'pass' >/dev/null 2>&1; then
+    PYBIN="$_cand"
+    break
+  fi
+done
+[ -n "$PYBIN" ] || exit 0
 
-python - "$PLUGIN_DIR" "$OBS_DIR" "$EVIDENCE_CAP" "$BASH_LIB" "$PS_LIB" 2>/dev/null <<'PYIMPL'
+"$PYBIN" - "$PLUGIN_DIR" "$OBS_DIR" "$EVIDENCE_CAP" "$BASH_LIB" "$PS_LIB" "$CANDIDATE_PLUGIN" 2>/dev/null <<'PYIMPL'
 import hashlib, json, os, re, sys
 from datetime import datetime, timezone
 from glob import glob
@@ -68,6 +93,10 @@ obs_dir = sys.argv[2]
 evidence_cap = int(sys.argv[3])
 bash_lib = sys.argv[4]
 ps_lib = sys.argv[5]
+# Phase 77 candidate mode: a single flat pre-install plugin dir. Findings
+# print to stdout; nothing is written.
+candidate_plugin = sys.argv[6] if len(sys.argv) > 6 else ''
+CANDIDATE_MODE = bool(candidate_plugin)
 
 # Module-level set of pattern_ids emitted this run.
 emitted_ids = set()
@@ -84,6 +113,10 @@ def pattern_id(signature):
 def emit(signature, notes, confidence='high'):
     if len(notes) > 120:
         notes = notes[:119] + '…'
+    if CANDIDATE_MODE:
+        # candidate findings are data for the matcher, not observations.
+        print(f'CANDIDATE-FINDING {notes}')
+        return
     pid = pattern_id(signature)
     emitted_ids.add(pid)
     path = os.path.join(obs_dir, pid + '.json')
@@ -419,7 +452,16 @@ def check_heuristic_iii(plugin_name, plugin_path):
                             emit(sig, notes, confidence='med')
 
 # ---- run all heuristics across all plugins ----
-plugins = enumerate_plugins(plugin_dir)
+if CANDIDATE_MODE:
+    # One flat pre-install dir; a missing per-plugin manifest is itself a
+    # finding here (installed-mode's enumerator would simply skip it).
+    cname = os.path.basename(candidate_plugin.rstrip('/\\')) or 'candidate'
+    plugins = [(cname, candidate_plugin)]
+    if not os.path.isfile(os.path.join(candidate_plugin, '.claude-plugin', 'plugin.json')):
+        emit(f'manifest:{cname}:missing',
+             f'manifest: {cname} has no .claude-plugin/plugin.json')
+else:
+    plugins = enumerate_plugins(plugin_dir)
 for plugin_name, plugin_path in plugins:
     manifest = read_manifest(plugin_path)
     if manifest is not None:
@@ -427,8 +469,10 @@ for plugin_name, plugin_path in plugins:
     check_heuristic_ii(plugin_name, plugin_path)
     check_heuristic_iii(plugin_name, plugin_path)
 
-# ---- resolution pass ----
-resolve_untouched()
+# ---- resolution pass (installed mode only — absence semantics need the
+# full-scan scope; candidate mode owns no observation files) ----
+if not CANDIDATE_MODE:
+    resolve_untouched()
 
 PYIMPL
 PYIMPL_RC=$?
@@ -438,6 +482,8 @@ if [ "$PYIMPL_RC" -ne 0 ]; then
   exit 0
 fi
 
-# ---- cleanup: update cooldown marker ----
-now_epoch > "$COOLDOWN_FILE" 2>/dev/null || true
+# ---- cleanup: update cooldown marker (installed mode only) ----
+if [ -z "$CANDIDATE_PLUGIN" ]; then
+  now_epoch > "$COOLDOWN_FILE" 2>/dev/null || true
+fi
 exit 0

@@ -108,7 +108,7 @@ scenario_fresh_install() {
   out=$(bash "$SKELETON_DIR/scripts/install.sh" \
     --source "$SKELETON_DIR" --target "$TEST_DIR" \
     --mode=fresh --claude-only)
-  verify_marker 78
+  verify_marker 80
   # Phase 72: the post-install message points somewhere real, and the
   # greeting surface carries no literal placeholder.
   assert_contains "$out" "GETTING-STARTED"
@@ -1175,7 +1175,7 @@ LEGACY
     cat "$TEST_DIR/.claude/.skeleton-version" >&2
     exit 1
   fi
-  verify_marker 78
+  verify_marker 80
   echo "PASS backfill-migrate"
 }
 
@@ -1230,8 +1230,8 @@ with open(sys.argv[1]) as f:
     d = json.load(f)
 raw = d.get('raw_template_baselines')
 n = len(raw) if isinstance(raw, dict) else None
-if n != 78:
-    sys.exit(f'ERROR: expected 78 raw_template_baselines after migration, got {n}')
+if n != 80:
+    sys.exit(f'ERROR: expected 80 raw_template_baselines after migration, got {n}')
 print(f'  raw_template_baselines present after migration: {n} entries')
 " "$marker"
   echo "PASS raw-baseline-migrate"
@@ -2058,6 +2058,101 @@ JSONL
   echo "PASS watchdog-agent-duration"
 }
 
+# Phase 77: the matcher verdicts the draft manifest ONLY where mechanical
+# evidence permits — planted surface-conflict -> not_recommended with
+# file-cited evidence; stack-marker match -> recommended citing the marker;
+# an evidence-less candidate STAYS candidate (the load-bearing leg);
+# external-sha gets candidate_audit deferred; candidate mode prints
+# CANDIDATE-FINDING lines and writes nothing.
+scenario_plugin_context_matcher() {
+  echo ">> plugin-context-matcher: conflict->not_recommended; marker->recommended; no-signal stays candidate; external deferred; candidate-mode findings (Phase 77)"
+  TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-matcher)
+  local plugroot="$TEST_DIR/plugins"
+  local root="$TEST_DIR/proj"
+  local mp="$plugroot/marketplaces/fixture-market"
+  mkdir -p "$mp/.claude-plugin" "$mp/plugins/delta-conflict/.claude-plugin" \
+    "$mp/plugins/delta-conflict/commands" "$mp/plugins/epsilon-node/.claude-plugin" \
+    "$mp/plugins/zeta-plain/.claude-plugin" "$root/.claude/commands" \
+    "$root/.claude/observations" "$TEST_DIR/cache"
+  cat > "$mp/.claude-plugin/marketplace.json" <<'JSON'
+{"name": "fixture-market", "plugins": [
+  {"name": "delta-conflict", "description": "Fixture plugin shipping a colliding command.", "category": "examples", "source": "./plugins/delta-conflict"},
+  {"name": "epsilon-node", "description": "Node.js linting toolkit for JavaScript projects.", "category": "linting", "source": "./plugins/epsilon-node"},
+  {"name": "zeta-plain", "description": "A plain fixture that matches nothing in particular.", "category": "examples", "source": "./plugins/zeta-plain"},
+  {"name": "eta-external", "description": "External fixture pinned at a sha.", "category": "examples", "source": {"source": "git-subdir", "url": "https://example.invalid/eta.git", "path": "plugins/eta", "sha": "fedcba9876543210fedcba9876543210fedcba98"}}
+]}
+JSON
+  printf '{"name": "delta-conflict"}\n' > "$mp/plugins/delta-conflict/.claude-plugin/plugin.json"
+  printf '# deploy\n' > "$mp/plugins/delta-conflict/commands/deploy.md"
+  printf '{"name": "epsilon-node"}\n' > "$mp/plugins/epsilon-node/.claude-plugin/plugin.json"
+  printf '{"name": "zeta-plain"}\n' > "$mp/plugins/zeta-plain/.claude-plugin/plugin.json"
+  printf '{"plugins": {}}\n' > "$plugroot/installed_plugins.json"
+  printf '# deploy command\n' > "$root/.claude/commands/deploy.md"
+  printf '{"name": "fixture-project"}\n' > "$root/package.json"
+  local manifest="$root/.claude/recommendations/manifest.md"
+  ( cd "$SKELETON_DIR" && CLAUDE_PROJECT_DIR="$root" \
+    PLUGIN_MARKETPLACES_DIR_OVERRIDE="$plugroot/marketplaces" \
+    INSTALLED_PLUGINS_FILE_OVERRIDE="$plugroot/installed_plugins.json" \
+    bash .claude/scripts/plugin-discovery.sh > /dev/null )
+  ( cd "$SKELETON_DIR" && CLAUDE_PROJECT_DIR="$root" \
+    PLUGIN_MARKETPLACES_DIR_OVERRIDE="$plugroot/marketplaces" \
+    INSTALLED_PLUGINS_FILE_OVERRIDE="$plugroot/installed_plugins.json" \
+    PLUGIN_CACHE_DIR_OVERRIDE="$TEST_DIR/cache" \
+    bash .claude/scripts/plugin-context-matcher.sh > /dev/null )
+  # Leg a: planted collision -> not_recommended, reason cites both files.
+  local delta
+  delta=$(sed -n '/^### delta-conflict$/,/^### /p' "$manifest")
+  printf '%s' "$delta" | grep -q "^- status: not_recommended" \
+    || { echo "ERROR: delta-conflict not not_recommended" >&2; exit 1; }
+  printf '%s' "$delta" | grep -q "SURFACE-CONFLICT" \
+    || { echo "ERROR: reason lacks SURFACE-CONFLICT class" >&2; exit 1; }
+  printf '%s' "$delta" | grep -q "commands/deploy.md collides with" \
+    || { echo "ERROR: reason lacks file-to-file citation" >&2; exit 1; }
+  echo "  leg a: surface-conflict -> not_recommended, file-cited OK"
+  # Leg b: stack-marker match -> recommended citing the detected file.
+  local eps
+  eps=$(sed -n '/^### epsilon-node$/,/^### /p' "$manifest")
+  printf '%s' "$eps" | grep -q "^- status: recommended" \
+    || { echo "ERROR: epsilon-node not recommended" >&2; exit 1; }
+  printf '%s' "$eps" | grep -q "STACK-MARKER: detected package.json" \
+    || { echo "ERROR: reason lacks marker citation" >&2; exit 1; }
+  echo "  leg b: stack-marker -> recommended, marker cited OK"
+  # Leg c (load-bearing): no evidence -> STAYS candidate, no reason line.
+  local zeta
+  zeta=$(sed -n '/^### zeta-plain$/,/^### /p' "$manifest")
+  printf '%s' "$zeta" | grep -q "^- status: candidate" \
+    || { echo "ERROR: zeta-plain did not stay candidate" >&2; exit 1; }
+  if printf '%s' "$zeta" | grep -q "^- reason:"; then
+    echo "ERROR: evidence-less candidate got a reason line" >&2; exit 1
+  fi
+  echo "  leg c: evidence-less stays candidate OK"
+  # Leg d: external-sha -> metadata-eligible + audit deferred, never guessed.
+  local eta
+  eta=$(sed -n '/^### eta-external$/,/^### /p' "$manifest")
+  printf '%s' "$eta" | grep -q "^- candidate_audit: deferred (source_not_inspected_offline)" \
+    || { echo "ERROR: external-sha candidate_audit not deferred" >&2; exit 1; }
+  echo "  leg d: external-sha audit deferred OK"
+  # Frontmatter counts re-derived by disposition.
+  head -12 "$manifest" | grep -q "^recommended: 1" \
+    || { echo "ERROR: frontmatter recommended count wrong" >&2; exit 1; }
+  head -12 "$manifest" | grep -q "^not_recommended: 1" \
+    || { echo "ERROR: frontmatter not_recommended count wrong" >&2; exit 1; }
+  # Leg e: candidate mode direct — declared-but-missing component prints a
+  # CANDIDATE-FINDING line and writes NOTHING.
+  mkdir -p "$TEST_DIR/iota-broken/.claude-plugin"
+  printf '{"name": "iota-broken", "components": {"commands": "commands/"}}\n' \
+    > "$TEST_DIR/iota-broken/.claude-plugin/plugin.json"
+  local out
+  out=$(cd "$root" && bash "$SKELETON_DIR/.claude/scripts/plugin-quality-check.sh" \
+    --candidate-plugin "$TEST_DIR/iota-broken")
+  assert_contains "$out" "CANDIDATE-FINDING i:"
+  if ls "$root/.claude/observations/"*.json >/dev/null 2>&1; then
+    echo "ERROR: candidate mode wrote observation files" >&2; exit 1
+  fi
+  echo "  leg e: candidate-mode finding printed, zero writes OK"
+  echo "PASS plugin-context-matcher"
+}
+
 # Phase 68: the scheduled-goals surfacer prints exactly ONE ambient line for
 # approved+due specs and NOTHING for drafts — a draft never surfaces as
 # actionable (the approval gate is load-bearing) — and --hook honors the
@@ -2337,6 +2432,7 @@ case "${1:-}" in
   audit-cadence-nudge)              scenario_audit_cadence_nudge ;;
   plugin-discovery-manifest)        scenario_plugin_discovery_manifest ;;
   watchdog-agent-duration)          scenario_watchdog_agent_duration ;;
+  plugin-context-matcher)           scenario_plugin_context_matcher ;;
   replace-with-yes-piped)           scenario_replace_with_yes_piped ;;
   hook-fp-exemption-git-commit-message) scenario_hook_fp_exemption_git_commit_message ;;
   all)
@@ -2386,6 +2482,7 @@ case "${1:-}" in
     scenario_audit_cadence_nudge
     scenario_plugin_discovery_manifest
     scenario_watchdog_agent_duration
+    scenario_plugin_context_matcher
     scenario_replace_with_yes_piped
     scenario_hook_fp_exemption_git_commit_message
     echo "ALL SCENARIOS PASSED"
@@ -2441,6 +2538,7 @@ Scenarios:
   audit-cadence-nudge          Session counters + past-cadence due line; under-cadence/cooldown silent (Phase 74).
   plugin-discovery-manifest    Fixture marketplace -> schema-valid draft; installed never candidate; unversioned tolerated; external-sha marked; zero verdicts (Phase 76).
   watchdog-agent-duration      2h Agent await -> agent-dispatch observation; 10min Agent silent; Bash branch intact (obs 6708b966).
+  plugin-context-matcher       Conflict->not_recommended file-cited; marker->recommended; no-signal stays candidate; external deferred; candidate-mode findings (Phase 77).
   replace-with-yes-piped       printf 'YES' | install.sh --mode=replace overwrites locally-modified file (Phase 30b H7).
   hook-fp-exemption-git-commit-message  Parser exempts -m bodies + heredoc/here-string payloads; counter-tests verify outside-region patterns still deny (Phase 30c).
   all                          Run every scenario in sequence.
