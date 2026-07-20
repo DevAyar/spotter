@@ -1,6 +1,6 @@
 ---
 name: task-watchdog
-description: Retrospective observer of the prior Claude Code session's tool calls. Reads the prior session's JSONL transcript at session start, detects long-running bash calls (duration > threshold) and recurring failures (same normalized error signature ≥3 times in-session), and writes structured observation files to .claude/observations/ using the observation schema (session-observer.schema.md). Invoked automatically by the SessionStart hook chain after drift-check.sh; manually dispatchable on request. Retrospective only — no real-time polling, no network, no writes outside .claude/observations/. Workflow-suggester picks up these observations like any other source. v1.1+ Phase 5, final v1.1.0 component; canonical producer against the observation schema (its namesake first producer, session-observer, retired Phase 58).
+description: Retrospective observer of the prior Claude Code session's tool calls. Reads the prior session's JSONL transcript at session start, detects long-running bash calls and Agent dispatches (per-tool duration thresholds — 5m Bash, 60m Agent; Agent coverage added per obs 6708b966) and recurring failures (same normalized error signature ≥3 times in-session), and writes structured observation files to .claude/observations/ using the observation schema (session-observer.schema.md). Invoked automatically by the SessionStart hook chain after drift-check.sh; manually dispatchable on request. Retrospective only — no real-time polling, no network, no writes outside .claude/observations/. Workflow-suggester picks up these observations like any other source. v1.1+ Phase 5, final v1.1.0 component; canonical producer against the observation schema (its namesake first producer, session-observer, retired Phase 58).
 tools: Read, Bash, Write
 ---
 
@@ -32,13 +32,14 @@ Observation JSON files at `.claude/observations/<pattern_id>.json` conforming to
 | Pattern | `pattern_type` | `notes` | Signature for `pattern_id` |
 |---|---|---|---|
 | Long-running bash call | `other` | `"long-running bash call (>{N}m)"` | Normalized bash `command` string. |
+| Long-running Agent dispatch | `other` | `"long-running agent dispatch (>{N}m)"` | `agent:` + normalized dispatch `description` (namespaced — never collides with a bash signature). Duration from `totalDurationMs`, falling back to the tool_use→tool_result timestamp delta (e.g. a cancelled await). Added per obs 6708b966 — a 7h wedged dispatch was invisible to the Bash-only gate. |
 | Recurring failure | `recurring_failure` | — | Normalized first-line of `tool_result.content` (or `toolUseResult.stderr` for Bash). |
 
 `source: "task-watchdog"` on every observation. Re-observation rules from the schema apply: same `pattern_id` across sessions → bumps `occurrences`, updates `last_seen`, appends to `evidence` (capped at the 20 most recent entries).
 
 `privacy_class: "share-with-redaction"` on every emission (Phase 46). Error signatures and bash duration metrics ARE shareable cross-install, but the raw command args and content fields need stripping. The `redact-observation.sh` lib enforces this on emission to any cross-install destination — `share-with-redaction` observations get reduced to the safe-to-share field allowlist (evidence keeps `timestamp` + `kind` only; `args_redacted`, `summary`, `notes` get stripped).
 
-`target_resource` is set opportunistically: `tool:<name>` for `recurring_failure` (the failing tool), and `script:<basename>` for long-running bash when the command looks script-shaped (path-containing or ends in `.sh`), else `tool:Bash`.
+`target_resource` is set opportunistically: `tool:<name>` for `recurring_failure` (the failing tool), `tool:Agent` for long-running Agent dispatches, and `script:<basename>` for long-running bash when the command looks script-shaped (path-containing or ends in `.sh`), else `tool:Bash`.
 
 `resolved_at` is always written: `null` on new emission and on re-emission (regression-reset). task-watchdog does NOT actively set `resolved_at` to a timestamp on existing observations — its scope is one prior session per scan, so absence in a scan is not meaningful evidence of permanent resolution. Per the schema's "Resolution lifecycle" section, task-watchdog's observations from older sessions stay `null` indefinitely. Intentional asymmetry with `cruft-checker`, which can run a full resolve pass because its scope covers the entire skeleton repo on every scan.
 

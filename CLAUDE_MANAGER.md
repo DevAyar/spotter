@@ -295,7 +295,7 @@ Helpers live in `.claude/agents/`. The baseline roster:
 | 8 | `workflow-suggester` | `05_meta/` | L2 | Pattern detection over `.claude/observations/`; suggests captures. |
 | 9 | `self-audit-helper` | `05_meta/` | L2 | Meta-system drift detection (orphans, dead refs, doc drift, missing routes). |
 | 10 | `drift-checker` | `05_meta/` | L2 | Read-only version-drift check against `.skeleton-version`; surfaced by SessionStart hook. |
-| 11 | `task-watchdog` | `05_meta/` | L2 | Retrospective observer: long-running bash calls + recurring failures in prior session; invoked by SessionStart hook. |
+| 11 | `task-watchdog` | `05_meta/` | L2 | Retrospective observer: long-running bash calls/Agent dispatches + recurring failures in prior session; invoked by SessionStart hook. |
 | 12 | `integration-installer` | `05_meta/` | L2 | Judgment companion to `scripts/install.sh` — target-state detection, conflict strategy, structured install plan. |
 | 13 | `script-builder` | `05_meta/` | L2 | Drafts bash scripts from approved `script` captures into `.claude/scripts/drafts/`; user reviews and promotes. |
 | 14 | `code-quality-auditor` | `05_meta/` | L2 | Plugin-source verification (three narrow heuristics); auto-fires at SessionStart with a 24h cooldown. |

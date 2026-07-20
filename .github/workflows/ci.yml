@@ -227,3 +227,7 @@ jobs:
       - name: Scenario - plugin-discovery-manifest
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh plugin-discovery-manifest
+
+      - name: Scenario - watchdog-agent-duration
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh watchdog-agent-duration

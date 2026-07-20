@@ -2,7 +2,8 @@
 # task-watchdog: retrospective observer of the prior Claude Code
 # session. Reads the prior session's JSONL transcript at
 # ~/.claude/projects/<encoded-cwd>/<session-id>.jsonl, detects
-# long-running bash calls and recurring failures, and writes
+# long-running bash calls and Agent dispatches plus recurring
+# failures, and writes
 # observation files to .claude/observations/ using session-observer's
 # schema. Invoked by sessionstart-rules.sh after drift-check.sh; also
 # manually dispatchable. Retrospective only — NEVER polls live,
@@ -14,6 +15,14 @@ set -uo pipefail
 
 # ---- constants ----
 DURATION_THRESHOLD_MS=300000        # 5 minutes — bash calls exceeding this are flagged.
+# Agent dispatches legitimately run far longer than bash calls, so they get
+# their own threshold (obs 6708b966 disposition). Evidence-derived: across
+# 25+ historical dispatches in this project's transcripts the legitimate
+# synchronous-await ceiling was 46.5 min (next 45.4, then <=23.6); hung-await
+# wedges measured 239-325 min. 60 min clears the observed max with margin and
+# catches every wedge-class instance. Async launch-acks return in ~1s and
+# never trip this.
+AGENT_DURATION_THRESHOLD_MS=3600000 # 60 minutes — Agent awaits exceeding this are flagged.
 FAILURE_OCCURRENCE_THRESHOLD=3      # same error signature this many times → emit observation.
 EVIDENCE_CAP=20                     # schema rule — keep most recent N evidence entries.
 
@@ -188,7 +197,7 @@ if [ "$(read_last_session_id)" = "$PRIOR_SESSION_ID" ]; then
 fi
 
 # Process the JSONL. Python helper writes observation files in place.
-"$PYBIN" - "$JSONL_PATH" "$OBS_DIR" "$DURATION_THRESHOLD_MS" "$FAILURE_OCCURRENCE_THRESHOLD" "$EVIDENCE_CAP" 2>/dev/null <<'PYIMPL'
+"$PYBIN" - "$JSONL_PATH" "$OBS_DIR" "$DURATION_THRESHOLD_MS" "$FAILURE_OCCURRENCE_THRESHOLD" "$EVIDENCE_CAP" "$AGENT_DURATION_THRESHOLD_MS" 2>/dev/null <<'PYIMPL'
 import hashlib, json, os, re, sys
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -197,6 +206,7 @@ jsonl_path, obs_dir = sys.argv[1], sys.argv[2]
 duration_threshold_ms = int(sys.argv[3])
 failure_threshold = int(sys.argv[4])
 evidence_cap = int(sys.argv[5])
+agent_duration_threshold_ms = int(sys.argv[6])
 
 # ---- redaction (mirrors session-observer.schema.md rules) ----
 SECRET_PATTERNS = [
@@ -285,7 +295,12 @@ with fh:
                 is_error = bool(block.get('is_error'))
                 exit_code = result.get('exitCode') if isinstance(result, dict) else None
 
-                # Duration check (Bash only — other tools rarely report meaningful durationMs).
+                # Duration check — Bash + Agent (obs 6708b966: the Bash-only
+                # gate let a 7h wedged Agent dispatch pass unobserved). Bash
+                # reports durationMs; Agent reports totalDurationMs — fall
+                # back to the tool_use->tool_result timestamp delta when it
+                # is absent (e.g. a cancelled await). Separate thresholds:
+                # agents legitimately run far longer than bash calls.
                 if tu['name'] == 'Bash' and duration_ms >= duration_threshold_ms:
                     cmd = tu['input'].get('command', '') if isinstance(tu['input'], dict) else ''
                     sig = normalize_command(cmd)
@@ -295,6 +310,26 @@ with fh:
                             'duration_ms': duration_ms,
                             'timestamp': tu['timestamp'],
                             'tool_name': tu['name'],
+                        })
+                elif tu['name'] == 'Agent':
+                    agent_ms = 0
+                    if isinstance(result, dict):
+                        agent_ms = int(result.get('totalDurationMs') or 0)
+                    if not agent_ms:
+                        try:
+                            t0 = datetime.fromisoformat(tu['timestamp'].replace('Z', '+00:00'))
+                            t1 = datetime.fromisoformat(ev.get('timestamp', '').replace('Z', '+00:00'))
+                            agent_ms = int((t1 - t0).total_seconds() * 1000)
+                        except (ValueError, TypeError):
+                            agent_ms = 0
+                    if agent_ms >= agent_duration_threshold_ms:
+                        desc = tu['input'].get('description', '') if isinstance(tu['input'], dict) else ''
+                        sig = 'agent:' + normalize_command(desc or 'agent dispatch')
+                        durations[sig].append({
+                            'command': desc,
+                            'duration_ms': agent_ms,
+                            'timestamp': tu['timestamp'],
+                            'tool_name': 'Agent',
                         })
 
                 # Failure check.
@@ -354,12 +389,14 @@ def write_observation(pid, ptype, signature, events, notes=None):
             if ev.get('command'):
                 entry['args_redacted'] = redact(ev['command'])
         else:
+            tn = ev.get('tool_name', 'Bash')
+            label = 'agent dispatch' if tn == 'Agent' else 'bash call'
             entry = {
                 'timestamp': ts,
                 'kind': 'tool_call',
-                'tool_name': ev.get('tool_name', 'Bash'),
+                'tool_name': tn,
                 'args_redacted': redact(ev.get('command', '')),
-                'summary': redact(f"long-running bash call ({ev.get('duration_ms',0)//1000}s)"),
+                'summary': redact(f"long-running {label} ({ev.get('duration_ms',0)//1000}s)"),
             }
         new_evidence.append(entry)
 
@@ -424,6 +461,8 @@ def write_observation(pid, ptype, signature, events, notes=None):
             tn = first.get('tool_name', '')
             if tn:
                 target_resource = f'tool:{tn}'
+        elif first.get('tool_name') == 'Agent':
+            target_resource = 'tool:Agent'
         else:
             cmd = first.get('command', '')
             if cmd:
@@ -456,11 +495,15 @@ def write_observation(pid, ptype, signature, events, notes=None):
         f.write('\n')
     os.replace(tmp, path)
 
-# Long-running bash: emit even for a single occurrence ≥ threshold (schema requires ≥2 occurrences total, so single-occurrence patterns wait for the next session to bump count — or merge with an existing observation).
+# Long-running bash/agent: emit even for a single occurrence ≥ threshold (schema requires ≥2 occurrences total, so single-occurrence patterns wait for the next session to bump count — or merge with an existing observation).
 duration_minutes = duration_threshold_ms // 60000
+agent_duration_minutes = agent_duration_threshold_ms // 60000
 for sig, events in durations.items():
     pid = pattern_id('other', sig)
-    notes = f"long-running bash call (>{duration_minutes}m)"
+    if sig.startswith('agent:'):
+        notes = f"long-running agent dispatch (>{agent_duration_minutes}m)"
+    else:
+        notes = f"long-running bash call (>{duration_minutes}m)"
     write_observation(pid, 'other', sig, events, notes=notes)
 
 # Recurring failures: only emit if same signature ≥ failure_threshold this session.

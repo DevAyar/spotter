@@ -2003,6 +2003,61 @@ PYEOF
   echo "PASS plugin-discovery-manifest"
 }
 
+# Obs 6708b966 disposition: the watchdog duration signal covers Agent
+# dispatches — a 2h synchronous await emits an agent-dispatch observation
+# (totalDurationMs, agent-namespaced signature), a normal 10min dispatch
+# stays silent, and the existing Bash branch is unregressed.
+scenario_watchdog_agent_duration() {
+  echo ">> watchdog-agent-duration: 2h Agent await -> observation; 10min Agent silent; Bash branch intact (obs 6708b966 disposition)"
+  TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-wdagent)
+  local root="$TEST_DIR/proj"
+  local fx="$TEST_DIR/projects/any-dir-name"
+  mkdir -p "$root/.claude/observations" "$fx"
+  local pybin=""
+  local cand
+  for cand in python python3; do
+    if command -v "$cand" >/dev/null 2>&1 && "$cand" -c 'pass' >/dev/null 2>&1; then pybin="$cand"; break; fi
+  done
+  [ -n "$pybin" ] || { echo "SKIP watchdog-agent-duration (no working python)"; return 0; }
+  local cwd_py
+  cwd_py=$("$pybin" -c 'import sys; print(sys.argv[1])' "$root")
+  cat > "$fx/prior.jsonl.tmpl" <<'JSONL'
+{"type":"summary","sessionId":"wda-prior","timestamp":"2026-07-01T00:00:00Z"}
+{"type":"assistant","sessionId":"wda-prior","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T00:01:00Z","message":{"content":[{"type":"tool_use","id":"a1","name":"Agent","input":{"description":"optimizer cycle fixture","prompt":"do the thing","subagent_type":"manager-optimizer"}}]}}
+{"type":"user","sessionId":"wda-prior","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T02:01:00Z","toolUseResult":{"totalDurationMs":7200000,"status":"completed"},"message":{"content":[{"type":"tool_result","tool_use_id":"a1","content":"summary text"}]}}
+{"type":"assistant","sessionId":"wda-prior","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T02:02:00Z","message":{"content":[{"type":"tool_use","id":"a2","name":"Agent","input":{"description":"quick recon fixture","prompt":"look","subagent_type":"Explore"}}]}}
+{"type":"user","sessionId":"wda-prior","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T02:12:00Z","toolUseResult":{"totalDurationMs":600000,"status":"completed"},"message":{"content":[{"type":"tool_result","tool_use_id":"a2","content":"done"}]}}
+{"type":"assistant","sessionId":"wda-prior","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T02:13:00Z","message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"bash slow-build.sh"}}]}}
+{"type":"user","sessionId":"wda-prior","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T02:20:00Z","toolUseResult":{"durationMs":400000,"exitCode":0},"message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"done"}]}}
+JSONL
+  sed "s|__CWD__|$cwd_py|g" "$fx/prior.jsonl.tmpl" > "$fx/prior.jsonl"
+  rm -f "$fx/prior.jsonl.tmpl"
+  printf '{"type":"summary","sessionId":"wda-current","timestamp":"2026-07-02T00:00:00Z"}\n{"type":"user","sessionId":"wda-current","isSidechain":false,"cwd":"%s","timestamp":"2026-07-02T00:00:01Z","message":{"content":[]}}\n' "$cwd_py" > "$fx/current.jsonl"
+  touch -t 202607010000 "$fx/prior.jsonl"
+  touch -t 202607020000 "$fx/current.jsonl"
+  CLAUDE_PROJECT_DIR="$root" CLAUDE_PROJECTS_DIR_OVERRIDE="$TEST_DIR/projects" \
+    bash "$SKELETON_DIR/.claude/scripts/task-watchdog.sh" > /dev/null 2>&1
+  # Leg 1: the 2h Agent await emits exactly one agent-dispatch observation.
+  local agent_obs
+  agent_obs=$(grep -l "long-running agent dispatch" "$root/.claude/observations/"*.json 2>/dev/null || true)
+  [ -n "$agent_obs" ] || { echo "ERROR: 2h Agent await emitted no observation" >&2; exit 1; }
+  [ "$(printf '%s\n' "$agent_obs" | grep -c .)" = "1" ] \
+    || { echo "ERROR: expected exactly one agent-dispatch observation" >&2; exit 1; }
+  grep -q '"tool_name": "Agent"' "$agent_obs" \
+    || { echo "ERROR: agent observation lacks tool_name Agent" >&2; exit 1; }
+  echo "  leg 1: 2h Agent await -> one agent-dispatch observation OK"
+  # Leg 2: the 10-minute Agent await stays silent.
+  if grep -q "quick recon fixture" "$root/.claude/observations/"*.json 2>/dev/null; then
+    echo "ERROR: normal-duration Agent dispatch emitted an observation" >&2; exit 1
+  fi
+  echo "  leg 2: 10min Agent silent OK"
+  # Leg 3: the Bash branch is intact — the 400s call is still observed.
+  grep -q "long-running bash call" "$root/.claude/observations/"*.json 2>/dev/null \
+    || { echo "ERROR: Bash duration branch regressed" >&2; exit 1; }
+  echo "  leg 3: Bash 400s still observed OK"
+  echo "PASS watchdog-agent-duration"
+}
+
 # Phase 68: the scheduled-goals surfacer prints exactly ONE ambient line for
 # approved+due specs and NOTHING for drafts — a draft never surfaces as
 # actionable (the approval gate is load-bearing) — and --hook honors the
@@ -2281,6 +2336,7 @@ case "${1:-}" in
   goals-surface)                    scenario_goals_surface ;;
   audit-cadence-nudge)              scenario_audit_cadence_nudge ;;
   plugin-discovery-manifest)        scenario_plugin_discovery_manifest ;;
+  watchdog-agent-duration)          scenario_watchdog_agent_duration ;;
   replace-with-yes-piped)           scenario_replace_with_yes_piped ;;
   hook-fp-exemption-git-commit-message) scenario_hook_fp_exemption_git_commit_message ;;
   all)
@@ -2329,6 +2385,7 @@ case "${1:-}" in
     scenario_goals_surface
     scenario_audit_cadence_nudge
     scenario_plugin_discovery_manifest
+    scenario_watchdog_agent_duration
     scenario_replace_with_yes_piped
     scenario_hook_fp_exemption_git_commit_message
     echo "ALL SCENARIOS PASSED"
@@ -2383,6 +2440,7 @@ Scenarios:
   goals-surface                Approved+due spec -> one ambient line; drafts silent; --hook cooldown (Phase 68).
   audit-cadence-nudge          Session counters + past-cadence due line; under-cadence/cooldown silent (Phase 74).
   plugin-discovery-manifest    Fixture marketplace -> schema-valid draft; installed never candidate; unversioned tolerated; external-sha marked; zero verdicts (Phase 76).
+  watchdog-agent-duration      2h Agent await -> agent-dispatch observation; 10min Agent silent; Bash branch intact (obs 6708b966).
   replace-with-yes-piped       printf 'YES' | install.sh --mode=replace overwrites locally-modified file (Phase 30b H7).
   hook-fp-exemption-git-commit-message  Parser exempts -m bodies + heredoc/here-string payloads; counter-tests verify outside-region patterns still deny (Phase 30c).
   all                          Run every scenario in sequence.

@@ -2,7 +2,7 @@
   "cached_skeleton_head": null,
   "cached_skeleton_head_fetched_at": null,
   "claude_only": true,
-  "commit": "9dada8faad30dd295f847e9e4fefb8cea444d73f",
+  "commit": "5e166fece397afca2d7f51641b5580645a325aa4",
   "files": {
     ".claude/agents/01_research/research-helper.md": "d6819af268891840da334ab8f16eced5d561027780b8f9adc59fdef8052f3051",
     ".claude/agents/02_audit/audit-helper.md": "59fcf1d52c019b03a8f4cac67a2d4be6c502366b3bd8832f42a541a6696ceb62",
@@ -21,7 +21,7 @@
     ".claude/agents/05_meta/self-audit-helper.md": "e5119d474fdb3ecdc13a812d9cbd7387939b3590f205f0af204d5e94b4407426",
     ".claude/agents/05_meta/session-observer.schema.md": "5c019829616cd2208f9b31041626344595378f2be634e4e41a46bfa4c439c330",
     ".claude/agents/05_meta/system-memory-helper.md": "9af38caad0ca315c69fd2ae2fa30431ff93c6c1586b33ba8b9ff380cc1c30a78",
-    ".claude/agents/05_meta/task-watchdog.md": "32ba6f5dbe4b86a80178127596bc636167b28212ee5eba1c208b21751dcf99e9",
+    ".claude/agents/05_meta/task-watchdog.md": "865e1da7183a1b097ae6686af3cf19fee3afdfe51ae1d3269f902f764cd205bc",
     ".claude/agents/05_meta/token-cost-monitor.md": "ab92a36edf10f8e99c29c17418a2c2bd10a7c056994269ec25e6e67960a72733",
     ".claude/agents/05_meta/workflow-suggester.md": "512c768cb533ea932f92201d5d1d26b27a16161e8840f6c6957aed21f8fa1fb0",
     ".claude/agents/05_meta/workflow-suggester.schema.md": "28f5a894c679e5c86efaea05e86c5dd9ffd42933a94d029e85093ade82897faf",
@@ -68,7 +68,7 @@
     ".claude/scripts/share-status.sh": "743bd7c426b39eab21b65eac0d52eb0fbeb7612e0ee816b91740eedcc70b1032",
     ".claude/scripts/shared-memory-produce.sh": "700eadbaac1246b58c0b4c970343aa5b72c0398d9de6864c8b4daa470f7d9195",
     ".claude/scripts/shared-memory-push.sh": "3c6774c5096759a26660543d4bd276f6817a937657885fc7c2b3c3c77cde5e00",
-    ".claude/scripts/task-watchdog.sh": "df78574a289185f0b3743a5db4b19277f92e5286eb1e33cca7a28cf20c7e4e81",
+    ".claude/scripts/task-watchdog.sh": "0e95c794832872ef15251c44f1f8142ee70c50631c4707f02d153021c2924835",
     ".claude/settings.json": "c8ae59d74674cb9b68221d995321cfca4a2123af82fe9a960ad947503bb8f505",
     ".claude/skills/bash-safety/SKILL.md": "a6a30c21171a91170a2d1febec8626b7dda8699afc6c9913a72565e26a5961fd",
     ".claude/skills/god-file-grep-first/SKILL.md": "5470e9282969ffd727a2377064934be47236900c4bc9c8b538545327cd930b2c",
@@ -106,7 +106,7 @@
     ".claude/agents/05_meta/self-audit-helper.md": "e5119d474fdb3ecdc13a812d9cbd7387939b3590f205f0af204d5e94b4407426",
     ".claude/agents/05_meta/session-observer.schema.md": "5c019829616cd2208f9b31041626344595378f2be634e4e41a46bfa4c439c330",
     ".claude/agents/05_meta/system-memory-helper.md": "9af38caad0ca315c69fd2ae2fa30431ff93c6c1586b33ba8b9ff380cc1c30a78",
-    ".claude/agents/05_meta/task-watchdog.md": "32ba6f5dbe4b86a80178127596bc636167b28212ee5eba1c208b21751dcf99e9",
+    ".claude/agents/05_meta/task-watchdog.md": "865e1da7183a1b097ae6686af3cf19fee3afdfe51ae1d3269f902f764cd205bc",
     ".claude/agents/05_meta/token-cost-monitor.md": "ab92a36edf10f8e99c29c17418a2c2bd10a7c056994269ec25e6e67960a72733",
     ".claude/agents/05_meta/workflow-suggester.md": "512c768cb533ea932f92201d5d1d26b27a16161e8840f6c6957aed21f8fa1fb0",
     ".claude/agents/05_meta/workflow-suggester.schema.md": "28f5a894c679e5c86efaea05e86c5dd9ffd42933a94d029e85093ade82897faf",
@@ -153,7 +153,7 @@
     ".claude/scripts/share-status.sh": "743bd7c426b39eab21b65eac0d52eb0fbeb7612e0ee816b91740eedcc70b1032",
     ".claude/scripts/shared-memory-produce.sh": "700eadbaac1246b58c0b4c970343aa5b72c0398d9de6864c8b4daa470f7d9195",
     ".claude/scripts/shared-memory-push.sh": "3c6774c5096759a26660543d4bd276f6817a937657885fc7c2b3c3c77cde5e00",
-    ".claude/scripts/task-watchdog.sh": "df78574a289185f0b3743a5db4b19277f92e5286eb1e33cca7a28cf20c7e4e81",
+    ".claude/scripts/task-watchdog.sh": "0e95c794832872ef15251c44f1f8142ee70c50631c4707f02d153021c2924835",
     ".claude/settings.json": "eee0e5c5729d2df8b4ad9944ea43291b69976edd498020d5b490069f4c21aa86",
     ".claude/skills/bash-safety/SKILL.md": "a6a30c21171a91170a2d1febec8626b7dda8699afc6c9913a72565e26a5961fd",
     ".claude/skills/god-file-grep-first/SKILL.md": "5470e9282969ffd727a2377064934be47236900c4bc9c8b538545327cd930b2c",
@@ -169,6 +169,6 @@
     ".claude/telemetry/retier-proposals.json": "c5085a3dbb874d664434938beb1abf40ee2f13d51601d5794b9bf07916cd1b06"
   },
   "source": "C:/Users/darre/Dev/Claude-Skeleton",
-  "updated_at": "2026-07-16T20:32:07Z",
+  "updated_at": "2026-07-20T18:27:28Z",
   "version": "1.1.5"
 }
