@@ -111,7 +111,7 @@ Explicit user signal: amendment messages that lead with `DO NOT re-plan or rewri
 
 ### Apply `integration-checker` before any plugin install
 
-**STATUS: DEFERRED to v2.0** — agent doesn't exist yet. Reserved as dispatch guidance for when `integration-checker` ships as part of v2.0 plugin recommendation surface. For v1.1.5+ pre-pinball plugin installs (bundle install Phase 34), use `code-quality-auditor` in candidate mode (`--candidate-plugin` flag, Phase 39 / v1.5-B) once that ships; until then, manual code-quality vetting via direct file inspection of plugin source.
+**STATUS: DEFERRED to v2.0** — agent doesn't exist yet. Reserved as dispatch guidance for when `integration-checker` ships as part of v2.0 plugin recommendation surface. For v1.1.5+ pre-pinball plugin installs (bundle install Phase 34), use `code-quality-auditor` in candidate mode (`--candidate-plugin` flag) — SHIPPED Phase 77: candidate mode is live; `plugin-context-matcher` invokes it for repo-hosted candidates, and direct dispatch works for one-off pre-install vetting.
 
 ### Apply `bash-safety` to any recursive scan or project-wide file op
 
@@ -303,12 +303,13 @@ Helpers live in `.claude/agents/`. The baseline roster:
 | 16 | `manager-optimizer` | `05_meta/` | L3 | Watches the AI-decision and human/gate layers; drafts `CLAUDE_MANAGER.md` / `gate-config.json` refinements (Phase 53, shipped v1). |
 | 17 | `artifact-fit-analyzer` | `05_meta/` | L2 | OVERLAP / GAP / MISFIT / ORPHAN findings across the artifact set; drafts consolidation captures (Phase 56). |
 | 18 | `plugin-discovery-agent` | `05_meta/` | L2 | Plugin-ecosystem inventory into the draft recommendation manifest via `plugin-discovery.sh`; cadence-dispatched or on demand (Phase 76). |
+| 19 | `plugin-context-matcher` | `05_meta/` | L2 | Verdict layer over the manifest via `plugin-context-matcher.sh` — evidence-cited recommended/not_recommended, honest-middle default; rides the plugin_discovery cadence (Phase 77). |
 
 <!-- TEMPLATE STUB — project-tuner-helper extends this roster with project-specific helpers. -->
 
 ## Tier system
 
-- **T1 — Always-on baseline.** The eighteen helpers above (four core + fourteen meta), the twelve scripts under `.claude/scripts/`, the seven hook scripts wired across four events (PreCompact, PreToolUse, SessionStart, SessionEnd), the six skills (`schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, `bash-safety`, `token-efficiency-monitor`, `plugin-roster-search`). Ships in every install. Counts are re-derived mechanically when this line changes (see § Roster and doc surfaces update in the same phase).
+- **T1 — Always-on baseline.** The nineteen helpers above (four core + fifteen meta), the thirteen scripts under `.claude/scripts/`, the seven hook scripts wired across four events (PreCompact, PreToolUse, SessionStart, SessionEnd), the six skills (`schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, `bash-safety`, `token-efficiency-monitor`, `plugin-roster-search`). Ships in every install. Counts are re-derived mechanically when this line changes (see § Roster and doc surfaces update in the same phase).
 - **T2 — Escalation.** Helpers and scripts added for this project's specific needs. Loaded by default but project-specific.
 - **T3 — On-demand plugins.** Opt-in tooling (e.g. `browser-tester`). The manager only invokes T3 when explicitly relevant.
 
@@ -503,3 +504,7 @@ Not an agent — a coordinator built from existing surfaces: the `audits` regist
 **When discovery dispatches:** on the `[infrastructure-audit]` cadence line (`plugin_discovery`, registered in gate-config's audits block — counted automatically, reset on dispatch per the flow above) or on demand ("refresh the plugin manifest", after installing or removing a plugin). No hook of its own; no network; no install/enable actions ever — `/plugin` stays the only install path.
 
 **Boundary, one breath:** `code-quality-auditor` audits the internals of plugins you HAVE (manifest honesty, hooks.json schema, destructive patterns); `plugin-discovery-agent` inventories the ecosystem of plugins you COULD have — evidence only, judgment deferred.
+
+**The verdict layer (Phase 77):** `plugin-context-matcher` (via `scripts/plugin-context-matcher.sh`) updates the draft manifest's candidate entries in place, only where mechanical evidence permits. `recommended` needs ≥1 positive class — STACK-MARKER (a detected marker file's keywords match the entry, cited to the file), CAPABILITY-GAP (an unresolved observation the candidate's category addresses), COMPOSITION-PRECEDENT (same author as an installed, clean-auditing plugin). `not_recommended` needs ≥1 of exactly three closed classes — SURFACE-CONFLICT (command/agent name collision vs the skeleton's `.claude/` or an installed plugin, cited file-to-file; hook-EVENT overlap alone is not a conflict, hooks chain by design), STACK-MISMATCH (the entry names a stack the detected markers contradict, cited both sides), CANDIDATE-AUDIT-FAIL (`plugin-quality-check.sh --candidate-plugin` findings on the repo-hosted pre-install source, quoted). Everything else stays `candidate` — the honest middle is the default. No ranks, no scores, no editorial rejections. External-sha entries are metadata-eligible with `candidate_audit: deferred`.
+
+**The review flow and the shared cadence:** the `plugin_discovery` audits-registry entry covers the PAIR — one dispatch flow: refresh (`plugin-discovery.sh`) → verdict (`plugin-context-matcher.sh`) → reset the one audit-state entry. There is deliberately no second registry line. The output is a still-`draft` manifest whose verdicts carry reasons; you read the reasons, and anything you choose to install goes through `/plugin` by hand — the manifest never installs anything. Boundary vs installed-mode auditing, one breath: candidate mode judges source you might adopt (findings → manifest reason); installed mode audits source you already run (findings → observations).

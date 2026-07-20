@@ -24,7 +24,7 @@ carries no information). This schema file beside it is the tracked contract.
 | `generated` | string (ISO-8601 UTC) | yes | Timestamp of the last refresh. |
 | `generator` | string | yes | Producing mechanism + phase, e.g. `plugin-discovery.sh (Phase 76)`. |
 | `marketplaces_scanned` | int | yes | Count of marketplace clones actually read. `0` with a note in the body is an honest output — an empty machine is not an error. |
-| `plugins_indexed` / `candidates` / `installed` | int | yes | Entry counts by disposition. |
+| `plugins_indexed` / `candidates` / `installed` | int | yes | Entry counts by disposition. After a matcher pass (Phase 77) the frontmatter also carries `recommended` and `not_recommended` counts. |
 | `stack_markers` | list of strings | yes | Stack-evidence **files found at the project root** (e.g. `package.json`, `pyproject.toml`, `VERSION`, `.github/workflows`). Mechanical file-evidence only — never inferred from prose. An empty list is honest. |
 | `claude_inventory` | map | yes | Counts of this install's `.claude/` tree: `agents`, `scripts`, `hooks`, `skills`, `commands`, `audits_registered` (keys under gate-config `audits`). |
 | `observation_profile` | map | yes | Producer → count histogram over `.claude/observations/*.json` `source` fields. `{}` when no observations exist. |
@@ -43,6 +43,7 @@ Each plugin is a `### <name>` block of `- key: value` lines.
 | `evidence` | yes | Where this entry mechanically comes from: the marketplace.json path plus entry name, or (for installed) the installed_plugins.json key. Every entry is traceable to a file actually read. |
 | `summary` | no | Marketplace description, truncated. Evidence for the matcher, not judgment. |
 | `reason` | conditional | **REQUIRED on `recommended` AND `not_recommended`** — a rejection without a reason fails the schema exactly as a recommendation without one does. Absent on `candidate` and `installed` (nothing has been judged yet). |
+| `candidate_audit` | no | Written by the matcher (Phase 77): `clean (i/ii/iii pass on pre-install source)` \| `N finding(s)` (repo-hosted, from `plugin-quality-check.sh --candidate-plugin`) \| `deferred (source_not_inspected_offline)` (external-sha / unindexed — never guessed) \| `error (…)` when the audit could not run. |
 
 `external_sha` entries additionally carry all three of:
 

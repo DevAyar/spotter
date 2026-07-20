@@ -1,6 +1,6 @@
 ---
 name: code-quality-auditor
-description: Reads installed plugin source under ~/.claude/plugins/cache/ and emits observations against the existing schema for three narrow heuristics — (i) manifest declares component path missing or empty, (ii) hooks/ present but hooks.json malformed or schema-violating, (iii) destructive shell patterns in plugin scripts against unguarded paths. Routes via workflow-suggester as suggested_artifact_type manual_action. Composes with cruft-checker + drift-checker as the project-level audit triad. Read-only — never modifies plugins, never executes scripts, never hits the network. Auto-fires from SessionStart hook with a 24h cooldown; manual dispatch ignores the cooldown. v1.1.4 first plugin-verification component; semantic fitness-vs-description (Layer 3) deferred to v2.0 alongside integration-checker.
+description: Reads installed plugin source under ~/.claude/plugins/cache/ and emits observations against the existing schema for three narrow heuristics — (i) manifest declares component path missing or empty, (ii) hooks/ present but hooks.json malformed or schema-violating, (iii) destructive shell patterns in plugin scripts against unguarded paths. Routes via workflow-suggester as suggested_artifact_type manual_action. Composes with cruft-checker + drift-checker as the project-level audit triad. Read-only — never modifies plugins, never executes scripts, never hits the network. Auto-fires from SessionStart hook with a 24h cooldown; manual dispatch ignores the cooldown. v1.1.4 first plugin-verification component; semantic fitness-vs-description (Layer 3) deferred to v2.0 alongside integration-checker. Candidate mode (Phase 77): plugin-quality-check.sh --candidate-plugin <path> runs the same heuristics on flat pre-install marketplace-clone source, printing CANDIDATE-FINDING lines for plugin-context-matcher instead of writing observations — no cooldown, no writes.
 tools: Read, Bash, Glob, Grep, Write
 ---
 
@@ -23,6 +23,10 @@ The v1.1.4 scope picks up the **manifest honesty + security hygiene** slice — 
 - **For testing.** `--plugin-dir <path>` overrides the default `~/.claude/plugins/cache/`. Used by synthetic-plugin verification; not for production paths.
 
 Do **not** dispatch for: skeleton-doc cruft (that's `cruft-checker`), skeleton-version drift (that's `drift-checker`), semantic fitness questions (that's v2.0's plugin-recommendation surface).
+
+## Candidate mode (Phase 77)
+
+`bash .claude/scripts/plugin-quality-check.sh --candidate-plugin <path>` runs the **same three heuristics** against ONE flat pre-install plugin directory (a marketplace clone's `plugins/<name>/` — no version level) and prints findings to stdout as `CANDIDATE-FINDING <notes>` lines instead of writing observations. A missing `.claude-plugin/plugin.json` is itself a finding here. No cooldown, no resolve pass, no writes of any kind; exit stays 0 either way — findings are data, not errors. `plugin-context-matcher` invokes this for repo-hosted candidates it is about to verdict (findings become the manifest's CANDIDATE-AUDIT-FAIL reason); direct dispatch works for one-off pre-install vetting. Boundary, one breath: candidate mode judges source you *might* adopt (findings → manifest reason); installed mode audits source you *already run* (findings → observations).
 
 ## What it inspects
 
