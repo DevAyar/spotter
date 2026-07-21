@@ -69,7 +69,9 @@ never ad hoc.
    ledger (or lands a capture as `draft`); flip = the commit that changes
    its `status`. Source: `git log` over
    `.claude/telemetry/optimizer-proposals.json`,
-   `.claude/telemetry/retier-proposals.json`, `.claude/captures/*.md`.
+   `.claude/telemetry/retier-proposals.json`, `.claude/captures/*.md`, and
+   `.claude/specs/*.md` status flips *(admitted by the 2026-07-21
+   amendment below)*.
 2. **Batch-flip detection** — k status flips inside one edit window (one
    commit). **Worked example — and the signal's confound demonstration:**
    `d8c6277` flips 3 statuses in a single commit, so batch-flip flags it;
@@ -80,18 +82,21 @@ never ad hoc.
    recalibrated ≠ draft) exonerate it as considered review. **Design rule:
    batch-flip is never read alone — it routes to joint reading with
    signals (iii) and (iv).** Source: per-commit diffs of the ledger and
-   capture files.
+   capture files, and of `.claude/specs/*.md` *(admitted by the 2026-07-21
+   amendment below)*.
 3. **Disposition mix per surface** — approve / reject / modify rates for
    each gate surface. A surface that only ever approves is a
    rubber-stamp candidate; a mix with recorded rejections and
    modifications is review-shaped. Source: `status` and `review_note`
-   fields in the ledgers; capture frontmatter statuses; update.sh traces
-   (see feasibility — partial).
+   fields in the ledgers; capture frontmatter statuses; spec frontmatter
+   statuses *(admitted by the 2026-07-21 amendment below)*; update.sh
+   traces (see feasibility — partial).
 4. **Draft-edit distance** — the applied text versus the original draft:
    verbatim application vs engaged modification. The existing
    `review_note` convention (verbatim vs recalibrated-per-review) is the
    worked example. Source: ledger `draft` fields vs the applied text in
-   the git history of the target files.
+   the git history of the target files; spec body at `draft` vs at
+   `approved` *(admitted by the 2026-07-21 amendment below)*.
 5. **Plan-mode dwell** *(latency-class)* — gaps between ExitPlanMode
    events and the next tool event, from telemetry event timestamps.
    Known confound, named at design time: the gap conflates deliberation
@@ -108,6 +113,37 @@ never ad hoc.
    **DEFERRED** — telemetry events carry no command arguments (see
    feasibility), and approximating it from another signal is prohibited.
 
+### Amendment — 2026-07-21 (pre-extraction; gate language unchanged)
+
+Recorded before any extraction has run. **The N ≥ 20 / ≥ 3-of-6 /
+latency-class gate language below is UNCHANGED** — this amendment adds
+surface, it never lowers the bar. Prompted by the first minimum-N gate
+check (2026-07-21), which surfaced two boundary facts the 2026-07-07 lock
+predates:
+
+1. **ADMITTED — spec lifecycle flips** (`.claude/specs/*.md` status
+   transitions `draft → approved → consumed / abandoned`) into signals
+   (i), (ii), (iii), (iv). These are reviewer decisions at a real approval
+   gate: `draft → approved` is the human flip by design (nothing consumes
+   a draft), `approved → consumed` is a dispatch decision, `abandoned` is
+   a rejection-shape. The surface shipped in Phase 68 — five phases after
+   design lock — so its absence from the source lists was an artifact of
+   timing, not intent.
+2. **EXCLUDED — observation dispositions.** `session-observer.schema.md`
+   defines the field: "The `resolved_at` field is producer-driven, not
+   user-driven." Machine-driven resolutions are not reviewer decisions;
+   counting them would pollute the latency class. The ≈27 resolution
+   events in the current window stay out of every signal.
+
+**Restated per-signal Ns (2026-07-21 gate-check baseline, specs
+included):** i = 9 (7 + the one spec's 2 flips — `b878a66` approved,
+`d56c781` consumed), ii = 2 (both spec flip commits are single-flip),
+iii = 9 (7 + the spec's approve/consume dispositions), iv = 5 (4 + one
+spec draft→approved distance event: `b878a66` landed both open-question
+dispositions as recorded edits), v = 370 ExitPlanMode events, vi = 0.
+**Gate: still NOT OPEN — 1 of 6 signals at N ≥ 20 (v only; the gate
+needs ≥ 3).** This is the clean baseline for the next check.
+
 ## Feasibility gate per signal
 
 Rule: a signal without an existing surface is marked **DEFERRED**, never
@@ -121,6 +157,7 @@ approximated — compose with available surfaces, don't invent them.
 | iv | Draft-edit distance | ledger drafts vs applied-text git history | **AVAILABLE** | 2 applied (1 verbatim, 1 recalibrated) |
 | v | Plan-mode dwell | telemetry event timestamps | **AVAILABLE** (walk-away confound named) | ~80 gaps measured by the optimizer's first pass |
 | vi | Override/disable | gate-config + settings git history; `--force` | **PARTIAL** — config-edit and hook-disable detection yes; `--force` DEFERRED (no args in telemetry) | gate-config hand-edits: 0; hook disables: 0 |
+| +i–iv | Spec lifecycle flips (2026-07-21 amendment) | git history of `.claude/specs/` | **AVAILABLE** | 2 flips, 1 spec (`b878a66` approved, `d56c781` consumed) |
 
 ## Pre-committed verdicts (locked 2026-07-07, before any data)
 
