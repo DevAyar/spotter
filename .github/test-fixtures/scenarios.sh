@@ -113,6 +113,8 @@ scenario_fresh_install() {
   # greeting surface carries no literal placeholder.
   assert_contains "$out" "GETTING-STARTED"
   assert_contains "$out" "agents"
+  # Phase 79: the recommendation flow is OFFERED at install (never run).
+  assert_contains "$out" "plugin-discovery"
   if grep -q '{{' "$TEST_DIR/.claude/settings.json"; then
     echo "ERROR: literal placeholder survived install in settings.json" >&2
     exit 1
@@ -132,6 +134,7 @@ scenario_fresh_install() {
   hout1=$(cd "$TEST_DIR" && CLAUDE_PROJECT_DIR="$TEST_DIR" bash .claude/hooks/sessionstart-rules.sh 2>/dev/null || true)
   assert_contains "$hout1" "First session in this project"
   assert_contains "$hout1" "Durable rules"
+  assert_contains "$hout1" "plugin manifest"
   [ ! -f "$TEST_DIR/.claude/.first-run" ] || { echo "ERROR: welcome did not consume the flag" >&2; exit 1; }
   hout2=$(cd "$TEST_DIR" && CLAUDE_PROJECT_DIR="$TEST_DIR" bash .claude/hooks/sessionstart-rules.sh 2>/dev/null || true)
   if printf '%s' "$hout2" | grep -q "First session in this project"; then

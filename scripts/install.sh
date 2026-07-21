@@ -510,6 +510,7 @@ summary() {
   printf '            (or https://github.com/DevAyar/claude-skeleton/blob/main/docs/GETTING-STARTED.md)\n'
   printf 'First move: /goals <a real small goal>  - research, one round of questions, then a\n'
   printf '            draft spec in .claude/specs/ that waits for YOUR approval.\n'
+  printf 'Plugins:    ask for the plugin manifest - plugin-discovery drafts it with evidence, you review, /plugin installs by hand.\n'
   if [ "$CLAUDE_ONLY" = false ]; then
     printf 'Then:       dispatch project-tuner-helper to fill placeholders and tune to this project.\n'
   fi

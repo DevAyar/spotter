@@ -81,7 +81,7 @@ if [ -f "$FIRST_RUN_FLAG" ]; then
 The skeleton added agents, skills, scripts, commands, and hooks under .claude/ —
 all of it observes and drafts; nothing changes your project without your approval.
 A quiet first session is correct: the system speaks when it has observed something.
-First move worth trying:  /goals <a real small goal>
+First move worth trying:  /goals <a real small goal> - or ask for the plugin manifest (plugin-discovery drafts, you review, /plugin installs by hand)
 The 15-minute tour: docs/GETTING-STARTED.md in the skeleton checkout
 (https://github.com/DevAyar/claude-skeleton/blob/main/docs/GETTING-STARTED.md)"
 fi
