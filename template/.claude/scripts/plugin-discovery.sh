@@ -61,6 +61,9 @@ STACK_PROBES = [
     'Gemfile', 'pom.xml', 'build.gradle', 'build.gradle.kts',
     'composer.json', 'CMakeLists.txt', 'Makefile', 'Dockerfile',
     'docker-compose.yml', '.github/workflows', 'VERSION',
+    # Phase 78 platform corroboration probes — the matcher's platform-
+    # mismatch rule needs "no rival marker detected" to be checkable.
+    '.gitlab-ci.yml', 'bitbucket-pipelines.yml', 'azure-pipelines.yml',
 ]
 
 def now_iso():
@@ -229,7 +232,8 @@ def entry_lines(entry, mp_name, mp_json, installed):
     if rec is not None:
         lines.append(f'- evidence: installed_plugins.json :: {key}')
     else:
-        lines.append(f'- evidence: {mp_json} :: {name}')
+        # citation paths are forward-slash, never backslash (Phase 56 rule)
+        lines.append(f'- evidence: {mp_json.replace(chr(92), "/")} :: {name}')
     if source_class == 'repo_hosted':
         lines.append(f'- source_path: {source}')
     else:

@@ -2072,13 +2072,18 @@ scenario_plugin_context_matcher() {
   local mp="$plugroot/marketplaces/fixture-market"
   mkdir -p "$mp/.claude-plugin" "$mp/plugins/delta-conflict/.claude-plugin" \
     "$mp/plugins/delta-conflict/commands" "$mp/plugins/epsilon-node/.claude-plugin" \
-    "$mp/plugins/zeta-plain/.claude-plugin" "$root/.claude/commands" \
-    "$root/.claude/observations" "$TEST_DIR/cache"
+    "$mp/plugins/zeta-plain/.claude-plugin" "$mp/plugins/theta-gitlab/.claude-plugin" \
+    "$mp/plugins/iota-hub/.claude-plugin" "$mp/plugins/kappa-neutral/.claude-plugin" \
+    "$root/.claude/commands" "$root/.claude/observations" "$root/.github/workflows" \
+    "$TEST_DIR/cache"
   cat > "$mp/.claude-plugin/marketplace.json" <<'JSON'
 {"name": "fixture-market", "plugins": [
   {"name": "delta-conflict", "description": "Fixture plugin shipping a colliding command.", "category": "examples", "source": "./plugins/delta-conflict"},
   {"name": "epsilon-node", "description": "Node.js linting toolkit for JavaScript projects.", "category": "linting", "source": "./plugins/epsilon-node"},
   {"name": "zeta-plain", "description": "A plain fixture that matches nothing in particular.", "category": "examples", "source": "./plugins/zeta-plain"},
+  {"name": "theta-gitlab", "description": "GitLab merge request automation for CI/CD pipelines.", "category": "examples", "source": "./plugins/theta-gitlab"},
+  {"name": "iota-hub", "description": "GitHub Actions workflow linting.", "category": "examples", "source": "./plugins/iota-hub"},
+  {"name": "kappa-neutral", "description": "CI/CD pipeline visualization dashboards.", "category": "examples", "source": "./plugins/kappa-neutral"},
   {"name": "eta-external", "description": "External fixture pinned at a sha.", "category": "examples", "source": {"source": "git-subdir", "url": "https://example.invalid/eta.git", "path": "plugins/eta", "sha": "fedcba9876543210fedcba9876543210fedcba98"}}
 ]}
 JSON
@@ -2086,9 +2091,13 @@ JSON
   printf '# deploy\n' > "$mp/plugins/delta-conflict/commands/deploy.md"
   printf '{"name": "epsilon-node"}\n' > "$mp/plugins/epsilon-node/.claude-plugin/plugin.json"
   printf '{"name": "zeta-plain"}\n' > "$mp/plugins/zeta-plain/.claude-plugin/plugin.json"
+  printf '{"name": "theta-gitlab"}\n' > "$mp/plugins/theta-gitlab/.claude-plugin/plugin.json"
+  printf '{"name": "iota-hub"}\n' > "$mp/plugins/iota-hub/.claude-plugin/plugin.json"
+  printf '{"name": "kappa-neutral"}\n' > "$mp/plugins/kappa-neutral/.claude-plugin/plugin.json"
   printf '{"plugins": {}}\n' > "$plugroot/installed_plugins.json"
   printf '# deploy command\n' > "$root/.claude/commands/deploy.md"
   printf '{"name": "fixture-project"}\n' > "$root/package.json"
+  printf 'name: ci\n' > "$root/.github/workflows/ci.yml"
   local manifest="$root/.claude/recommendations/manifest.md"
   ( cd "$SKELETON_DIR" && CLAUDE_PROJECT_DIR="$root" \
     PLUGIN_MARKETPLACES_DIR_OVERRIDE="$plugroot/marketplaces" \
@@ -2132,10 +2141,11 @@ JSON
   printf '%s' "$eta" | grep -q "^- candidate_audit: deferred (source_not_inspected_offline)" \
     || { echo "ERROR: external-sha candidate_audit not deferred" >&2; exit 1; }
   echo "  leg d: external-sha audit deferred OK"
-  # Frontmatter counts re-derived by disposition.
-  head -12 "$manifest" | grep -q "^recommended: 1" \
+  # Frontmatter counts re-derived by disposition (epsilon+iota+kappa
+  # recommended; delta+theta not_recommended).
+  head -12 "$manifest" | grep -q "^recommended: 3" \
     || { echo "ERROR: frontmatter recommended count wrong" >&2; exit 1; }
-  head -12 "$manifest" | grep -q "^not_recommended: 1" \
+  head -12 "$manifest" | grep -q "^not_recommended: 2" \
     || { echo "ERROR: frontmatter not_recommended count wrong" >&2; exit 1; }
   # Leg e: candidate mode direct — declared-but-missing component prints a
   # CANDIDATE-FINDING line and writes NOTHING.
@@ -2150,6 +2160,41 @@ JSON
     echo "ERROR: candidate mode wrote observation files" >&2; exit 1
   fi
   echo "  leg e: candidate-mode finding printed, zero writes OK"
+  # Leg f (Phase 78): rival-platform candidate vs detected host marker ->
+  # STACK-MISMATCH not_recommended with DUAL citation (marker + declaring
+  # field) — the class's first guard leg.
+  local theta
+  theta=$(sed -n '/^### theta-gitlab$/,/^### /p' "$manifest")
+  printf '%s' "$theta" | grep -q "^- status: not_recommended" \
+    || { echo "ERROR: theta-gitlab not not_recommended" >&2; exit 1; }
+  printf '%s' "$theta" | grep -q "STACK-MISMATCH" \
+    || { echo "ERROR: theta reason lacks STACK-MISMATCH" >&2; exit 1; }
+  printf '%s' "$theta" | grep -q "declares platform 'gitlab'" \
+    || { echo "ERROR: theta reason lacks the declaring-side citation" >&2; exit 1; }
+  printf '%s' "$theta" | grep -q ".github/workflows" \
+    || { echo "ERROR: theta reason lacks the marker-side citation" >&2; exit 1; }
+  echo "  leg f: rival platform -> STACK-MISMATCH, dual-cited OK"
+  # Leg g (Phase 78): platform-AGREEING candidate keeps STACK-MARKER
+  # eligibility on the same marker.
+  local iota
+  iota=$(sed -n '/^### iota-hub$/,/^### /p' "$manifest")
+  printf '%s' "$iota" | grep -q "^- status: recommended" \
+    || { echo "ERROR: iota-hub (agreeing) not recommended" >&2; exit 1; }
+  printf '%s' "$iota" | grep -q "STACK-MARKER" \
+    || { echo "ERROR: iota reason lacks STACK-MARKER" >&2; exit 1; }
+  echo "  leg g: platform-agreeing eligibility intact OK"
+  # Leg h (Phase 78): platform-NEUTRAL candidate unaffected.
+  local kappa
+  kappa=$(sed -n '/^### kappa-neutral$/,/^### /p' "$manifest")
+  printf '%s' "$kappa" | grep -q "^- status: recommended" \
+    || { echo "ERROR: kappa-neutral (neutral) not recommended" >&2; exit 1; }
+  echo "  leg h: platform-neutral eligibility intact OK"
+  # Leg i (Phase 78): citation normalization — zero backslashes in any
+  # reason/evidence line (the Phase 56 forward-slash house rule).
+  if grep -E '^- (reason|evidence):' "$manifest" | grep -q '\\'; then
+    echo "ERROR: backslash survived in a citation line" >&2; exit 1
+  fi
+  echo "  leg i: citations forward-slash normalized OK"
   echo "PASS plugin-context-matcher"
 }
 

@@ -2,7 +2,7 @@
   "cached_skeleton_head": null,
   "cached_skeleton_head_fetched_at": null,
   "claude_only": true,
-  "commit": "9a4c6688b40a65718eb42338164c6472db2b1a5b",
+  "commit": "0df36ef7e58b78342eee56ea8e3921464ef59d70",
   "files": {
     ".claude/agents/01_research/research-helper.md": "d6819af268891840da334ab8f16eced5d561027780b8f9adc59fdef8052f3051",
     ".claude/agents/02_audit/audit-helper.md": "59fcf1d52c019b03a8f4cac67a2d4be6c502366b3bd8832f42a541a6696ceb62",
@@ -62,8 +62,8 @@
     ".claude/scripts/drafts/README.md": "1a535fc5c283a9170ca80a33c5617b2bb288d17b17adf2fd1d54c03d6bbbde60",
     ".claude/scripts/drift-check.sh": "76c4a1de8880f8fdfec37b1d3f725a10401f9a49987759cb16c160dd6408c8fe",
     ".claude/scripts/goals-surface.sh": "834aa22834285f7cec7ad4e32cc405b2e555d6829f1904e25bb25300583c1e7e",
-    ".claude/scripts/plugin-context-matcher.sh": "847055005b2a3280ea0cf4ec60636c4e2c680447c9d8a9da11ab374a857d02d0",
-    ".claude/scripts/plugin-discovery.sh": "01e1a6a8143ba3d174c9d5470cf49186d73888be0ee085b794ecf84d3b08b35c",
+    ".claude/scripts/plugin-context-matcher.sh": "3d6d6683c2261bdd629ed04de1471905d1b65d8283b93f5a3b727568cce1111e",
+    ".claude/scripts/plugin-discovery.sh": "fe88a11b85da432bedb037e7b3826ce97f2b857021492501a4bf7f4595b368f8",
     ".claude/scripts/plugin-quality-check.sh": "84ededbf688aeeff067a5733f99d52b61d842694b6e887404f972f2b0579da21",
     ".claude/scripts/share-disable.sh": "54849e85f787a69ef383db4f436d8cb840882370b7a9939a06c33eea7806a1bf",
     ".claude/scripts/share-enable.sh": "fc146dd141db214f7dafc4fea846cc1bc186eafba9d38cbc1e32e57e992f416b",
@@ -149,8 +149,8 @@
     ".claude/scripts/drafts/README.md": "1a535fc5c283a9170ca80a33c5617b2bb288d17b17adf2fd1d54c03d6bbbde60",
     ".claude/scripts/drift-check.sh": "76c4a1de8880f8fdfec37b1d3f725a10401f9a49987759cb16c160dd6408c8fe",
     ".claude/scripts/goals-surface.sh": "834aa22834285f7cec7ad4e32cc405b2e555d6829f1904e25bb25300583c1e7e",
-    ".claude/scripts/plugin-context-matcher.sh": "847055005b2a3280ea0cf4ec60636c4e2c680447c9d8a9da11ab374a857d02d0",
-    ".claude/scripts/plugin-discovery.sh": "01e1a6a8143ba3d174c9d5470cf49186d73888be0ee085b794ecf84d3b08b35c",
+    ".claude/scripts/plugin-context-matcher.sh": "3d6d6683c2261bdd629ed04de1471905d1b65d8283b93f5a3b727568cce1111e",
+    ".claude/scripts/plugin-discovery.sh": "fe88a11b85da432bedb037e7b3826ce97f2b857021492501a4bf7f4595b368f8",
     ".claude/scripts/plugin-quality-check.sh": "84ededbf688aeeff067a5733f99d52b61d842694b6e887404f972f2b0579da21",
     ".claude/scripts/share-disable.sh": "54849e85f787a69ef383db4f436d8cb840882370b7a9939a06c33eea7806a1bf",
     ".claude/scripts/share-enable.sh": "fc146dd141db214f7dafc4fea846cc1bc186eafba9d38cbc1e32e57e992f416b",
@@ -173,6 +173,6 @@
     ".claude/telemetry/retier-proposals.json": "c5085a3dbb874d664434938beb1abf40ee2f13d51601d5794b9bf07916cd1b06"
   },
   "source": "C:/Users/darre/Dev/Claude-Skeleton",
-  "updated_at": "2026-07-20T19:04:22Z",
+  "updated_at": "2026-07-21T18:01:28Z",
   "version": "1.1.5"
 }

@@ -114,6 +114,25 @@ STACK_MARKERS = {'package.json', 'pyproject.toml', 'requirements.txt', 'setup.py
                  'go.mod', 'Cargo.toml', 'pubspec.yaml', 'project.godot',
                  'Gemfile', 'pom.xml', 'build.gradle', 'build.gradle.kts',
                  'composer.json'}
+# Platform-scoped markers (Phase 78): a marker here declares a HOST platform.
+# Its keywords may serve as STACK-MARKER evidence only for platform-agreeing
+# or platform-neutral candidates — a candidate declaring ONLY a rival
+# platform against a detected host marker (with zero corroborating rival
+# marker) is a STACK-MISMATCH, cited both sides. Born from Phase 77's first
+# live profile, which recommended a gitlab-targeting plugin on a
+# GitHub-hosted repo via the coarse 'ci/cd' mapping.
+PLATFORM_MARKERS = {
+    '.github/workflows': 'github',
+    '.gitlab-ci.yml': 'gitlab',
+    'bitbucket-pipelines.yml': 'bitbucket',
+    'azure-pipelines.yml': 'azure-devops',
+}
+PLATFORM_KEYWORDS = {
+    'github': ['github'],
+    'gitlab': ['gitlab'],
+    'bitbucket': ['bitbucket'],
+    'azure-devops': ['azure devops', 'azure-devops', 'azure pipelines'],
+}
 # CAPABILITY-GAP: narrow by design — an UNRESOLVED observation of this
 # pattern_type is addressed by candidates in these categories.
 GAP_CATEGORIES = {
@@ -126,6 +145,10 @@ def load_json(path):
             return json.load(f)
     except (OSError, ValueError):
         return None
+
+def fs(p):
+    """Citation paths are forward-slash, never backslash (Phase 56 rule)."""
+    return str(p).replace('\\', '/')
 
 def word_hit(keyword, text):
     if keyword.startswith(' ') or keyword.endswith(' '):
@@ -276,7 +299,24 @@ for block in blocks:
     reasons_neg, reasons_pos = [], []
     audit_line = None
 
-    # (b) STACK-MISMATCH — metadata class, applies to every candidate.
+    # (b) STACK-MISMATCH, platform leg (Phase 78) — the candidate's declared
+    # platform set shares NOTHING with the detected host platform(s) and no
+    # rival marker corroborates it. A cross-platform candidate that also
+    # names the host platform agrees — no mismatch; no host marker detected
+    # -> stays out of this leg entirely (conservative default).
+    detected_platforms = {PLATFORM_MARKERS[m] for m in markers if m in PLATFORM_MARKERS}
+    cand_platforms = {p for p, kws in PLATFORM_KEYWORDS.items()
+                      if any(word_hit(kw, text) for kw in kws)}
+    if detected_platforms and cand_platforms and not (cand_platforms & detected_platforms):
+        p = sorted(cand_platforms)[0]
+        host_markers = sorted(m for m in markers if m in PLATFORM_MARKERS)
+        reasons_neg.append(
+            f"STACK-MISMATCH: entry text declares platform '{p}' ({fs(mp_json)} :: "
+            f"{block['name']}) but detected platform marker(s) ({', '.join(host_markers)}) "
+            f"indicate {'/'.join(sorted(detected_platforms))} and no {p} marker corroborates")
+
+    # (b) STACK-MISMATCH, exclusive-stack leg — metadata class, applies to
+    # every candidate.
     for stack, justifying in EXCLUSIVE_STACKS.items():
         if not word_hit(stack, text):
             continue
@@ -285,7 +325,7 @@ for block in blocks:
         committed = sorted(markers & STACK_MARKERS)
         if committed:
             reasons_neg.append(
-                f"STACK-MISMATCH: entry text names '{stack}' ({mp_json} :: {block['name']}) "
+                f"STACK-MISMATCH: entry text names '{stack}' ({fs(mp_json)} :: {block['name']}) "
                 f"but detected markers ({', '.join(committed)}) indicate a different stack "
                 f"and none justify {stack}")
             break
@@ -301,21 +341,21 @@ for block in blocks:
             cand_agents = md_basenames(os.path.join(plugin_dir, 'agents'))
             for fn in sorted(cand_commands & skeleton_commands):
                 reasons_neg.append(
-                    f"SURFACE-CONFLICT: {plugin_dir}/commands/{fn} collides with "
-                    f"{os.path.join(project_root, '.claude', 'commands', fn)}")
+                    f"SURFACE-CONFLICT: {fs(plugin_dir)}/commands/{fn} collides with "
+                    f"{fs(os.path.join(project_root, '.claude', 'commands', fn))}")
             for fn in sorted(cand_agents & skeleton_agents):
                 reasons_neg.append(
-                    f"SURFACE-CONFLICT: {plugin_dir}/agents/{fn} collides with a "
+                    f"SURFACE-CONFLICT: {fs(plugin_dir)}/agents/{fn} collides with a "
                     f"skeleton agent of the same name under .claude/agents/")
             for iname, surf in sorted(installed_surfaces.items()):
                 for fn in sorted(cand_commands & surf['commands']):
                     reasons_neg.append(
-                        f"SURFACE-CONFLICT: {plugin_dir}/commands/{fn} collides with "
-                        f"{surf['path']}/commands/{fn} (installed: {iname})")
+                        f"SURFACE-CONFLICT: {fs(plugin_dir)}/commands/{fn} collides with "
+                        f"{fs(surf['path'])}/commands/{fn} (installed: {iname})")
                 for fn in sorted(cand_agents & surf['agents']):
                     reasons_neg.append(
-                        f"SURFACE-CONFLICT: {plugin_dir}/agents/{fn} collides with "
-                        f"{surf['path']}/agents/{fn} (installed: {iname})")
+                        f"SURFACE-CONFLICT: {fs(plugin_dir)}/agents/{fn} collides with "
+                        f"{fs(surf['path'])}/agents/{fn} (installed: {iname})")
             # (c) CANDIDATE-AUDIT-FAIL — the pre-install audit, composed
             # from plugin-quality-check --candidate-plugin (zero new
             # heuristics; findings quoted).
@@ -351,7 +391,7 @@ for block in blocks:
                 if word_hit(kw, text):
                     reasons_pos.append(
                         f"STACK-MARKER: detected {marker} matches '{kw.strip()}' in "
-                        f"{mp_json} :: {block['name']}")
+                        f"{fs(mp_json)} :: {block['name']}")
                     break
         for ptype, cats in GAP_CATEGORIES.items():
             if unresolved_by_type.get(ptype) and str(entry.get('category', '')).lower() in cats:
