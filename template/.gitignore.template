@@ -43,3 +43,9 @@ docs/SESSION_LOG.md
 # last-push marker. Per-install runtime state.
 .claude/shared-memory/
 .claude/.last-shared-push
+
+# Phase 76 plugin discovery: the recommendation manifest is per-install
+# runtime output refreshed wholesale on every dispatch (hundreds of entries;
+# the diff churn carries no information). The tracked contract is the schema
+# beside it (recommendation.schema.md), which stays in.
+.claude/recommendations/manifest.md

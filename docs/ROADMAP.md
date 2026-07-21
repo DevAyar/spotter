@@ -106,6 +106,8 @@ v1.5 sits between v1.1.5 and v1.2.0 because per-project tuning (v1.2.0) needs th
 
 **Gate:** Sufficient audit corpus + project-context data + graduated patterns. Maturity is empirical — the question is whether the recommendation surface has enough signal to score plugins meaningfully, not how long the substrate has been running.
 
+First cross-install matcher data (2026-07-21, three installs): rejection verdicts differentiate by project context — STACK-MISMATCH scales with marker richness (1/4/5 firings on skeleton/EoG/TV) — while recommendations skew uniform to COMPOSITION-PRECEDENT; richer positive-evidence classes are a v2.0 design requirement.
+
 v2.0 is the mature plugin recommendation surface — a curated discipline for matching pain points and project context to specific marketplace plugins or community-library helpers. The tier folds three pieces that previously had separate phase numbers: `integration-checker` (Layer 1+2 of plugin verification — manifest sanity, surface area), `code-quality-auditor` Layer 3 (semantic fitness-vs-description; the layer beyond the narrow-scope heuristics that shipped in v1.1.4), and a curated catalog tied to project context (only if community-curation value materializes — a static catalog without a quality filter is a directory, which the principle below rules out).
 
 The foundation is in v1.0 already: `CLAUDE_MANAGER.md.template`'s plugin marketplace composition section names the ecosystem sources the manager draws from. v2.0 turns that section from "here is the ecosystem we compose with" into "for the shape of this specific project, here are three plugins that pair well — and five that don't, with reasons for each." Design principle (locked, verbatim):
