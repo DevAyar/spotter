@@ -1,6 +1,6 @@
 {
-  "cached_skeleton_head": null,
-  "cached_skeleton_head_fetched_at": null,
+  "cached_skeleton_head": "1.1.5",
+  "cached_skeleton_head_fetched_at": "2026-07-22T01:02:12Z",
   "claude_only": true,
   "commit": "aefb77c557dedc4c53731fadf985e296e2b900d5",
   "files": {
@@ -172,7 +172,7 @@
     ".claude/telemetry/optimizer-proposals.json": "0cf5001e556967d58d43b67f4a4796843fe6fe5c732fa48d953b36f424ce97f8",
     ".claude/telemetry/retier-proposals.json": "c5085a3dbb874d664434938beb1abf40ee2f13d51601d5794b9bf07916cd1b06"
   },
-  "source": "C:/Users/darre/Dev/Claude-Skeleton",
+  "source": "<self>",
   "updated_at": "2026-07-21T20:10:36Z",
   "version": "1.1.5"
 }

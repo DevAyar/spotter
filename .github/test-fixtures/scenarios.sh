@@ -115,6 +115,14 @@ scenario_fresh_install() {
   assert_contains "$out" "agents"
   # Phase 79: the recommendation flow is OFFERED at install (never run).
   assert_contains "$out" "plugin-discovery"
+  # Marker source-field privacy: portable provenance, never an absolute
+  # user path (self -> <self>; under-HOME -> ~/...; userless CI paths pass).
+  local msrc
+  msrc=$(python -c "import json,sys; print(json.load(open(sys.argv[1]))['source'])" "$TEST_DIR/.claude/.skeleton-version")
+  case "$msrc" in
+    *"/Users/"*|*"Users\\"*|*"/home/"*)
+      echo "ERROR: marker source embeds a user path: $msrc" >&2; exit 1 ;;
+  esac
   if grep -q '{{' "$TEST_DIR/.claude/settings.json"; then
     echo "ERROR: literal placeholder survived install in settings.json" >&2
     exit 1

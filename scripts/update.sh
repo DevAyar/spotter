@@ -263,6 +263,30 @@ else:
   return 0
 }
 
+# Marker `source` provenance, recorded in PORTABLE form so tracked dogfood
+# markers never embed a machine path (pre-publication hygiene):
+# self-install -> "<self>", under-HOME -> "~/...", already-portable values
+# pass through, else as-is. One consumer exists: update.sh's one-time
+# raw-baseline migration uses it as a repo fallback and expands the
+# portable forms back before use.
+portable_source_path() {
+  local src="$1" tgt="$2"
+  case "$src" in
+    '<self>'|'~'*) printf '%s' "$src"; return ;;
+  esac
+  # Canonicalize when the dir exists so Windows-form (C:/...) and MSYS-form
+  # (/c/...) spellings of the same path compare equal.
+  local csrc
+  csrc=$(cd "$src" 2>/dev/null && pwd -P) || csrc="$src"
+  if [ -n "$tgt" ] && [ "$csrc" = "$tgt" ]; then
+    printf '<self>'; return
+  fi
+  case "$csrc" in
+    "$HOME"/*) printf '~%s' "${csrc#"$HOME"}"; return ;;
+  esac
+  printf '%s' "$src"
+}
+
 # write_marker_json — atomic write of new-format marker.
 # Args: <file> <version> <commit> <installed_at> <mode> <claude_only> <source> <updated_at_or_empty> <cached_skeleton_head_or_empty> <cached_skeleton_head_fetched_at_or_empty>
 # Reads TAB-separated lines from stdin, tagged by destination map:
@@ -541,13 +565,19 @@ migrate_raw_baselines() {
     return 0
   fi
 
-  # Locate a skeleton git repo that contains <commit>.
-  local repo=""
+  # Locate a skeleton git repo that contains <commit>. The marker's source
+  # may be recorded in portable form (privacy micro-fix) — expand it back
+  # before use so this fallback keeps working.
+  local repo="" marker_src="${MARKER_SOURCE:-}"
+  case "$marker_src" in
+    '<self>') marker_src="$TARGET_PATH" ;;
+    '~'*) marker_src="$HOME${marker_src#\~}" ;;
+  esac
   if git -C "$SOURCE_PATH" cat-file -e "${commit}^{commit}" 2>/dev/null; then
     repo="$SOURCE_PATH"
-  elif [ -n "${MARKER_SOURCE:-}" ] && [ -d "$MARKER_SOURCE/.git" ] \
-       && git -C "$MARKER_SOURCE" cat-file -e "${commit}^{commit}" 2>/dev/null; then
-    repo="$MARKER_SOURCE"
+  elif [ -n "$marker_src" ] && [ -d "$marker_src/.git" ] \
+       && git -C "$marker_src" cat-file -e "${commit}^{commit}" 2>/dev/null; then
+    repo="$marker_src"
   elif git -C "$SOURCE_PATH" fetch --quiet --depth 1 origin "$commit" 2>/dev/null \
        && git -C "$SOURCE_PATH" cat-file -e "${commit}^{commit}" 2>/dev/null; then
     repo="$SOURCE_PATH"
@@ -784,7 +814,7 @@ print(tags[-1][1])
     done
   } | write_marker_json "$marker" \
         "$MARKER_VERSION" "$MARKER_COMMIT" "$MARKER_INSTALLED_AT" \
-        "${MARKER_MODE:-merge}" "${MARKER_CLAUDE_ONLY:-false}" "$MARKER_SOURCE" \
+        "${MARKER_MODE:-merge}" "${MARKER_CLAUDE_ONLY:-false}" "$(portable_source_path "$MARKER_SOURCE" "$TARGET_PATH")" \
         "$MARKER_UPDATED_AT" "$latest_tag" "$ts" \
         "$MARKER_INSTALL_UUID" "$MARKER_INSTALL_LABEL" "$MARKER_INSTALL_CREATED"
 
@@ -1083,7 +1113,7 @@ write_version_marker() {
       [ -z "$entry" ] && continue
       printf 'R\t%s\n' "$entry"
     done
-  } | write_marker_json "$marker" "$version" "$commit" "$installed_at" "$prev_mode" "$prev_claude_only" "$SOURCE_PATH" "$ts" "$MARKER_CACHED_SKELETON_HEAD" "$MARKER_CACHED_SKELETON_HEAD_FETCHED_AT" "$MARKER_INSTALL_UUID" "$MARKER_INSTALL_LABEL" "$MARKER_INSTALL_CREATED"
+  } | write_marker_json "$marker" "$version" "$commit" "$installed_at" "$prev_mode" "$prev_claude_only" "$(portable_source_path "$SOURCE_PATH" "$TARGET_PATH")" "$ts" "$MARKER_CACHED_SKELETON_HEAD" "$MARKER_CACHED_SKELETON_HEAD_FETCHED_AT" "$MARKER_INSTALL_UUID" "$MARKER_INSTALL_LABEL" "$MARKER_INSTALL_CREATED"
 }
 
 summary() {

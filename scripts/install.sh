@@ -98,6 +98,30 @@ record_installed_hash() {
   INSTALLED_HASHES+=("$rel"$'\t'"$hash")
 }
 
+# Marker `source` provenance, recorded in PORTABLE form so tracked dogfood
+# markers never embed a machine path (pre-publication hygiene):
+# self-install -> "<self>", under-HOME -> "~/...", already-portable values
+# pass through, else as-is. One consumer exists: update.sh's one-time
+# raw-baseline migration uses it as a repo fallback and expands the
+# portable forms back before use.
+portable_source_path() {
+  local src="$1" tgt="$2"
+  case "$src" in
+    '<self>'|'~'*) printf '%s' "$src"; return ;;
+  esac
+  # Canonicalize when the dir exists so Windows-form (C:/...) and MSYS-form
+  # (/c/...) spellings of the same path compare equal.
+  local csrc
+  csrc=$(cd "$src" 2>/dev/null && pwd -P) || csrc="$src"
+  if [ -n "$tgt" ] && [ "$csrc" = "$tgt" ]; then
+    printf '<self>'; return
+  fi
+  case "$csrc" in
+    "$HOME"/*) printf '~%s' "${csrc#"$HOME"}"; return ;;
+  esac
+  printf '%s' "$src"
+}
+
 # write_marker_json <file> <version> <commit> <installed_at> <mode> <claude_only> <source> <updated_at_or_empty> <cached_skeleton_head_or_empty> <cached_skeleton_head_fetched_at_or_empty>
 # Reads TAB-separated lines from stdin, tagged by destination map:
 #   "F<TAB><relpath><TAB><hash>"  -> files (DEPRECATED back-compat)
@@ -465,7 +489,7 @@ write_version_marker() {
       printf 'F\t%s\n' "$entry"
       printf 'R\t%s\n' "$entry"
     done
-  } | write_marker_json "$marker" "$version" "$commit" "$ts" "$MODE" "$CLAUDE_ONLY" "$SOURCE_PATH" "" "" "" "$install_uuid" "$install_label" "$install_created"
+  } | write_marker_json "$marker" "$version" "$commit" "$ts" "$MODE" "$CLAUDE_ONLY" "$(portable_source_path "$SOURCE_PATH" "$TARGET_PATH")" "" "" "" "$install_uuid" "$install_label" "$install_created"
   if [ "$marker_existed" = false ]; then
     ADDED_FILES+=("$marker")
   fi
