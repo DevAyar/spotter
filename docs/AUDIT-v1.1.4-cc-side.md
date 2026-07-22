@@ -35,7 +35,7 @@ commit: 315954ddeb20e392cc95e857aeb852a117f93dec
 installed_at: 2026-05-13T19:29:47Z
 mode: merge
 claude_only: true
-source: /c/Users/darre/Dev/Claude-Skeleton
+source: <project-root>
 ```
 
 Shell-export format (pre-0.8.0). Missing `cached_skeleton_head` + `cached_skeleton_head_fetched_at` (added v1.1+ Phase 4 per state-dump line 686-689). Missing per-file `files` object. drift-checker reads this marker on every SessionStart hook fire; v0.4 fossil means drift-checker sees `version: 0.4.0` vs running off VERSION (current `1.1.4`). Whether this surfaces a drift notice depends on `cached_skeleton_head` presence — and it's absent. Per drift-checker's spec (state-dump line 245), absent cache produces a "cache empty" notice OR silent depending on the agent's branch logic. **Not directly verified in this audit** — flagged for reconciliation.

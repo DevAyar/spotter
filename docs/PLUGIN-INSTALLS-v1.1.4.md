@@ -193,12 +193,12 @@ This is an **open question** to be answered by Phase 34b investigation, not a CO
 
 **Mechanism update (mid-execution):** `/plugin` slash commands aren't available in Claude Code Desktop / web (known issue: GitHub #42142, #56623). The bash form `claude plugin install <name>@<marketplace>` works in all environments and is the documented workaround per GitHub #18088. Phase 34 switched from slash-command user-handoff to autonomous bash invocation.
 
-**Claude binary used:** `/c/Users/darre/AppData/Roaming/Claude/claude-code/2.1.138/claude.exe` (Claude Code Desktop install). Not on `PATH` by default — Phase 34 invoked via absolute path. **Phase 34b should expect the same: `claude` is not in PATH in this environment; invoke via absolute path.**
+**Claude binary used:** `~/AppData/Roaming/Claude/claude-code/2.1.138/claude.exe` (Claude Code Desktop install). Not on `PATH` by default — Phase 34 invoked via absolute path. **Phase 34b should expect the same: `claude` is not in PATH in this environment; invoke via absolute path.**
 
 ### Trust-tier-1 (4 plugins — marketplace already registered)
 
 ```bash
-CLAUDE="/c/Users/darre/AppData/Roaming/Claude/claude-code/2.1.138/claude.exe"
+CLAUDE="~/AppData/Roaming/Claude/claude-code/2.1.138/claude.exe"
 "$CLAUDE" plugin install feature-dev@claude-plugins-official --scope user
 "$CLAUDE" plugin install code-review@claude-plugins-official --scope user
 "$CLAUDE" plugin install commit-commands@claude-plugins-official --scope user
@@ -336,7 +336,7 @@ None during install. All 5 installs completed without prompts, conflicts, or err
 ### Rollback procedure
 
 ```bash
-CLAUDE="/c/Users/darre/AppData/Roaming/Claude/claude-code/2.1.138/claude.exe"
+CLAUDE="~/AppData/Roaming/Claude/claude-code/2.1.138/claude.exe"
 "$CLAUDE" plugin uninstall feature-dev@claude-plugins-official
 "$CLAUDE" plugin uninstall code-review@claude-plugins-official
 "$CLAUDE" plugin uninstall commit-commands@claude-plugins-official
@@ -444,7 +444,7 @@ Registers `mcp-search` stdio MCP server invoking `node scripts/mcp-server.cjs` v
 
 ```
 == bun ==
-/c/Users/darre/.bun/bin/bun
+~/.bun/bin/bun
 == uv ==
 uv: not installed
 == bun --version ==
@@ -511,7 +511,7 @@ claude-mem install
 
   Installation Complete
   Version:     13.2.0
-  Plugin dir:  C:\Users\darre\.claude\plugins\marketplaces\thedotmack
+  Plugin dir:  ~\.claude\plugins\marketplaces\thedotmack
   IDEs:        claude-code
   Auto-memory: disabled (CLAUDE_CODE_DISABLE_AUTO_MEMORY=1)
 
@@ -534,9 +534,9 @@ Notes:
 
 ```
 == bun ==                            == bun ==
-/c/Users/darre/.bun/bin/bun          /c/Users/darre/.bun/bin/bun
+~/.bun/bin/bun          ~/.bun/bin/bun
 == uv ==                             == uv ==
-uv: not installed              →     /c/Users/darre/.local/bin/uv.exe
+uv: not installed              →     ~/.local/bin/uv.exe
 == bun --version ==                  == bun --version ==
 1.3.9                          →     1.3.14
 ```
@@ -636,7 +636,7 @@ claude-mem ships 12 skills (no commands, no agents):
 ## Rollback procedure
 
 ```bash
-CLAUDE="/c/Users/darre/AppData/Roaming/Claude/claude-code/2.1.138/claude.exe"
+CLAUDE="~/AppData/Roaming/Claude/claude-code/2.1.138/claude.exe"
 
 # 1. Stop the worker if running (note: in non-TTY environments, it never started)
 npx claude-mem stop 2>/dev/null || true
