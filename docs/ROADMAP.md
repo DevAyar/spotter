@@ -274,7 +274,7 @@ v1.1.4 reused the existing `manual_action` baseline value as the routing target 
 
 ### Model C lesson codification
 
-Lessons codify directly into the directive surface that architecturally fits — `CLAUDE_MANAGER.md` for strategic-judgment patterns, `docs/ROADMAP.md` for sequencing constraints, `claude-skeleton-handoff.md` for sprint-state continuity, or whichever artefact carries the rule's natural authority.
+Lessons codify directly into the directive surface that architecturally fits — `CLAUDE_MANAGER.md` for strategic-judgment patterns, `docs/ROADMAP.md` for sequencing constraints, the external Project-knowledge handoff for sprint-state continuity (the repo handoff file retired Phase 80), or whichever artefact carries the rule's natural authority.
 
 **NOT a separate lessons-log document.** The two alternatives were considered and cut:
 

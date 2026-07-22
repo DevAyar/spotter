@@ -332,17 +332,15 @@ PHASE_RE = re.compile(r'\bPhase\s+(\d+[a-z]*)\b')
 EXEMPT_PHASE_FILES = {
     'docs/CHANGELOG.md',
     'docs/SESSION_LOG.md',
-    'claude-skeleton-handoff.md',
     'docs/AUDIT-v1.1.4-state.md',    # Phase 29 state-dump references phases (incl. future Phase 30+) by design
     'docs/AUDIT-v1.1.4-cc-side.md',  # Phase 30 CC-side audit references audit-emergent phase queue (30b, 31-46+) by design
     'CLAUDE_MANAGER.md',             # Phase 33: directive layer references future phases (e.g. Phase 39 / v1.5-B) as forward-looking dispatch guidance
     'docs/PLUGIN-INSTALLS-v1.1.4.md',  # Phase 34 references future phases (34b, 35, 36) as evaluation/retire-candidate guidance
 }
 
-# Broaden valid_phases beyond CHANGELOG: include handoff doc + git commit messages.
-handoff_text = read_file('claude-skeleton-handoff.md') or ''
-for m in PHASE_RE.finditer(handoff_text):
-    valid_phases.add(m.group(1))
+# Broaden valid_phases beyond CHANGELOG: include git commit messages.
+# (The handoff-doc source retired with the file, Phase 80 — every phase it
+# named appears in commit subjects, so coverage is preserved by this block.)
 try:
     log_result = subprocess.run(
         ['git', 'log', '--all', '--pretty=%s'],
@@ -531,7 +529,7 @@ EXEMPT_VDIRS = (
     '.claude/agents/05_meta/',
     'template/.claude/agents/05_meta/',
 )
-EXEMPT_VREGION_FILES = {'docs/ROADMAP.md', 'claude-skeleton-handoff.md'}
+EXEMPT_VREGION_FILES = {'docs/ROADMAP.md'}
 # Inline exemption marker: <!-- cruft-check:exempt-historical -->.
 # - On its own line (no other content): exempts the IMMEDIATELY FOLLOWING line.
 # - Same-line with other content: exempts THAT line.
