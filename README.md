@@ -2,95 +2,94 @@
 
 [![CI](https://github.com/DevAyar/spotter/actions/workflows/ci.yml/badge.svg)](https://github.com/DevAyar/spotter/actions/workflows/ci.yml)
 
-Spotter is per-project governance for Claude Code. It watches a project for
-scope drift, scope decay, and doc rot, and turns what it observes into fixes
-that wait at approval gates — nothing lands without your yes; a structural
-immune system, if you want the one-line framing. Each install runs its own
-copy and tunes it to its own project; the shared template here (engine
-codename: `claude-skeleton`) is the seed, not the product. It assumes you
-already know Claude Code — agents, hooks, skills, slash commands — and
+Spotter is a governance layer for Claude Code. Install it into a repo and it
+watches for scope drift and doc rot while you work, then files what it finds
+as drafts you review. Nothing changes your project until you say yes. If you
+searched for Claude Code governance, AI coding guardrails, or a way to keep
+scope drift from quietly eating a six-month project, this is that. It assumes
+you already know Claude Code's agents, hooks, skills, and plugins, and it
 composes with that ecosystem instead of replacing it.
 
-## What it actually does
+Each install runs its own copy and tunes it to its own project. The template
+in this repo (engine codename `claude-skeleton`) is the seed, not the product.
 
-The loop, in the order it runs on a real project over months:
+## What it does
 
-- **Observation producers watch the work.** A watchdog reads the prior
-  session's transcript at session start and files what recurred — repeated
-  failures, long-running calls ([`task-watchdog.sh`](template/.claude/scripts/task-watchdog.sh));
-  a plugin auditor checks installed plugin source on a 24h cooldown; session-end
-  telemetry records what each session actually consumed.
-- **Observations become reviewable captures.** `workflow-suggester` drafts a
-  one-page capture per recurring pattern; you approve, reject, or ignore by
-  editing one frontmatter field ([`captures/README.md`](template/.claude/captures/README.md)).
-- **Approved captures become artifacts.** This isn't aspirational — the loop
-  has run end-to-end: one shipped capture consolidated duplicated audit scope,
-  another landed a durable session rule that has already caught real mistakes.
-- **The cost line tells the truth.** Session start prints what the last
-  *sitting* cost — not the multi-day lineage cumulative — with the lineage as
-  context, and thresholds compare against the sitting figure
-  ([`sessionstart-cost-summary.sh`](template/.claude/hooks/sessionstart-cost-summary.sh)).
-- **A per-project optimizer watches the manager itself.** It reads the
-  project's own telemetry, observations, and git history and drafts refinements
-  to the directive surfaces — drafts only; nothing it writes ever applies
-  itself ([`manager-optimizer`](template/.claude/agents/05_meta/manager-optimizer.md)).
-- **Goals become specs before they become work.** `/goals` runs repo-grounded
-  research, asks at most one batched round of clarifying questions, and writes
-  a spec you approve before anything builds — with an optional schedule that
-  surfaces approved specs at session start when due
-  ([`goals.md`](template/.claude/commands/goals.md)).
+- Reads the previous session's transcript at session start and files anything
+  that kept failing or ran far too long
+  ([task-watchdog.sh](template/.claude/scripts/task-watchdog.sh)).
+- Turns recurring patterns into one-page captures. You approve, reject, or
+  ignore by editing a single frontmatter field
+  ([captures/README.md](template/.claude/captures/README.md)).
+- Prints what the last sitting actually cost, at session start, with
+  thresholds compared against the sitting figure rather than a scary
+  multi-day cumulative
+  ([sessionstart-cost-summary.sh](template/.claude/hooks/sessionstart-cost-summary.sh)).
+- Vets Claude Code plugins before you install them. Discovery inventories the
+  marketplaces into a manifest with evidence, and the matcher only marks an
+  entry recommended or not_recommended when it can prove the reason. A
+  rejection without a provable reason fails the schema
+  ([plugin-discovery.sh](template/.claude/scripts/plugin-discovery.sh),
+  [plugin-context-matcher.sh](template/.claude/scripts/plugin-context-matcher.sh),
+  [recommendation.schema.md](template/.claude/recommendations/recommendation.schema.md)).
+  Installing stays yours, through `/plugin`, by hand.
+- Audits itself at session start on a 24h cooldown: doc rot, version drift,
+  installed-plugin sanity
+  ([plugin-quality-check.sh](template/.claude/scripts/plugin-quality-check.sh),
+  [drift-check.sh](template/.claude/scripts/drift-check.sh)).
 
-Everything above ships in the template and runs from SessionStart/SessionEnd
-hooks on cooldowns — no cron, no background billing, nothing mid-flow.
+Everything runs from SessionStart and SessionEnd hooks. No cron, no daemons,
+nothing fires mid-task.
+
+## The system keeps receipts
+
+Design habits the codebase holds itself to. All of them are checkable in the
+record, which is the point.
+
+- It watches itself. A per-project optimizer reads the install's own
+  telemetry, observations, and git history, then drafts changes to its own
+  directive files. Drafts only. Nothing it writes ever applies itself
+  ([manager-optimizer.md](template/.claude/agents/05_meta/manager-optimizer.md)).
+- Claims carry evidence. Audit findings cite file and line on both sides, and
+  plugin verdicts quote the files they judged. The project's own dollar costs
+  stay in [docs/CHANGELOG.md](docs/CHANGELOG.md), receipts included.
+- Every change waits for approval. Captures, specs, optimizer proposals, and
+  plugin verdicts all move through the same draft lifecycle, and the gate is
+  the same gate everywhere.
+- It has retired its own parts. When an audit showed one component duplicating
+  another's scope, the scope was consolidated and the record kept (commit
+  96c454e). When a real mistake slipped through, the fix landed as a durable
+  session rule through the same capture loop that handles everything else
+  (commit 1571cbb).
 
 ## Install
 
-Fresh project: `bash <skeleton-checkout>/scripts/install.sh` from the target
-repo. Existing install: `bash <skeleton-checkout>/scripts/update.sh` — it
-classifies every file (unchanged / template-updated / locally-modified / new /
-orphan) and never overwrites your local modifications without a per-file
-prompt. `install.sh` refuses to re-run on an installed target, so the two
-paths can't be confused. First 15 minutes after install:
-[`docs/GETTING-STARTED.md`](docs/GETTING-STARTED.md). Mechanics:
-[`docs/INSTALLATION.md`](docs/INSTALLATION.md).
+Fresh project: `bash <spotter-checkout>/scripts/install.sh` from the target
+repo. Updating later: `bash <spotter-checkout>/scripts/update.sh`, which
+classifies every file and never overwrites your local changes without a
+per-file prompt.
+
+First 15 minutes: [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md).
+Mechanics: [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
 ## What it is not
 
-- **Not a productivity plugin.** Discipline is the point; speed is what you
-  get back from not cleaning up messes later.
-- **Not autonomous.** Thinking is free (read, plan, observe, draft); anything
-  that changes the project waits for your approval. That line is load-bearing
-  everywhere in the system.
-- **Not multi-LLM.** Claude Code only, by design.
-- **Not a plugin directory.** It composes with the ecosystem and vets what it
-  pulls in — a quality filter, not a catalog.
-
-## Where it is now
-
-- **Version:** v1.1.5, with the running record in
-  [docs/CHANGELOG.md](docs/CHANGELOG.md) `[Unreleased]` (this bullet
-  deliberately names no commit, so it can't rot).
-- **In production:** Trainer-View (Flutter + Firebase), Echoes-Of-Gill
-  (Godot), plus the skeleton's own dogfood install.
-- **Tier status:** the v1.1.4 substrate and the v1.2.0 per-project components
-  (optimizer, artifact-fit analysis, /goals pipeline) are live; the onboarding
-  tier is in progress.
-
-## Read more
-
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — where it's going, readiness-gated.
-- [`docs/STORY.md`](docs/STORY.md) — why it's shaped this way.
-- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — what's landed.
-- [`docs/INSTALLATION.md`](docs/INSTALLATION.md) — install + update mechanics.
-- [`CLAUDE_MANAGER.md`](CLAUDE_MANAGER.md) — the directive surface installed
-  projects inherit.
+- A productivity plugin. The job is keeping a project coherent over months.
+  Speed shows up as a side effect of fewer messes.
+- Autonomous. Reading, planning, and drafting are free. Changes wait for you.
+- Multi-LLM. Claude Code only, on purpose.
+- A plugin directory. It vets what it pulls in and tells you why, both ways.
 
 ## License
 
-BUSL-1.1 — free for individuals, commercial use licensed; see [LICENSE](LICENSE) + [COMMERCIAL.md](COMMERCIAL.md).
+BUSL-1.1. Free for individuals and personal use. Company, team, or commercial
+use needs a license; see [LICENSE](LICENSE) and [COMMERCIAL.md](COMMERCIAL.md).
+Converts to MIT in 2030.
 
----
+## Read more
 
-*Written for peers and informed devs familiar with Claude Code's plugin
-marketplace, agents, hooks, and slash commands. Not a portfolio piece — useful
-first, philosophy second.*
+- [docs/ROADMAP.md](docs/ROADMAP.md) for where it's going, readiness-gated.
+- [docs/STORY.md](docs/STORY.md) for why it's shaped this way.
+- [docs/CHANGELOG.md](docs/CHANGELOG.md) for what's landed.
+- [CLAUDE_MANAGER.md](CLAUDE_MANAGER.md) for the directive surface installed
+  projects inherit.

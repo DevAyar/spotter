@@ -10,8 +10,8 @@ from it. That use is genuinely free, no strings, and it stays that way.
 **What needs a license:** any use by or for a company or other organization,
 any use by multiple users within an organization, and any use in a product or
 service offered for sale. If that's you, a commercial license is required —
-contact the repository owner (open a GitHub issue or use the profile contact)
-to arrange one.
+email **darrenayar@gmail.com** with your company name and use case; a license
+and invoice follow.
 
 **The clock:** on **2030-07-23** the license automatically converts to MIT
 and every restriction above disappears. The BSL is a timed exclusivity
