@@ -167,6 +167,10 @@ def resolve_untouched():
 
 # ---- file discovery ----
 EXCLUDE_DIRS = {'.git', '.claude/observations', '.claude/captures', '.claude/scripts/drafts', 'node_modules'}
+# Gitignored runtime outputs are not doc surfaces — refreshed wholesale per
+# dispatch, they carry data (e.g. plugin version strings) that heuristics
+# misread as claims (Phase 86; the manifest:48 FP).
+EXCLUDE_FILES = {'.claude/recommendations/manifest.md'}
 def walk_md_files():
     for root, dirs, files in os.walk('.'):
         rel_root = os.path.relpath(root, '.').replace('\\', '/')
@@ -182,6 +186,8 @@ def walk_md_files():
         for f in files:
             if f.endswith('.md'):
                 p = (rel_root + '/' + f if rel_root else f).replace('\\', '/')
+                if p in EXCLUDE_FILES:
+                    continue
                 yield p
 
 def read_file(path):
@@ -521,6 +527,7 @@ EXEMPT_VFILES = {
     'template/.claude/captures/README.md',  # captures README anchors v1.1+ producers/consumers list
     'docs/AUDIT-v1.1.4-cc-side.md',         # Phase 30 CC-side audit; comprehensive review references all historical versions
     'docs/AUDIT-v1.1.4-marker-refresh-dryrun.md',  # Phase 32a dry-run inventory; references v0.4 fossil + multiple historical versions
+    'docs/AUDIT-v1.1.4-state.md',            # Phase 29 frozen state-dump; versions throughout by design (Phase 86 — keeps the frozen record byte-untouched)
     'docs/PLUGIN-INSTALLS-v1.1.4.md',        # Phase 34 bundle-install record; references plugin versions (1.0.1, 5.1.0) + CC binary (2.1.138) + baseline 1.1.4
 }
 # Directory-prefix exemption: files under these dirs are full-exempt. Agent and schema

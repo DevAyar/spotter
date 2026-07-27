@@ -3,8 +3,8 @@
 [![CI](https://github.com/DevAyar/spotter/actions/workflows/ci.yml/badge.svg)](https://github.com/DevAyar/spotter/actions/workflows/ci.yml)
 
 Spotter is a governance layer for Claude Code. Install it into a repo and it
-watches for scope drift and doc rot while you work, then files what it finds
-as drafts you review. Nothing changes your project until you say yes. If you
+watches for scope drift while you work, then files what it finds as drafts
+you review. Nothing changes your project until you say yes. If you
 searched for Claude Code governance, AI coding guardrails, or a way to keep
 scope drift from quietly eating a six-month project, this is that. It assumes
 you already know Claude Code's agents, hooks, skills, and plugins, and it
@@ -33,8 +33,8 @@ in this repo (engine codename `claude-skeleton`) is the seed, not the product.
   [plugin-context-matcher.sh](template/.claude/scripts/plugin-context-matcher.sh),
   [recommendation.schema.md](template/.claude/recommendations/recommendation.schema.md)).
   Installing stays yours, through `/plugin`, by hand.
-- Audits itself at session start on a 24h cooldown: doc rot, version drift,
-  installed-plugin sanity
+- Audits itself at session start: version drift every session,
+  installed-plugin sanity on a 24h cooldown
   ([plugin-quality-check.sh](template/.claude/scripts/plugin-quality-check.sh),
   [drift-check.sh](template/.claude/scripts/drift-check.sh)).
 

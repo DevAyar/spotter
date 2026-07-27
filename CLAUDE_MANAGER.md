@@ -131,7 +131,7 @@ Default is **`opusplan`** — Opus during plan-mode reasoning, Sonnet during exe
 
 Override per-project by editing `.claude/settings.json`'s `"model"` field. Common alternatives: `"sonnet"` (pure Sonnet for cost-sensitive work), `"opus"` (pure Opus for max-quality sessions).
 
-Cross-provider note: `opusplan` works on the Anthropic API and Claude Platform with current models (Opus 4.7 + Sonnet 4.6). On Bedrock / Vertex / Foundry, the aliases resolve to older versions (Opus 4.6 + Sonnet 4.5) but the hybrid plan-then-execute pattern still applies.
+Cross-provider note: `opusplan` works on the Anthropic API and Claude Platform with whatever the current model aliases resolve to. On Bedrock / Vertex / Foundry the aliases can lag behind, but the hybrid plan-then-execute pattern still applies. No model names are hardcoded here — check the pricing reference for the current roster.
 
 Reference: https://code.claude.com/docs/en/model-config
 
@@ -366,7 +366,7 @@ After push, do NOT foreground-watch CI — no `gh run watch`, no poll-until-conc
 
 ### Co-Authored-By trailer convention
 
-Every claude-skeleton commit — phase mechanism, integration, doc-maintenance, release cut — lands with `Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>` as the final trailer. **Why:** the directive layer + skeleton design are co-authored work with Claude as collaborator; the attribution is consistent with how the meta-system is described in `STORY.md` and `docs/ROADMAP.md` (ADHD-driven design as constraint-forced discipline that generalises via LLM collaboration). **How it applies:** every commit on the skeleton carries the trailer. Locked across v1.1.x; persists through v1.2.0 and beyond unless explicitly revisited.
+Every skeleton commit — phase mechanism, integration, doc-maintenance, release cut — lands with a `Co-Authored-By: <the authoring Claude model> <noreply@anthropic.com>` trailer. The trailer records whichever Claude model authored the commit; no model name is hardcoded in this convention, and the git history is the census of which model wrote what. **Why:** the directive layer + skeleton design are co-authored work with Claude as collaborator; the attribution is consistent with how the meta-system is described in `STORY.md` and `docs/ROADMAP.md` (ADHD-driven design as constraint-forced discipline that generalises via LLM collaboration). **How it applies:** every commit on the skeleton carries the trailer, naming the model that did the authoring. Locked; persists unless explicitly revisited.
 
 ## Plugin marketplace composition
 
