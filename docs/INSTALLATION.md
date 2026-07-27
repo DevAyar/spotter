@@ -1,6 +1,6 @@
 # Installation
 
-How to install `claude-skeleton` into a target project, update an
+How to install Spotter (engine `claude-skeleton`) into a target project, update an
 existing install, or uninstall it.
 
 The install flow is non-destructive by default: it adds missing files
@@ -12,7 +12,7 @@ and never overwrites existing ones unless you explicitly opt in to
 From inside the target project (any git repository):
 
 ```bash
-curl -sL https://raw.githubusercontent.com/DevAyar/claude-skeleton/main/scripts/install.sh | bash -s -- --mode=merge
+curl -sL https://raw.githubusercontent.com/DevAyar/spotter/main/scripts/install.sh | bash -s -- --mode=merge
 ```
 
 This is the safe default — adds any missing `.claude/` content,

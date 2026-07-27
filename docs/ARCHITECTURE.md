@@ -1,6 +1,6 @@
 # Architecture
 
-The structure of the claude-skeleton project itself, how its pieces fit together, and how it gets installed into target projects.
+The structure of the Spotter project itself (engine codename `claude-skeleton`), how its pieces fit together, and how it gets installed into target projects.
 
 ## The two-`.claude/` distinction
 

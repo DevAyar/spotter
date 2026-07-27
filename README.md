@@ -1,13 +1,14 @@
-# claude-skeleton
+# Spotter
 
-[![CI](https://github.com/DevAyar/claude-skeleton/actions/workflows/ci.yml/badge.svg)](https://github.com/DevAyar/claude-skeleton/actions/workflows/ci.yml)
+[![CI](https://github.com/DevAyar/spotter/actions/workflows/ci.yml/badge.svg)](https://github.com/DevAyar/spotter/actions/workflows/ci.yml)
 
-claude-skeleton is a per-project governance layer for Claude Code. It watches
-a project for scope decay, drift, and doc rot, and turns what it observes into
-fixes you approve before anything lands — a structural immune system, if you
-want the one-line framing. Each install runs its own copy and tunes it to its
-own project; the shared template here is the seed, not the product. It assumes
-you already know Claude Code — agents, hooks, skills, slash commands — and
+Spotter is per-project governance for Claude Code. It watches a project for
+scope drift, scope decay, and doc rot, and turns what it observes into fixes
+that wait at approval gates — nothing lands without your yes; a structural
+immune system, if you want the one-line framing. Each install runs its own
+copy and tunes it to its own project; the shared template here (engine
+codename: `claude-skeleton`) is the seed, not the product. It assumes you
+already know Claude Code — agents, hooks, skills, slash commands — and
 composes with that ecosystem instead of replacing it.
 
 ## What it actually does

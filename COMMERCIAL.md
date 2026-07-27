@@ -17,5 +17,5 @@ to arrange one.
 and every restriction above disappears. The BSL is a timed exclusivity
 window, not a permanent fence.
 
-**Naming note:** the Licensed Work is `claude-skeleton`, a name pending
-rebrand — the license follows the work through the rename.
+**Naming note:** the Licensed Work is **Spotter** (formerly
+`claude-skeleton` — the engine codename lives on in internal strings).
