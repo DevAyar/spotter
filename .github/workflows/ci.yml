@@ -3,17 +3,67 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'   # weekly full-matrix drift net (Mondays 06:00 UTC)
+
+# A superseded push cancels its own stale run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  # Phase 82 CI-diet: ubuntu runs the full suite on EVERY push (the fast
+  # always-on referee); windows + macos run only when the push touches
+  # portability-sensitive surfaces — the scripts/hooks/libs the scenarios
+  # actually execute — plus on tags, manual dispatch, PRs, and the weekly
+  # schedule. Zero scenario deletions, zero assertion weakening; the full
+  # matrix stays one workflow_dispatch away.
+  detect:
+    name: Detect portability surfaces
+    runs-on: ubuntu-latest
+    outputs:
+      os_list: ${{ steps.diff.outputs.os_list }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - id: diff
+        shell: bash
+        run: |
+          full='["ubuntu-latest", "windows-latest", "macos-latest"]'
+          linux='["ubuntu-latest"]'
+          if [ "${{ github.event_name }}" != "push" ] || [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "os_list=$full" >> "$GITHUB_OUTPUT"
+            echo "full matrix: event=${{ github.event_name }} ref_type=${{ github.ref_type }}"
+            exit 0
+          fi
+          if ! git rev-parse HEAD^ >/dev/null 2>&1; then
+            echo "os_list=$full" >> "$GITHUB_OUTPUT"
+            echo "full matrix: no parent commit (first/force push) — fail-open"
+            exit 0
+          fi
+          changed=$(git diff --name-only HEAD^ HEAD)
+          echo "$changed"
+          if printf '%s\n' "$changed" | grep -qE '^(scripts/|\.claude/(scripts|hooks|lib)/|template/\.claude/(scripts|hooks|lib)/|\.github/(test-fixtures/|workflows/ci\.yml))'; then
+            echo "os_list=$full" >> "$GITHUB_OUTPUT"
+            echo "full matrix: portability surface touched"
+          else
+            echo "os_list=$linux" >> "$GITHUB_OUTPUT"
+            echo "linux-only: no portability surface in this push"
+          fi
+
   test:
     name: Test (${{ matrix.os }})
+    needs: detect
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ fromJSON(needs.detect.outputs.os_list) }}
 
     steps:
       - uses: actions/checkout@v4
