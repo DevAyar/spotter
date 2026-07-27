@@ -5,8 +5,8 @@
     "routing_rule": "AI-directive changes -> CLAUDE_MANAGER.md. Human/gate adjustments -> this file. Nothing in Phase 48 writes to this file programmatically; edits are human edits.",
     "schema": {
       "cost": "Live (Phase 48). enabled: master switch for ambient cost surfaces. assumed_model: pricing row from telemetry/model-pricing.json used for dollar estimates (telemetry does not record the model, so estimates must state their assumption). warn_usd_per_session: compared against the PER-SITTING delta (latest rollup minus the prior checkpoint in the same lineage; delta == total for un-resumed sessions) — not the cumulative lineage figure (Phase 66). warn_usd_per_7d: trailing-7-day per-lineage window delta. Both estimates at assumed_model rates.",
-      "operation_tiers": "EMPTY SLOT (documented, not yet consumed). Per-tier gate overrides keyed tier_1..tier_5 per ROADMAP Appendix (operation tier classification). The v1.2.0 optimizer drafts entries here; Phase 48 ships the slot only.",
-      "friction": "EMPTY SLOT (documented, not yet consumed). Friction knobs for the approval gate (e.g. confirmation verbosity, batching windows). Same consumer and same approval gating as operation_tiers.",
+      "operation_tiers": "Live (Phase 85). Descriptive classification of the five operation classes per ROADMAP Appendix — reads / scratch_writes / repo_writes / destructive_external / credentials_financial_pii. Classification only; lanes live in the friction block. tier_5 appears HERE (as a class that exists) but never in friction (as a knob that could move).",
+      "friction": "Live (Phase 85). Maps tiers 1-4 to lanes from the closed enum flow_with_receipt | surface_choice | hard_stop, plus tier_3_class_overrides: named tier-3 operation classes an install may move to a different lane (the optimizer's draft target; user-approved edits only). tier_4's lane governs the operation class; its destructive-pattern floor is hard_stop, non-configurable, enforced by the PreToolUse hooks via the shared pattern libs. tier_5 has NO friction key — structurally non-configurable, permanently hard_stop. REJECTED SHAPE: no lane may bypass the PreToolUse safety hooks; the hooks are the floor, the lanes sit above them.",
       "optimizer": "Live (Phase 53). enabled: master switch for the SessionStart nudge line. run_every_sessions: sessions-since-last-run threshold at which the nudge fires. nudge_cooldown_sessions: minimum sessions between nudge lines. The counter itself lives in the gitignored runtime file telemetry/optimizer-state.json.",
       "audits": "Live (Phase 74). Registry of dispatch-class audits on session-count cadences (sessions, never calendar time). Per entry: enabled (master switch) + sessions_between_dispatches (the cadence). Counters live in gitignored telemetry/audit-state.json, incremented every SessionEnd for every registered audit; the manager's dispatch flow resets an entry at dispatch. Extensible: future dispatch-class audits register here. Registrants: artifact_fit_analyzer (Phase 74) + plugin_discovery (Phase 76 — plugin-ecosystem inventory into the draft recommendation manifest). The skeleton repo itself additionally registers roadmap_auditor (Phase 75, dogfood-only — it never ships in template)."
     },
@@ -18,8 +18,20 @@
     "warn_usd_per_session": 50.0,
     "warn_usd_per_7d": 250.0
   },
-  "operation_tiers": {},
-  "friction": {},
+  "operation_tiers": {
+    "tier_1": {"class": "reads", "examples": "file views, grep, ls, public web fetch"},
+    "tier_2": {"class": "scratch_writes", "examples": "observations, drafts, telemetry, scratchpad"},
+    "tier_3": {"class": "repo_writes", "examples": "repo files, schema changes"},
+    "tier_4": {"class": "destructive_external", "examples": "destructive bash/git, external system calls, file ops outside the project"},
+    "tier_5": {"class": "credentials_financial_pii", "examples": "credentials, financial actions, PII"}
+  },
+  "friction": {
+    "tier_1": {"lane": "flow_with_receipt"},
+    "tier_2": {"lane": "flow_with_receipt"},
+    "tier_3": {"lane": "surface_choice"},
+    "tier_4": {"lane": "surface_choice", "destructive_pattern_floor": "hard_stop (non-configurable; enforced by PreToolUse hooks via .claude/lib/destructive-bash-patterns.sh + destructive-powershell-patterns.sh)"},
+    "tier_3_class_overrides": {}
+  },
   "optimizer": {
     "enabled": true,
     "run_every_sessions": 12,

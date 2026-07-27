@@ -459,6 +459,14 @@ Phase 46 telemetry gets its first consumer: the `token-cost-monitor` agent (`.cl
 
 The only interaction that ever requests an explicit yes is applying a consequential live-component change (an actual model-pin swap) — and applying is out of scope in Phase 48; this phase only drafts.
 
+## Friction lanes (Phase 85)
+
+`gate-config.json`'s `friction` block maps the operation tiers (ROADMAP Appendix) to three lanes, and the manager applies the lane at phase-brief time. **`flow_with_receipt`** classes proceed without a plan gate and report — the ship report and the commit body ARE the receipt; that is what the lane's name means, not a lighter standard of record. **`surface_choice`** classes show the plan first (today's tier-3 default — plan-mode). **`hard_stop`** classes never proceed; tier_5 has no friction key at all, so there is nothing to flip. The tier-4 destructive-pattern floor stays with the PreToolUse hooks regardless of lane — the hooks are the floor, the lanes sit above them.
+
+**Trust adjustment** follows the Phase 48/53 routing rule, now with a live target: the optimizer's gate-layer drafts propose lane or `tier_3_class_overrides` changes from recorded gate decisions; the user approves; the edit lands in `gate-config.json` by hand. Lanes move on recorded patterns and approvals, never on their own.
+
+**Honest boundary:** Claude Code's own tool confirmations are harness-level and outside this file's jurisdiction. The lanes govern the manager's workflow (when to plan-gate, when to proceed-and-report); they do not add or remove CC's prompts.
+
 ## Per-project manager-optimizer (Phase 53 — v1.2.0 centerpiece)
 
 The optimizer named in ROADMAP's v1.2.0 bullet, shipped v1: one instance per install (`.claude/agents/05_meta/manager-optimizer.md`), watching two layers — this project's **AI-decision patterns** and the human's **gate-interaction patterns** — and drafting refinements for this project's directive surfaces. It inherits Phase 48's four design properties wholesale (evidence-mechanical, draft-only, non-interrupting, batch-at-seams) and the permanent ban on model self-assessment as evidence.

@@ -123,6 +123,27 @@ scenario_fresh_install() {
     *"/Users/"*|*"Users\\"*|*"/home/"*)
       echo "ERROR: marker source embeds a user path: $msrc" >&2; exit 1 ;;
   esac
+  # Phase 85: friction lanes — validate all three gate-config copies
+  # (template, freshly installed, skeleton dogfood): friction present,
+  # keys within tiers 1-4 (+ the overrides map), NO tier_5 key in friction
+  # (structurally non-configurable), every lane from the closed enum.
+  python - "$SKELETON_DIR/template/.claude/gate-config.json" "$TEST_DIR/.claude/gate-config.json" "$SKELETON_DIR/.claude/gate-config.json" <<'PYEOF'
+import json, sys
+LANES = {"flow_with_receipt", "surface_choice", "hard_stop"}
+KEYS = {"tier_1", "tier_2", "tier_3", "tier_4", "tier_3_class_overrides"}
+for p in sys.argv[1:4]:
+    d = json.load(open(p, encoding="utf-8"))
+    fr = d.get("friction")
+    assert isinstance(fr, dict) and fr, f"{p}: friction block missing/empty"
+    assert "tier_5" not in fr, f"{p}: tier_5 must not be a friction key"
+    assert set(fr) <= KEYS, f"{p}: unexpected friction keys {sorted(set(fr)-KEYS)}"
+    for k in ("tier_1", "tier_2", "tier_3", "tier_4"):
+        assert fr[k]["lane"] in LANES, f"{p}: {k} lane invalid"
+    for cls, lane in (fr.get("tier_3_class_overrides") or {}).items():
+        assert lane in LANES, f"{p}: override {cls} lane invalid"
+    assert "tier_5" in (d.get("operation_tiers") or {}), f"{p}: tier_5 classification missing"
+print("  friction lanes schema-valid across template/installed/dogfood copies")
+PYEOF
   if grep -q '{{' "$TEST_DIR/.claude/settings.json"; then
     echo "ERROR: literal placeholder survived install in settings.json" >&2
     exit 1
