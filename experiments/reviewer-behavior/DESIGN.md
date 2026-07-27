@@ -11,16 +11,16 @@ instrumentation, extraction scripts, or optimizer changes. Dogfood-only
 
 ## The question
 
-Does the skeleton's approval friction produce **genuine review**, or
-**reflexive approval**? Every draft-only surface this project ships —
-captures, re-tier proposals, optimizer proposals, update.sh decisions,
-plan-mode gates — rests on the same assumption: that a human at the gate
-is *deciding*, not just clicking through. That assumption is the wedge's
-proof point: the regulate-the-human half of the system is only worth
-building if friction at the gates actually buys deliberation. This
-experiment tests whether the assumption is *measurable from this install's
-own history* — not whether it is true in general (see the scope caveat
-under the verdicts).
+What do **decision latency** and **disposition distributions** at the
+skeleton's approval gates actually look like, and can they be extracted
+reliably from history that already exists? Every draft-only surface this
+project ships — captures, re-tier proposals, optimizer proposals,
+update.sh decisions, plan-mode gates — produces gate decisions whose
+measurable properties (latency, disposition mix, edit distance) have
+never been characterized. This experiment tests whether those properties
+are *measurable from this install's own history* — what the measurements
+can and cannot support is fixed by the pre-committed verdicts below (see
+also the scope caveat under them).
 
 ## Two phases
 
@@ -85,9 +85,9 @@ never ad hoc.
    capture files, and of `.claude/specs/*.md` *(admitted by the 2026-07-21
    amendment below)*.
 3. **Disposition mix per surface** — approve / reject / modify rates for
-   each gate surface. A surface that only ever approves is a
-   rubber-stamp candidate; a mix with recorded rejections and
-   modifications is review-shaped. Source: `status` and `review_note`
+   each gate surface. A surface that only ever approves yields a
+   degenerate distribution; a mix with recorded rejections and
+   modifications is analyzable. Source: `status` and `review_note`
    fields in the ledgers; capture frontmatter statuses; spec frontmatter
    statuses *(admitted by the 2026-07-21 amendment below)*; update.sh
    traces (see feasibility — partial).
