@@ -17,7 +17,7 @@ findings land as observations for normal triage.
 ## The vetted bundle
 
 Six plugins went through the skeleton's own vetting (the records live in
-[`PLUGIN-INSTALLS-v1.1.4.md`](PLUGIN-INSTALLS-v1.1.4.md)):
+[`PLUGIN-INSTALLS-v1.1.4.md`](PLUGIN-INSTALLS-v1.1.4.md)): <!-- cruft-check:exempt-historical -->
 
 - **feature-dev** (Anthropic-official) — guided feature development: codebase
   exploration, architecture design, review agents.

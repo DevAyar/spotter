@@ -33,7 +33,7 @@ Each section below states its gate at the top: what empirical condition opens th
 
 Three tracks open immediately — no prior gate to wait on.
 
-**v1.1.5 onboarding tier.** Five small phases. A is fully de-gated and can ship before the rest land. B-E queue sequentially after A; together they constitute v1.1.5's ship.
+**v1.1.5 onboarding tier (SHIPPED — Phases 69-73; the [1.1.5] cut landed 2026-07-15).** Five small phases, all landed; the bullets below stand as the design record.
 
 - **A — README.md onboarding refresh.** The first 30 seconds a new visitor spends on the repo. Currently feature-list-shaped; reframes around the governance pitch.
 - **B — GETTING-STARTED.md.** The first 15 minutes after install. Walks through what just happened to the project, what to expect at session start, how to dispatch a helper for the first time.
@@ -41,16 +41,16 @@ Three tracks open immediately — no prior gate to wait on.
 - **D — install.sh post-install message.** What the user sees in the terminal when the install completes. Currently terse; expands to point at GETTING-STARTED and the next-step dispatch.
 - **E — Optional first-run SessionStart welcome hook.** Surfaces on the first session in a freshly-installed project; explains what just got added to `.claude/` and where to start.
 
-**v1.2.0 pure-design components.** No production miles required to design schemas and pipelines; only execution / refinement needs data.
+**v1.2.0 pure-design components (SHIPPED, Phase 68).** No production miles were required to design the schemas and pipelines; both landed together.
 
-- **`/goals` expanded** — the research → targeted clarify → spec pipeline. Outputs a structured spec doc that X-builders consume natively. Closes the long-deferred clarifying-questions seam.
-- **Scheduled-goals support** — `schedule` field on `/goals` plus a SessionStart surfacer for due items.
+- **`/goals` expanded (SHIPPED, Phase 68)** — the research → targeted clarify → spec pipeline. Outputs a structured spec doc that X-builders consume natively. Closed the long-deferred clarifying-questions seam.
+- **Scheduled-goals support (SHIPPED, Phase 68)** — `schedule` field on `/goals` plus a SessionStart surfacer for due items.
 
-**Phase 35 evaluation window.** The v1.1.4 substrate evaluation is open now. Four observations accruing in parallel:
+**Phase 35 evaluation window (CLOSED — truth-mark, Phase 86).** The window ran and closed across the v1.1.x arc: dogfood, TV, and EoG all accrued the evaluation miles (TV/EoG updated well past v1.1.4 through the propagation passes — CHANGELOG 72C/78 record the state); Phase 36's retire/repurpose decisions landed along the way (Pinball retired, plan-coordinator kept); Phase 37's `## Strategic audit cycle` section shipped and is live in `CLAUDE_MANAGER.md`. The block below stands as the design record, in its original future tense. <!-- cruft-check:exempt-historical -->
 
 - **Skeleton dogfood baseline.** Claude Code restart with all six ecosystem plugins active. Observation of how the manager handles a typical session under the new substrate.
 - **Pinball install (leg retired).** Pinball was the planned fresh-mode `install.sh` bootstrap-on-empty-project test case; the project was retired (2026-07) before contributing signal. The fresh-install path is covered by CI's `fresh-install` scenario instead.
-- **Trainer-View update.** TV runs `bash <skeleton>/scripts/update.sh` to refresh from v1.0 to v1.1.4. This is the existing-project update test case with significant local modifications.
+- **Trainer-View update.** TV runs `bash <skeleton>/scripts/update.sh` to refresh from v1.0 to v1.1.4. This is the existing-project update test case with significant local modifications. <!-- cruft-check:exempt-historical -->
 - **Echoes-Of-Gill update.** EoG runs the same update flow, staggered after TV so they don't share noise in the observation stream.
 
 Phase 35 closes when empirical data from the three remaining installs (dogfood, TV, EoG) is available — when each has run for enough sessions to surface real signals. From there, Phase 36 decisions get made on data, not vibes.
@@ -88,16 +88,16 @@ Components in scope (per-project class):
 
 **Gate:** v1.1.5 onboarding tier has shipped (phases A through E landed). The recommendation surface needs the onboarding tier as foundation — without onboarding, a new project doesn't have the context for plugin recommendations to land usefully.
 
-v1.5 ecosystem integration introduces per-project plugin recommendation foundations — the system that watches a project's context and suggests ecosystem plugins (or rejects them) with reasons. It composes with v1.1.4's `code-quality-auditor` rather than replacing it.
+v1.5 ecosystem integration introduces per-project plugin recommendation foundations — the system that watches a project's context and suggests ecosystem plugins (or rejects them) with reasons. It composes with v1.1.4's `code-quality-auditor` rather than replacing it. <!-- cruft-check:exempt-historical -->
 
 Components in scope:
 
 - **`recommendation.schema.md` (SHIPPED, Phase 76)** — the per-project plugin recommendation manifest. Frontmatter for project context (stack markers, `.claude` inventory, observation profile, user-owned discipline preferences), body for per-plugin entries with reasons required both directions. The manifest itself is per-install runtime output (gitignored); the schema is the tracked contract.
-- **`code-quality-auditor` candidate mode (SHIPPED, Phase 77)** — pre-install vetting against the v1.1.4 heuristics via `--candidate-plugin` (findings print for the matcher; observations stay installed-mode's channel), so the recommender flags plugins likely to fail the post-install audit before they get installed.
+- **`code-quality-auditor` candidate mode (SHIPPED, Phase 77)** — pre-install vetting against the v1.1.4 heuristics via `--candidate-plugin` (findings print for the matcher; observations stay installed-mode's channel), so the recommender flags plugins likely to fail the post-install audit before they get installed. <!-- cruft-check:exempt-historical -->
 - **`plugin-discovery-agent` (SHIPPED, Phase 76)** — surfaces ecosystem candidates relevant to the project's current state. Ships with `scripts/plugin-discovery.sh` (the script is the contract): entries enter as candidate/installed only, draft-only, no network, no verdicts.
 - **`plugin-context-matcher` (SHIPPED, Phase 77)** — verdicts discovered candidates against the project's recommendation manifest: evidence-cited `recommended`/`not_recommended` per closed classes, honest-middle default. Deliberately verdicts + reasons, never scores or ranks — a ranked list is a directory in disguise.
 - **SessionStart plugin-suggestion cadence (SHIPPED, Phase 76 — via the Phase 74 audits registry, not a new hook)** — `plugin_discovery` registers in gate-config's `audits` block; the `[infrastructure-audit]` line surfaces it on a sessions cadence (seed 30) with the existing 24h noise marker. The mechanism this line anticipated was built generically in Phase 74; Phase 76 registered discovery into it.
-- **First-install integration** — when `install.sh` finishes, the recommendation flow can run as an optional next step.
+- **First-install integration (SHIPPED, Phase 79)** — the recommendation flow is offered (never run) in the post-install message and the first-run welcome; `/plugin` stays the only install path.
 - **Composition-rule documentation** in `CLAUDE_MANAGER.md.template`.
 
 v1.5 sits between v1.1.5 and v1.2.0 because per-project tuning (v1.2.0) needs the recommendation surface as one input — the per-project manager-optimizer watching dispatch patterns is more useful when the project has a clear sense of which plugins it composes with and why.
@@ -108,7 +108,7 @@ v1.5 sits between v1.1.5 and v1.2.0 because per-project tuning (v1.2.0) needs th
 
 First cross-install matcher data (2026-07-21, three installs): rejection verdicts differentiate by project context — STACK-MISMATCH scales with marker richness (1/4/5 firings on skeleton/EoG/TV) — while recommendations skew uniform to COMPOSITION-PRECEDENT; richer positive-evidence classes are a v2.0 design requirement. The manifest's first human review (2026-07-22) confirmed the uniform-positive-evidence gap a fourth time — 16 identical COMPOSITION-PRECEDENT reason lines could not separate genuine fit from irrelevance — and surfaced a needed verdict dimension: functional-overlap-with-installed-governance, the semantic layer mechanical evidence can't reach.
 
-v2.0 is the mature plugin recommendation surface — a curated discipline for matching pain points and project context to specific marketplace plugins or community-library helpers. The tier folds three pieces that previously had separate phase numbers: `integration-checker` (Layer 1+2 of plugin verification — manifest sanity, surface area), `code-quality-auditor` Layer 3 (semantic fitness-vs-description; the layer beyond the narrow-scope heuristics that shipped in v1.1.4), and a curated catalog tied to project context (only if community-curation value materializes — a static catalog without a quality filter is a directory, which the principle below rules out).
+v2.0 is the mature plugin recommendation surface — a curated discipline for matching pain points and project context to specific marketplace plugins or community-library helpers. The tier folds three pieces that previously had separate phase numbers: `integration-checker` (Layer 1+2 of plugin verification — manifest sanity, surface area), `code-quality-auditor` Layer 3 (semantic fitness-vs-description; the layer beyond the narrow-scope heuristics that shipped in v1.1.4), and a curated catalog tied to project context (only if community-curation value materializes — a static catalog without a quality filter is a directory, which the principle below rules out). <!-- cruft-check:exempt-historical -->
 
 The foundation is in v1.0 already: `CLAUDE_MANAGER.md.template`'s plugin marketplace composition section names the ecosystem sources the manager draws from. v2.0 turns that section from "here is the ecosystem we compose with" into "for the shape of this specific project, here are three plugins that pair well — and five that don't, with reasons for each." Design principle (locked, verbatim):
 
@@ -257,10 +257,10 @@ These are operational principles — they shape how mechanisms get designed and 
 
 The skeleton runs audits at two scopes; mixing them would muddy the discipline.
 
-- **Project-level (`infrastructure-auditor` in `template/`).** Audits a single project's `.claude/`. Installed everywhere. Dispatches the project-level checkers (`cruft-checker`, `drift-checker`, `artifact-fit-analyzer`). Findings are local to the project.
-- **Skeleton-level (`roadmap-auditor` in dogfood only).** Audits the skeleton's own roadmap, schemas, cross-phase contracts. Lives ONLY in the skeleton's dogfood `.claude/`, never in `template/`. Findings are about the skeleton itself — drift between roadmap claims and codebase reality.
+- **Project-level (the audits-registry coordinator, Phase 74 — ships in `template/`).** Audits a single project's `.claude/`. The `audits` registry in `gate-config.json` counts sessions per registered dispatch-class audit (`artifact_fit_analyzer`, `plugin_discovery`) and surfaces one `[infrastructure-audit]` due line; `drift-checker` and the plugin auditor fire from the SessionStart chain on their own cooldowns; `cruft-checker` is dogfood-only and never ships. Findings are local to the project.
+- **Skeleton-level (`roadmap-auditor` in dogfood only).** Audits the skeleton's own roadmap, schemas, cross-phase contracts. Lives ONLY in the skeleton's dogfood `.claude/`, never in `template/`. Findings are about the skeleton itself — drift between roadmap claims and codebase reality. Registered in the dogfood audits registry (cadence 25).
 
-Shared mechanics (cruft detection, doc-rot catches), different scope. Both are scheduled via `/goals` expanded `schedule` field.
+Shared mechanics, different scope. Both run on the Phase 74 sessions-cadence registry — never calendar time; `/goals` scheduling is a separate surface for approved specs, not for audits.
 
 ### Captures-surface enum stability
 
@@ -270,7 +270,7 @@ The `suggested_artifact_type` enum on `workflow-suggester.schema.md` has nine st
 - **Baseline (6):** `script`, `skill`, `agent`, `command`, `manual_action`, `unclear`. Established in v1.1.0 Phase 2 (workflow-suggester rewrite).
 - **v1.1.x additions (3):** `doc-fix` (Phase 7, paired with cruft-checker doc-rot observations); `infrastructure-fix` (Phase 16, paired with cruft-checker heuristic viii config-schema observations); `lesson` (Phase 18, surface-only — no producer heuristics, no X-builder, manual codification per Model C).
 
-v1.1.4 reused the existing `manual_action` baseline value as the routing target for `pattern_type: plugin_quality` observations emitted by `code-quality-auditor` (Phase 24) — no new enum value added. Future additions follow the **prefix-routing convention** established in Phase 16 + 18: observation notes starting `"<value>: "` route to `suggested_artifact_type: <value>`. Authors who hand-author captures may set the field directly. Adding a new enum value requires (a) edit the enum list in `workflow-suggester.schema.md`, (b) extend the routing block in `workflow-suggester.md`, (c) optionally add a producer heuristic if autonomous detection earns scope. Defer producer + X-builder until grounding data exists (same discipline as task-watchdog's deferred resource-anomaly signals; Phase 18 set the precedent).
+v1.1.4 reused the existing `manual_action` baseline value as the routing target for `pattern_type: plugin_quality` observations emitted by `code-quality-auditor` (Phase 24) — no new enum value added. Future additions follow the **prefix-routing convention** established in Phase 16 + 18: observation notes starting `"<value>: "` route to `suggested_artifact_type: <value>`. Authors who hand-author captures may set the field directly. Adding a new enum value requires (a) edit the enum list in `workflow-suggester.schema.md`, (b) extend the routing block in `workflow-suggester.md`, (c) optionally add a producer heuristic if autonomous detection earns scope. Defer producer + X-builder until grounding data exists (same discipline as task-watchdog's deferred resource-anomaly signals; Phase 18 set the precedent). <!-- cruft-check:exempt-historical -->
 
 ### Model C lesson codification
 

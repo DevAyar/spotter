@@ -144,7 +144,7 @@ Either stage can be invoked independently:
 
 ## Helper roster overview
 
-`template/.claude/agents/` ships organized by numbered tier folders, each holding helpers of a related role. The current skeleton-baseline roster (17 agents; counts re-derived mechanically at edit time per `CLAUDE_MANAGER.md` § Roster and doc surfaces update in the same phase):
+`template/.claude/agents/` ships organized by numbered tier folders, each holding helpers of a related role. The current skeleton-baseline roster (19 agents; counts re-derived mechanically at edit time per `CLAUDE_MANAGER.md` § Roster and doc surfaces update in the same phase):
 
 | Tier | Folder | Helpers | Role |
 |---|---|---|---|

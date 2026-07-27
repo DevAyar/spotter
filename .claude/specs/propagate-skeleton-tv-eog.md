@@ -49,7 +49,7 @@ goal: Propagate skeleton Phases 48-68 to Trainer-View and Echoes-of-Gill via upd
   signal on LOCALLY_MODIFIED handling), then Echoes-of-Gill, staggered so
   the observation streams don't share noise (the Phase 35 pattern).
 - The EoG hold-push contingency stands as written.
-- No VERSION bump rides along — the delta is [Unreleased] on v1.1.4.
+- No VERSION bump rides along — the delta is [Unreleased] on v1.1.4. <!-- cruft-check:exempt-historical -->
 
 ## Deliverable shape
 

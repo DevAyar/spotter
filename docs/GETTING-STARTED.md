@@ -9,13 +9,13 @@ live in [`INSTALLATION.md`](INSTALLATION.md).)
 
 The install copied the skeleton baseline in (a fresh run reports ~82 files):
 
-- **`.claude/agents/`** — 17 helpers in numbered role folders: research,
+- **`.claude/agents/`** — 19 helpers in numbered role folders: research,
   audit, monitoring, planning, and a meta tier that watches the system
   itself (drift, artifact fit, cost, the manager's own decisions).
 - **`.claude/skills/`** — 6 behavioral conventions the manager follows
   without needing a hook (grep-before-reading-huge-files, bash-safety
   excludes, schema-check-before-config-edits, and so on).
-- **`.claude/scripts/`** — 11 mechanical wrappers (commit, deploy, drift
+- **`.claude/scripts/`** — 13 mechanical wrappers (commit, deploy, drift
   check, the goals surfacer, shared-memory tooling).
 - **`.claude/commands/`** — 10 slash commands, including `/goals` (more on
   that below) and `/commit`.
