@@ -30,7 +30,10 @@
     "tier_2": {"lane": "flow_with_receipt"},
     "tier_3": {"lane": "surface_choice"},
     "tier_4": {"lane": "surface_choice", "destructive_pattern_floor": "hard_stop (non-configurable; enforced by PreToolUse hooks via .claude/lib/destructive-bash-patterns.sh + destructive-powershell-patterns.sh)"},
-    "tier_3_class_overrides": {}
+    "tier_3_class_overrides": {
+      "docs_only": "flow_with_receipt",
+      "mechanical_fix": "flow_with_receipt"
+    }
   },
   "optimizer": {
     "enabled": true,
