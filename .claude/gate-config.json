@@ -15,8 +15,8 @@
   "cost": {
     "enabled": true,
     "assumed_model": "claude-opus-4-8",
-    "warn_usd_per_session": 50.0,
-    "warn_usd_per_7d": 250.0
+    "warn_usd_per_session": 95.0,
+    "warn_usd_per_7d": 600.0
   },
   "operation_tiers": {
     "tier_1": {"class": "reads", "examples": "file views, grep, ls, public web fetch"},
