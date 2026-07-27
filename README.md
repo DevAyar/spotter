@@ -86,7 +86,7 @@ paths can't be confused. First 15 minutes after install:
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+BUSL-1.1 — free for individuals, commercial use licensed; see [LICENSE](LICENSE) + [COMMERCIAL.md](COMMERCIAL.md).
 
 ---
 

@@ -61,7 +61,7 @@ claude-skeleton/
 │   └── CHANGELOG.md    # Version history
 ├── README.md
 ├── VERSION             # Single-line semver (canonical version source)
-├── LICENSE             # MIT
+├── LICENSE             # BUSL-1.1 (see COMMERCIAL.md)
 └── .gitignore
 ```
 
