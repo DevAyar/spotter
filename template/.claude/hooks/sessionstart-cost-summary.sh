@@ -176,16 +176,6 @@ for key, rollups in lineages.items():
         week_n += 1
 cache = sit["total_cache_read"] + sit["total_cache_creation"]
 
-# Lineage cumulative as context, only when a prior checkpoint exists —
-# on a fresh lineage the delta IS the total and the context is noise.
-lineage_ctx = (f"| lineage ~${lineage_usd:,.2f} since {newest_key[:10]} "
-               if prev is not None else "")
-line = (f"[token-cost] last sitting ~${sitting_usd:,.2f} "
-        f"(in {fmt(sit['total_tokens_in'])} / out {fmt(sit['total_tokens_out'])} / "
-        f"cache {fmt(cache)} @ {model} rates) "
-        f"{lineage_ctx}"
-        f"| 7d ~${week_usd:,.2f} across {week_n} lineage(s)")
-
 def threshold(v):
     # bool is an int subclass; a stray JSON true must not become a $1 threshold
     return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
@@ -196,8 +186,59 @@ if ws is not None and sitting_usd > ws:
     over.append(f"sitting>{ws:g}")
 if w7 is not None and week_usd > w7:
     over.append(f"7d>{w7:g}")
-if over:
-    line += "  !! over threshold (" + ", ".join(over) + ")"
+
+# Phase 91: deviation-first ambient display. The durable receipt is the
+# telemetry files + commit bodies — this stanza reads, never writes, and
+# nothing about recording or thresholds changed. Norm = MEDIAN of clean
+# per-sitting deltas under the Phase 66 semantics across all lineages:
+# each lineage contributes its first rollup's own total (spacing =
+# ended0 - parsed started; unparseable started drops the sample) plus
+# consecutive checkpoint deltas (spacing = ended_i - ended_i-1); clean =
+# delta > 0 (drops duplicate-checkpoint zeros) AND spacing <= 2.0 days
+# (drops the sparse multi-day class). The headline sitting judges
+# AGAINST the norm, never into it. Three display states:
+#   tripped   -> full dollar line + !! (dollars carry the API-equiv label)
+#   thin-data -> < 3 clean samples: full dollar line (a relative claim
+#                with no baseline would be fabrication)
+#   normal    -> ONE short relative line, no dollars
+norm_samples = []
+for key, rollups in lineages.items():
+    prev_e = prev_t = None
+    for i, (e, t) in enumerate(rollups):
+        if i == 0:
+            st = parse_ts(key)
+            span = (e - st).total_seconds() / 86400 if st is not None else None
+            delta = usd(t)
+        else:
+            span = (e - prev_e).total_seconds() / 86400
+            delta = usd(t) - usd(prev_t)
+        headline = (key == newest_key and i == len(rollups) - 1)
+        if not headline and span is not None and delta > 0 and span <= 2.0:
+            norm_samples.append(delta)
+        prev_e, prev_t = e, t
+
+if over or len(norm_samples) < 3:
+    # Lineage cumulative as context, only when a prior checkpoint exists —
+    # on a fresh lineage the delta IS the total and the context is noise.
+    lineage_ctx = (f"| lineage ~${lineage_usd:,.2f} since {newest_key[:10]} "
+                   if prev is not None else "")
+    line = (f"[token-cost] last sitting ~${sitting_usd:,.2f} "
+            f"(in {fmt(sit['total_tokens_in'])} / out {fmt(sit['total_tokens_out'])} / "
+            f"cache {fmt(cache)} @ {model} rates, API-equiv) "
+            f"{lineage_ctx}"
+            f"| 7d ~${week_usd:,.2f} across {week_n} lineage(s)")
+    if over:
+        line += "  !! over threshold (" + ", ".join(over) + ")"
+else:
+    ns = sorted(norm_samples)
+    n = len(ns)
+    median = ns[n // 2] if n % 2 else (ns[n // 2 - 1] + ns[n // 2]) / 2
+    ratio = (sitting_usd / median) if median > 0 else 0.0
+    sit_part = "sitting: typical" if ratio <= 1.5 else f"sitting: {ratio:.1f}x median"
+    parts = [sit_part]
+    if w7 is not None and w7 > 0:
+        parts.append(f"7d: {week_usd / w7 * 100:.0f}% of threshold")
+    line = "[token-cost] " + " | ".join(parts)
 print(line)
 PYEOF
 fi

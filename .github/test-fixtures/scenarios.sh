@@ -1846,7 +1846,7 @@ print('  stub emission honest (confidence, resolved_at, filename, summary) OK')
 # cumulative as "last session" and permanently tripped the warn once
 # cumulative spend crossed the fixed value.
 scenario_cost_line_sitting_delta() {
-  echo ">> cost-line-sitting-delta: resumed lineage prints delta with no false trip; heavy single sitting still trips (Phase 66)"
+  echo ">> cost-line-sitting-delta: thin-data absolute fallback; trip prints dollars+API-equiv; normal prints relative only; elevated prints ratio (Phase 66 + 91)"
   TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-cost)
   local root="$TEST_DIR/proj"
   mkdir -p "$root/.claude/telemetry/sessions"
@@ -1872,19 +1872,25 @@ data_available: true
 ---
 EOF
   }
-  # One lineage, resumed: checkpoint 5M in (\$5), cumulative 8M (\$8). Sitting = \$3.
+  # Leg 1 (thin-data): one resumed lineage, checkpoint 5M (\$5) + cumulative
+  # 8M (\$8), sitting = \$3 — the first rollup spans 9 days (> the 2.0d clean
+  # bound), so ZERO clean norm samples exist and the display must fall back
+  # to the absolute form (a relative claim with no baseline is fabrication),
+  # with the API-equiv honesty label and still no false trip (Phase 66).
   mk_rollup "$root/.claude/telemetry/sessions/ckpt.md" "2026-07-01T00:00:00Z" "2026-07-10T00:00:00Z" 5000000
   mk_rollup "$root/.claude/telemetry/sessions/cum.md"  "2026-07-01T00:00:00Z" "2026-07-12T00:00:00Z" 8000000
   local out
   out=$(CLAUDE_PROJECT_DIR="$root" bash "$SKELETON_DIR/.claude/hooks/sessionstart-cost-summary.sh" 2>&1)
   assert_contains "$out" "last sitting ~\$3.00"
   assert_contains "$out" "lineage ~\$8.00 since 2026-07-01"
+  assert_contains "$out" "API-equiv"
   if printf '%s' "$out" | grep -q '!!'; then
     echo "ERROR: resumed lineage falsely tripped the per-sitting threshold: $out" >&2
     exit 1
   fi
-  echo "  leg 1: sitting-delta headline + lineage context + no false trip OK"
-  # Converse leg: a genuinely heavy SINGLE sitting (9M in = \$9 > 5) must still trip.
+  echo "  leg 1: thin-data absolute fallback + API-equiv + no false trip OK"
+  # Leg 2 (tripped): a genuinely heavy SINGLE sitting (9M in = \$9 > 5) must
+  # still trip and print full dollars with the API-equiv label.
   local root2="$TEST_DIR/proj2"
   mkdir -p "$root2/.claude/telemetry/sessions"
   cp "$root/.claude/telemetry/model-pricing.json" "$root2/.claude/telemetry/model-pricing.json"
@@ -1894,6 +1900,50 @@ EOF
   out2=$(CLAUDE_PROJECT_DIR="$root2" bash "$SKELETON_DIR/.claude/hooks/sessionstart-cost-summary.sh" 2>&1)
   assert_contains "$out2" "last sitting ~\$9.00"
   assert_contains "$out2" "sitting>5"
+  assert_contains "$out2" "API-equiv"
+  echo "  leg 2: trip prints dollars + API-equiv OK"
+  # Leg 3 (normal, Phase 91): 5 hourly checkpoints, cumulative 2/4/6/8/10M —
+  # headline delta \$2, clean norm {2,2,2} (>= 3 samples), median \$2, ratio
+  # 1.0 -> relative line only: 'sitting: typical', 7d as % of threshold,
+  # ZERO dollar figures, no trip marker.
+  local root3="$TEST_DIR/proj3"
+  mkdir -p "$root3/.claude/telemetry/sessions"
+  cp "$root/.claude/telemetry/model-pricing.json" "$root3/.claude/telemetry/model-pricing.json"
+  cat > "$root3/.claude/gate-config.json" <<'JSON'
+{"cost": {"enabled": true, "assumed_model": "test-model", "warn_usd_per_session": 100, "warn_usd_per_7d": 1000}}
+JSON
+  local i
+  for i in 1 2 3 4 5; do
+    mk_rollup "$root3/.claude/telemetry/sessions/c$i.md" "2026-07-12T00:00:00Z" "2026-07-12T0$i:30:00Z" $((i * 2000000))
+  done
+  local out3
+  out3=$(CLAUDE_PROJECT_DIR="$root3" bash "$SKELETON_DIR/.claude/hooks/sessionstart-cost-summary.sh" 2>&1)
+  assert_contains "$out3" "sitting: typical"
+  assert_contains "$out3" "of threshold"
+  if printf '%s' "$out3" | grep -q '\$'; then
+    echo "ERROR: normal state printed a dollar figure: $out3" >&2; exit 1
+  fi
+  if printf '%s' "$out3" | grep -q '!!'; then
+    echo "ERROR: normal state printed a trip marker: $out3" >&2; exit 1
+  fi
+  echo "  leg 3: normal state relative-only line OK"
+  # Leg 4 (normal-elevated): same shape, last delta 6M (\$6) vs median \$2 ->
+  # ratio 3.0x prints instead of 'typical'; still no dollars, still no trip.
+  local root4="$TEST_DIR/proj4"
+  mkdir -p "$root4/.claude/telemetry/sessions"
+  cp "$root/.claude/telemetry/model-pricing.json" "$root4/.claude/telemetry/model-pricing.json"
+  cp "$root3/.claude/gate-config.json" "$root4/.claude/gate-config.json"
+  for i in 1 2 3 4; do
+    mk_rollup "$root4/.claude/telemetry/sessions/c$i.md" "2026-07-12T00:00:00Z" "2026-07-12T0$i:30:00Z" $((i * 2000000))
+  done
+  mk_rollup "$root4/.claude/telemetry/sessions/c5.md" "2026-07-12T00:00:00Z" "2026-07-12T05:30:00Z" 14000000
+  local out4
+  out4=$(CLAUDE_PROJECT_DIR="$root4" bash "$SKELETON_DIR/.claude/hooks/sessionstart-cost-summary.sh" 2>&1)
+  assert_contains "$out4" "sitting: 3.0x median"
+  if printf '%s' "$out4" | grep -q '\$\|!!'; then
+    echo "ERROR: elevated-but-under-threshold state printed dollars or a trip: $out4" >&2; exit 1
+  fi
+  echo "  leg 4: elevated ratio wording, still relative-only OK"
   echo "PASS cost-line-sitting-delta"
 }
 
