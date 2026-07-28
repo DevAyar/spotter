@@ -368,6 +368,20 @@ After push, do NOT foreground-watch CI — no `gh run watch`, no poll-until-conc
 
 Every skeleton commit — phase mechanism, integration, doc-maintenance, release cut — lands with a `Co-Authored-By: <the authoring Claude model> <noreply@anthropic.com>` trailer. The trailer records whichever Claude model authored the commit; no model name is hardcoded in this convention, and the git history is the census of which model wrote what. **Why:** the directive layer + skeleton design are co-authored work with Claude as collaborator; the attribution is consistent with how the meta-system is described in `STORY.md` and `docs/ROADMAP.md` (ADHD-driven design as constraint-forced discipline that generalises via LLM collaboration). **How it applies:** every commit on the skeleton carries the trailer, naming the model that did the authoring. Locked; persists unless explicitly revisited.
 
+### Ship reports open with a receipt block
+
+Every phase ship report OPENS with a receipt block — the skim layer before the prose (grounding: scannability; git's own diffstat is the field-proven precedent). At most 10 plain-text lines, terminal-safe, no box-drawing required; **every line derived from real data only** — the diff, guard runs, counters — never estimated. Shape: a verdict line (phase + commit + pushed/held); 2-4 key changes as `name: before → after` lines; a guard line (N legs red→green, or the mechanical gate that stood in for one); a flags line (near-misses, premise corrections — OMIT when none); a pending line (propagation bundle / CI seam). The prose report follows below, unchanged — the receipt adds a skim layer, it removes nothing. Worked example (Phase 90's actual receipt):
+
+```
+Phase 90 — shipped b71dbb1, pushed
+assumed_model: claude-opus-4-8 → claude-fable-5
+warn_usd_per_session: 95.0 → 190.0 (heaviest clean sitting 123.61 × 1.5)
+warn_usd_per_7d: 600.0 → 1200.0 (steady-state ceiling 1092 + ~10%)
+guard: replica-gated — cycle-three's 17-delta series reproduced exactly before any value landed
+flags: 7d stood at 588/600 on the wrong basis — one heavy day from a spurious trip
+pending: 87+88 propagation bundle; fast-lane CI at next seam
+```
+
 ## Plugin marketplace composition
 
 ### Composition, not competition
