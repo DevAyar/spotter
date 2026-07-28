@@ -86,65 +86,104 @@ m = re.search(r"Phase (\d+)", verdict)
 slug = f"phase-{m.group(1)}" if m else "receipt"
 pushed = "pushed" if "pushed" in verdict.lower() else ("held" if "held" in verdict.lower() else "")
 
-# Badge row - derived from parsed data only.
+# Badge row - (text, tint) pairs derived from parsed data only.
 badges = []
 if pushed:
-    badges.append(pushed)
+    badges.append((pushed, "good"))
 sm = re.search(r"(\d+) automated checks", " ".join(by.get("SAFETY", [])))
 if sm:
-    badges.append(f"{sm.group(1)} checks pass")
+    badges.append((f"{sm.group(1)} checks pass", "good"))
 cost_line = " ".join(by.get("COST", []))
 if cost_line:
-    badges.append("spending normal" if "typical" in cost_line.lower() and "$" not in cost_line
-                  else "spending flagged" if cost_line else "")
+    if "typical" in cost_line.lower() and "$" not in cost_line:
+        badges.append(("spending normal", "info"))
+    else:
+        badges.append(("spending flagged", "warn"))
 mm = re.search(r"Written by ([^,]+)", " ".join(by.get("MODEL", [])))
 if mm:
-    badges.append(mm.group(1).strip())
-badges = [b for b in badges if b]
+    badges.append((mm.group(1).strip(), "plain"))
+
+# Display-side derivation only (field parsing above is untouched): shas
+# for the top-right meta cluster come from the already-parsed verdict.
+shas = re.findall(r"\b[0-9a-f]{7,10}\b", verdict)
+
+# Sentence-case labels (the frozen design: no ALL CAPS anywhere).
+LABELS = {
+    "WHAT CHANGED": "What changed", "SAFETY": "Safety",
+    "COST": "Cost so far this sitting", "MODEL": "Who did the work",
+    "FLAGS": "Flags", "TO DO LATER": "⏳ To do later", "NEXT UP": "→ Next up",
+}
 
 e = html.escape
-def section(field, tag="div"):
+def section(field, cell=False):
     if field not in by:
         return ""
-    rows = "".join(f'<p class="row">{e(v)}</p>' for v in by[field])
-    label = "" if field == "VERDICT" else f'<h2>{e(field.title())}</h2>'
-    return (f'<{tag} class="sec sec-{field.split()[0].lower()}" '
-            f'title="{e(TIPS[field])}">{label}{rows}</{tag}>')
+    cls = "cell" if cell else "row"
+    rows = "".join(f'<p class="{cls}">{e(v)}</p>' for v in by[field])
+    label = f'<h2>{e(LABELS[field])}</h2>'
+    return (f'<div class="sec sec-{field.split()[0].lower()}" '
+            f'title="{e(TIPS[field])}">{label}{rows}</div>')
 
-badge_html = "".join(f'<span class="badge">{e(b)}</span>' for b in badges)
+badge_html = "".join(f'<span class="badge b-{k}">{e(t)}</span>' for t, k in badges)
+meta = ((f'<code>{e(" ".join(shas))}</code>' if shas else "")
+        + (f'<span class="chip">{e(pushed)}</span>' if pushed else ""))
 head = (f'<header title="{e(TIPS["VERDICT"])}">'
-        f'<h1>Ship receipt{" - " + e(slug.replace("phase-", "Phase ")) if slug != "receipt" else ""}'
-        f'{f" <span class=chip>{e(pushed)}</span>" if pushed else ""}</h1>'
+        f'<div class="headrow">'
+        f'<h1>Ship receipt{" - " + e(slug.replace("phase-", "Phase ")) if slug != "receipt" else ""}</h1>'
+        f'{f"<div class=meta>{meta}</div>" if meta else ""}'
+        f'</div>'
         f'<p class="verdict">{e(verdict)}</p>'
         f'{f"<div class=badges>{badge_html}</div>" if badges else ""}'
         f'</header>')
 
+duo = section("COST") + section("MODEL")
 body = (head
-        + section("WHAT CHANGED")
+        + section("WHAT CHANGED", cell=True)
         + section("SAFETY")
-        + section("COST")
-        + section("MODEL")
+        + (f'<div class="duo">{duo}</div>' if duo else "")
         + section("FLAGS")
         + f'<footer>{section("TO DO LATER")}{section("NEXT UP")}</footer>')
 
 CSS = """
-:root{color-scheme:light dark;--fg:#1a1a1a;--bg:#fff;--muted:#555;--line:#ddd;--chip:#e8f0e8;--badge:#f0f0f4}
-@media(prefers-color-scheme:dark){:root{--fg:#e8e8e8;--bg:#161618;--muted:#aaa;--line:#333;--chip:#243024;--badge:#26262c}}
-body{font:15px/1.5 system-ui,sans-serif;color:var(--fg);background:var(--bg);max-width:640px;margin:2rem auto;padding:0 1rem}
-h1{font-size:1.15rem;margin:0 0 .3rem}h2{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 .3rem}
-.verdict{margin:.2rem 0 .6rem;font-size:1rem}
-.sec{border-top:1px solid var(--line);padding:.7rem 0;margin:0}
+:root{color-scheme:light dark;
+--fg:#1c1c1e;--fg2:#4a4a52;--muted:#71717a;--page:#ececf0;--card:#fff;--line:#e0e0e6;--well:#f4f4f7;
+--good-bg:#e3f2e5;--good-fg:#1d5c28;--info-bg:#e2edf9;--info-fg:#1e4d7d;--warn-bg:#fbeed6;--warn-fg:#7a5210;
+--plain-bg:#eeeef2;--plain-fg:#44444c;--amber:#d99a1f}
+@media(prefers-color-scheme:dark){:root{
+--fg:#ececf0;--fg2:#b8b8c2;--muted:#8b8b95;--page:#0e0e10;--card:#1a1a1e;--line:#2c2c33;--well:#232329;
+--good-bg:#1e3322;--good-fg:#8fd49a;--info-bg:#1c2c40;--info-fg:#8ab8ec;--warn-bg:#3a2e14;--warn-fg:#e5b566;
+--plain-bg:#28282e;--plain-fg:#c2c2cc;--amber:#c98f22}}
+body{font:15px/1.5 system-ui,sans-serif;color:var(--fg);background:var(--page);margin:0;padding:2rem 1rem}
+.card{max-width:640px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:1.4rem 1.5rem}
+.headrow{display:flex;justify-content:space-between;align-items:baseline;gap:.8rem}
+h1{font-size:1.15rem;margin:0}
+.meta{white-space:nowrap}
+.meta code{font:.72rem/1 ui-monospace,Consolas,monospace;color:var(--muted);margin-right:.5em}
+h2{font-size:.8rem;font-weight:600;color:var(--muted);margin:0 0 .4rem}
+.verdict{margin:.35rem 0 .6rem;font-size:1rem;color:var(--fg2)}
+.sec{border-top:1px solid var(--line);padding:.8rem 0;margin:0}
 .row{margin:.25rem 0}
-.chip{font-size:.7rem;background:var(--chip);border-radius:.6em;padding:.15em .6em;vertical-align:middle}
-.badge{display:inline-block;font-size:.72rem;background:var(--badge);border-radius:.5em;padding:.15em .55em;margin-right:.35em}
-.badges{margin:.4rem 0 .2rem}
-footer .sec{border-top:1px dashed var(--line)}
+.cell{background:var(--well);border-radius:8px;padding:.5rem .7rem;margin:.35rem 0}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:0 1.2rem}
+.duo .sec{min-width:0}
+@media(max-width:520px){.duo{grid-template-columns:1fr}}
+.sec-flags{border-left:3px solid var(--amber);padding-left:.8rem}
+.chip{font-size:.7rem;background:var(--good-bg);color:var(--good-fg);border-radius:.6em;padding:.15em .6em;vertical-align:middle}
+.badge{display:inline-block;font-size:.72rem;border-radius:.5em;padding:.18em .6em;margin-right:.35em}
+.b-good{background:var(--good-bg);color:var(--good-fg)}
+.b-info{background:var(--info-bg);color:var(--info-fg)}
+.b-warn{background:var(--warn-bg);color:var(--warn-fg)}
+.b-plain{background:var(--plain-bg);color:var(--plain-fg)}
+.badges{margin:.45rem 0 .3rem}
+footer{border-top:1px solid var(--line);margin-top:.2rem}
+footer .sec{border-top:0;padding:.55rem 0}
+footer .sec h2{margin-bottom:.15rem}
 """
 
 page = (f"<!DOCTYPE html><html><head><meta charset='utf-8'>"
         f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
         f"<title>Ship receipt</title><style>{CSS}</style></head>"
-        f"<body>{body}</body></html>")
+        f"<body><main class='card'>{body}</main></body></html>")
 
 os.makedirs(out_dir, exist_ok=True)
 today = datetime.date.today().isoformat()
