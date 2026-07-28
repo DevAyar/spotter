@@ -387,6 +387,8 @@ TO DO LATER: The change still needs to reach the other two installs; it rides th
 
 (The example carries no FLAGS line — nothing surprising happened — and no NEXT UP line, because at Phase 91's ship time the next phase was undecided; both omissions are the rules applied, not oversights.)
 
+**The rendered card (Phase 93):** at ship time, after writing the receipt, pipe it through `receipt-render.sh` (stdin or file arg) and name the output path in the report's closing line — "card: .claude/receipts/latest.html"; a dated copy accrues beside it. In-chat, receipts render as **markdown lines with bold field names, not fenced code blocks** — the fields are prose, not code. Hierarchy, stated: **the receipt TEXT in the ship report is the canonical record; the HTML card is a render of it** — regenerable, gitignored, never the source of truth.
+
 ## Plugin marketplace composition
 
 ### Composition, not competition
