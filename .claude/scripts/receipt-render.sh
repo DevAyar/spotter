@@ -39,7 +39,17 @@ if [ -z "$PYBIN" ]; then
   exit 1
 fi
 
-INPUT="${1:--}"
+# Args: --open launches the default browser on latest.html after a
+# successful write (Phase 94); the first non-flag arg is the input file
+# (default: stdin). Rendering is byte-identical with or without the flag.
+OPEN=0
+INPUT="-"
+for arg in "$@"; do
+  case "$arg" in
+    --open) OPEN=1 ;;
+    *) INPUT="$arg" ;;
+  esac
+done
 if [ "$INPUT" != "-" ] && [ ! -f "$INPUT" ]; then
   echo "receipt-render: input file not found: $INPUT" >&2
   exit 1
@@ -204,5 +214,33 @@ for name in ("latest.html", f"{today}-{slug}.html"):
 print(os.path.join(out_dir, "latest.html"))
 PYEOF
 
+RENDER_RC=$?
+[ "$RENDER_RC" -eq 0 ] || exit "$RENDER_RC"
+
+# Phase 94: --open hands latest.html to the platform's default browser.
+# A process launch on a LOCAL file - not a network call; the card itself
+# still references nothing external (the guard's zero-http grep proves
+# it). Best-effort: a launch failure never fails the render. Suppressed
+# when CI is set (GitHub Actions exports CI=true on every runner), and
+# each branch is command-existence-gated so headless boxes skip silently.
+if [ "$OPEN" -eq 1 ] && [ -z "${CI:-}" ]; then
+  CARD="$OUT_DIR/latest.html"
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*)
+      # //c dodges MSYS path-mangling; cygpath -w gives the Windows form.
+      if command -v cmd.exe >/dev/null 2>&1 && command -v cygpath >/dev/null 2>&1; then
+        cmd.exe //c start "" "$(cygpath -w "$CARD")" >/dev/null 2>&1 || true
+      fi
+      ;;
+    Darwin)
+      command -v open >/dev/null 2>&1 && { open "$CARD" >/dev/null 2>&1 || true; }
+      ;;
+    *)
+      command -v xdg-open >/dev/null 2>&1 && { xdg-open "$CARD" >/dev/null 2>&1 & } || true
+      ;;
+  esac
+fi
+
 # ---- cleanup ----
-# (exit status is the python block's - loud failure is correct here)
+# (exit status: the python render's - loud failure is correct here)
+exit "$RENDER_RC"

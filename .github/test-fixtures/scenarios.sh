@@ -2418,6 +2418,22 @@ EOF
     echo "ERROR: partial file written on malformed input" >&2; exit 1
   fi
   echo "  leg 3: malformed input errors cleanly, no partial file OK"
+  # Leg 4 (Phase 94): --open parses and renders identically with the launch
+  # suppressed under CI (the exact condition: CI env var non-empty; GitHub
+  # Actions sets CI=true on every runner) - the flag must never change the
+  # rendered bytes or the exit code.
+  local root3="$TEST_DIR/proj3"
+  mkdir -p "$root3/.claude"
+  ( cd "$root3" && CI=1 CLAUDE_PROJECT_DIR="$root3" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --open "$root/full.txt" > /dev/null )
+  [ -f "$root3/.claude/receipts/latest.html" ] || { echo "ERROR: --open render did not write the card" >&2; exit 1; }
+  local h_open h_plain
+  h_open=$(sha256_of "$root3/.claude/receipts/latest.html")
+  local root4="$TEST_DIR/proj4"
+  mkdir -p "$root4/.claude"
+  ( cd "$root4" && CLAUDE_PROJECT_DIR="$root4" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" "$root/full.txt" > /dev/null )
+  h_plain=$(sha256_of "$root4/.claude/receipts/latest.html")
+  assert_eq "$h_open" "$h_plain"
+  echo "  leg 4: --open under CI renders byte-identically, launch suppressed OK"
   echo "PASS receipt-render"
 }
 
