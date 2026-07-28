@@ -108,7 +108,7 @@ scenario_fresh_install() {
   out=$(bash "$SKELETON_DIR/scripts/install.sh" \
     --source "$SKELETON_DIR" --target "$TEST_DIR" \
     --mode=fresh --claude-only)
-  verify_marker 80
+  verify_marker 81
   # Phase 72: the post-install message points somewhere real, and the
   # greeting surface carries no literal placeholder.
   assert_contains "$out" "GETTING-STARTED"
@@ -1207,7 +1207,7 @@ LEGACY
     cat "$TEST_DIR/.claude/.skeleton-version" >&2
     exit 1
   fi
-  verify_marker 80
+  verify_marker 81
   echo "PASS backfill-migrate"
 }
 
@@ -1262,8 +1262,8 @@ with open(sys.argv[1]) as f:
     d = json.load(f)
 raw = d.get('raw_template_baselines')
 n = len(raw) if isinstance(raw, dict) else None
-if n != 80:
-    sys.exit(f'ERROR: expected 80 raw_template_baselines after migration, got {n}')
+if n != 81:
+    sys.exit(f'ERROR: expected 81 raw_template_baselines after migration, got {n}')
 print(f'  raw_template_baselines present after migration: {n} entries')
 " "$marker"
   echo "PASS raw-baseline-migrate"
@@ -2349,6 +2349,78 @@ print('  leg 4: bare status without review_note fails closed OK')
   echo "PASS fold-status-preserve"
 }
 
+# Phase 93: receipt-render.sh turns a Phase 92 receipt block into a
+# self-contained HTML card. Present fields render (escaped, each section
+# carrying a generic title-attribute tooltip), absent fields are omitted
+# honestly, the card carries ZERO external references (no http), a dated
+# copy accrues beside latest.html, and malformed input errors cleanly
+# with no partial file. The receipt TEXT stays the canonical record.
+scenario_receipt_render() {
+  echo ">> receipt-render: full card + tooltips + no-external; absent fields omitted; malformed -> clean error (Phase 93)"
+  TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-receipt)
+  local root="$TEST_DIR/proj"
+  mkdir -p "$root/.claude"
+  # Leg 1: every field, two WHAT CHANGED lines, an HTML-escapable char.
+  cat > "$root/full.txt" <<'EOF'
+VERDICT: Phase 91 shipped and pushed (f5b24c0) - the cost readout now stays quiet on normal days.
+WHAT CHANGED: Sessions used to open with a dollar figure every time; now a one-line status appears unless spending is genuinely unusual.
+WHAT CHANGED: When spending crosses a limit, the full figures still print, labeled "API-equiv" & explained.
+SAFETY: 4 automated checks were written to fail against the old code; all 4 pass against the new (cost-line-sitting-delta).
+COST: Spending is typical this sitting; the week sits at 88% of its ceiling.
+MODEL: Written by Claude Fable 5, per the commit's signature line.
+FLAGS: Nothing surprising happened; this line exists to exercise the field.
+TO DO LATER: The change rides the next update bundle.
+NEXT UP: Phase 92 formalizes the receipt convention.
+EOF
+  ( cd "$root" && CLAUDE_PROJECT_DIR="$root" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" "$root/full.txt" )
+  local card="$root/.claude/receipts/latest.html"
+  [ -f "$card" ] || { echo "ERROR: latest.html not written" >&2; exit 1; }
+  local dated
+  dated=$(ls "$root/.claude/receipts/" | grep -c "phase-91.html")
+  assert_eq "$dated" "1"
+  local html
+  html=$(cat "$card")
+  assert_contains "$html" "stays quiet on normal days"
+  assert_contains "$html" "one-line status appears"
+  assert_contains "$html" "&quot;API-equiv&quot; &amp; explained"
+  assert_contains "$html" "4 automated checks"
+  assert_contains "$html" "88% of its ceiling"
+  assert_contains "$html" "Claude Fable 5"
+  assert_contains "$html" "exercise the field"
+  assert_contains "$html" "next update bundle"
+  assert_contains "$html" "Phase 92 formalizes"
+  assert_contains "$html" "title="
+  if printf '%s' "$html" | grep -qi "http"; then
+    echo "ERROR: card carries an external reference: $(printf '%s' "$html" | grep -i http | head -1)" >&2; exit 1
+  fi
+  if printf '%s' "$html" | grep -qi "<script"; then
+    echo "ERROR: card carries JS" >&2; exit 1
+  fi
+  echo "  leg 1: full card, escaped text, tooltips, dated copy, zero external refs OK"
+  # Leg 2: FLAGS + NEXT UP absent -> omitted from the card, not fabricated.
+  grep -v "^FLAGS:\|^NEXT UP:" "$root/full.txt" > "$root/partial.txt"
+  ( cd "$root" && CLAUDE_PROJECT_DIR="$root" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" "$root/partial.txt" )
+  html=$(cat "$card")
+  if printf '%s' "$html" | grep -q "exercise the field\|Phase 92 formalizes"; then
+    echo "ERROR: absent field text survived in the card" >&2; exit 1
+  fi
+  assert_contains "$html" "stays quiet on normal days"
+  echo "  leg 2: absent fields omitted, present ones render OK"
+  # Leg 3: malformed input -> nonzero exit, honest stderr, no partial file.
+  local root2="$TEST_DIR/proj2"
+  mkdir -p "$root2/.claude"
+  printf 'this is not a receipt\nno fields here\n' > "$root2/junk.txt"
+  local rc=0 err
+  err=$( cd "$root2" && CLAUDE_PROJECT_DIR="$root2" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" "$root2/junk.txt" 2>&1 >/dev/null ) || rc=$?
+  [ "$rc" -ne 0 ] || { echo "ERROR: malformed input exited 0" >&2; exit 1; }
+  printf '%s' "$err" | grep -qi "no recognized receipt fields" || { echo "ERROR: stderr did not name the problem: $err" >&2; exit 1; }
+  if [ -e "$root2/.claude/receipts/latest.html" ]; then
+    echo "ERROR: partial file written on malformed input" >&2; exit 1
+  fi
+  echo "  leg 3: malformed input errors cleanly, no partial file OK"
+  echo "PASS receipt-render"
+}
+
 # Phase 68: the scheduled-goals surfacer prints exactly ONE ambient line for
 # approved+due specs and NOTHING for drafts — a draft never surfaces as
 # actionable (the approval gate is load-bearing) — and --hook honors the
@@ -2630,6 +2702,7 @@ case "${1:-}" in
   watchdog-agent-duration)          scenario_watchdog_agent_duration ;;
   plugin-context-matcher)           scenario_plugin_context_matcher ;;
   fold-status-preserve)             scenario_fold_status_preserve ;;
+  receipt-render)                   scenario_receipt_render ;;
   replace-with-yes-piped)           scenario_replace_with_yes_piped ;;
   hook-fp-exemption-git-commit-message) scenario_hook_fp_exemption_git_commit_message ;;
   all)
@@ -2681,6 +2754,7 @@ case "${1:-}" in
     scenario_watchdog_agent_duration
     scenario_plugin_context_matcher
     scenario_fold_status_preserve
+    scenario_receipt_render
     scenario_replace_with_yes_piped
     scenario_hook_fp_exemption_git_commit_message
     echo "ALL SCENARIOS PASSED"
@@ -2738,6 +2812,7 @@ Scenarios:
   watchdog-agent-duration      2h Agent await -> agent-dispatch observation; 10min Agent silent; Bash branch intact (obs 6708b966).
   plugin-context-matcher       Conflict->not_recommended file-cited; marker->recommended; no-signal stays candidate; external deferred; candidate-mode findings (Phase 77).
   fold-status-preserve         SessionEnd fold preserves recorded dispositions (existing-id untouched; new-id disposed+note survives); new enters draft; bare status fails closed (Phase 88).
+  receipt-render               Receipt block -> self-contained HTML card; tooltips; absent fields omitted; malformed -> clean error (Phase 93).
   replace-with-yes-piped       printf 'YES' | install.sh --mode=replace overwrites locally-modified file (Phase 30b H7).
   hook-fp-exemption-git-commit-message  Parser exempts -m bodies + heredoc/here-string payloads; counter-tests verify outside-region patterns still deny (Phase 30c).
   all                          Run every scenario in sequence.

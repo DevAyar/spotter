@@ -289,3 +289,7 @@ jobs:
       - name: Scenario - fold-status-preserve
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh fold-status-preserve
+
+      - name: Scenario - receipt-render
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh receipt-render

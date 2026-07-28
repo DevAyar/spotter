@@ -50,3 +50,7 @@ docs/SESSION_LOG.md
 # the diff churn carries no information). The tracked contract is the schema
 # beside it (recommendation.schema.md), which stays in.
 .claude/recommendations/manifest.md
+
+# Phase 93: rendered receipt cards. Per-install runtime output of
+# receipt-render.sh; the receipt TEXT in the ship report is the record.
+.claude/receipts/
