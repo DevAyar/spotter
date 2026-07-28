@@ -2230,6 +2230,75 @@ JSON
   echo "PASS plugin-context-matcher"
 }
 
+# Phase 88: the SessionEnd fold must never silently discard a recorded
+# disposition. Existing-id ledger entries pass through untouched (the
+# ledger is the authority — a re-staged draft never overwrites it); a
+# NEW-id draft carrying a disposed status + review_note (the pair only a
+# human review writes — the incident class: cycle-three's drafts, disposed
+# pre-fold in the gitignored draft files, normalized back to draft at
+# bb0a3e9) folds in with the disposition preserved; a genuinely new draft
+# still enters as draft, and a non-draft status WITHOUT a review_note
+# fails closed to draft (nothing self-approves through the fold).
+scenario_fold_status_preserve() {
+  echo ">> fold-status-preserve: disposed survive (existing-id + new-id); new enters draft; bare status fails closed; draftless re-run no-op (Phase 88)"
+  TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-fold)
+  local root="$TEST_DIR/proj"
+  mkdir -p "$root/.claude/telemetry"
+  cat > "$root/.claude/telemetry/optimizer-proposals.json" <<'JSON'
+{"proposals": [
+  {"id": "opt-x", "timestamp": "2026-07-01T00:00:00Z", "target": "claude_manager", "finding": "fixture X", "status": "applied", "review_note": "APPROVED at fixture review"},
+  {"id": "opt-y", "timestamp": "2026-07-01T00:00:00Z", "target": "gate_config", "finding": "fixture Y", "status": "rejected", "review_note": "REJECTED at fixture review"}
+]}
+JSON
+  # Drafts: X/Y re-staged (ids already in the ledger), W disposed new-id
+  # (the incident class), Z genuinely new, V bare non-draft status (no note).
+  printf '{"id": "opt-x", "status": "draft", "finding": "stale copy that must not overwrite the ledger"}\n' > "$root/.claude/telemetry/optimizer-x.draft.json"
+  printf '{"id": "opt-y", "status": "draft", "finding": "stale copy that must not overwrite the ledger"}\n' > "$root/.claude/telemetry/optimizer-y.draft.json"
+  printf '{"id": "opt-w", "timestamp": "2026-07-02T00:00:00Z", "finding": "fixture W", "status": "applied", "review_note": "APPROVED pre-fold (incident class)"}\n' > "$root/.claude/telemetry/optimizer-w.draft.json"
+  printf '{"id": "opt-z", "finding": "fixture Z", "status": "draft"}\n' > "$root/.claude/telemetry/optimizer-z.draft.json"
+  printf '{"id": "opt-v", "finding": "fixture V", "status": "applied"}\n' > "$root/.claude/telemetry/optimizer-v.draft.json"
+  ( cd "$root" && CLAUDE_PROJECT_DIR="$root" bash "$SKELETON_DIR/.claude/hooks/sessionend-cost-proposals.sh" > /dev/null 2>&1 )
+  python -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+by = {p['id']: p for p in d['proposals']}
+# leg 1: existing disposed entries untouched in every field
+assert by['opt-x']['status'] == 'applied', by['opt-x']
+assert by['opt-x']['review_note'] == 'APPROVED at fixture review', by['opt-x']
+assert by['opt-y']['status'] == 'rejected', by['opt-y']
+assert by['opt-y']['review_note'] == 'REJECTED at fixture review', by['opt-y']
+assert by['opt-x']['finding'] == 'fixture X', by['opt-x']
+assert by['opt-y']['finding'] == 'fixture Y', by['opt-y']
+print('  leg 1: existing disposed entries untouched OK')
+# leg 2 (the incident class — RED pre-fix): a new-id draft carrying a
+# disposition + review_note enters with both preserved
+assert by['opt-w']['status'] == 'applied', by['opt-w']
+assert by['opt-w']['review_note'] == 'APPROVED pre-fold (incident class)', by['opt-w']
+assert by['opt-w']['timestamp'] == '2026-07-02T00:00:00Z', by['opt-w']
+print('  leg 2: new-id disposed draft survives the fold OK')
+# leg 3: genuinely new draft enters as draft (contract unchanged)
+assert by['opt-z']['status'] == 'draft', by['opt-z']
+print('  leg 3: new draft enters as draft OK')
+# leg 4: non-draft status WITHOUT review_note fails closed to draft
+assert by['opt-v']['status'] == 'draft', by['opt-v']
+print('  leg 4: bare status without review_note fails closed OK')
+" "$root/.claude/telemetry/optimizer-proposals.json"
+  # leg 5: all five drafts consumed
+  shopt -s nullglob
+  local leftovers=("$root/.claude/telemetry/"optimizer-*.draft.json)
+  shopt -u nullglob
+  assert_eq "${#leftovers[@]}" "0"
+  echo "  leg 5: all drafts consumed OK"
+  # leg 6: re-run with nothing staged -> ledger byte-identical (no-op)
+  local before after
+  before=$(sha256_of "$root/.claude/telemetry/optimizer-proposals.json")
+  ( cd "$root" && CLAUDE_PROJECT_DIR="$root" bash "$SKELETON_DIR/.claude/hooks/sessionend-cost-proposals.sh" > /dev/null 2>&1 )
+  after=$(sha256_of "$root/.claude/telemetry/optimizer-proposals.json")
+  assert_eq "$after" "$before"
+  echo "  leg 6: draftless re-run is a byte-identical no-op OK"
+  echo "PASS fold-status-preserve"
+}
+
 # Phase 68: the scheduled-goals surfacer prints exactly ONE ambient line for
 # approved+due specs and NOTHING for drafts — a draft never surfaces as
 # actionable (the approval gate is load-bearing) — and --hook honors the
@@ -2510,6 +2579,7 @@ case "${1:-}" in
   plugin-discovery-manifest)        scenario_plugin_discovery_manifest ;;
   watchdog-agent-duration)          scenario_watchdog_agent_duration ;;
   plugin-context-matcher)           scenario_plugin_context_matcher ;;
+  fold-status-preserve)             scenario_fold_status_preserve ;;
   replace-with-yes-piped)           scenario_replace_with_yes_piped ;;
   hook-fp-exemption-git-commit-message) scenario_hook_fp_exemption_git_commit_message ;;
   all)
@@ -2560,6 +2630,7 @@ case "${1:-}" in
     scenario_plugin_discovery_manifest
     scenario_watchdog_agent_duration
     scenario_plugin_context_matcher
+    scenario_fold_status_preserve
     scenario_replace_with_yes_piped
     scenario_hook_fp_exemption_git_commit_message
     echo "ALL SCENARIOS PASSED"
@@ -2616,6 +2687,7 @@ Scenarios:
   plugin-discovery-manifest    Fixture marketplace -> schema-valid draft; installed never candidate; unversioned tolerated; external-sha marked; zero verdicts (Phase 76).
   watchdog-agent-duration      2h Agent await -> agent-dispatch observation; 10min Agent silent; Bash branch intact (obs 6708b966).
   plugin-context-matcher       Conflict->not_recommended file-cited; marker->recommended; no-signal stays candidate; external deferred; candidate-mode findings (Phase 77).
+  fold-status-preserve         SessionEnd fold preserves recorded dispositions (existing-id untouched; new-id disposed+note survives); new enters draft; bare status fails closed (Phase 88).
   replace-with-yes-piped       printf 'YES' | install.sh --mode=replace overwrites locally-modified file (Phase 30b H7).
   hook-fp-exemption-git-commit-message  Parser exempts -m bodies + heredoc/here-string payloads; counter-tests verify outside-region patterns still deny (Phase 30c).
   all                          Run every scenario in sequence.

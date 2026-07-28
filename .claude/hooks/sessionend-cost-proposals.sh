@@ -4,8 +4,12 @@
 # Phase 53 extends the same seam (same file - the chain is extended, not
 # widened) to fold optimizer-*.draft.json into optimizer-proposals.json and
 # to increment the sessions_since_last_run counter in the gitignored runtime
-# file optimizer-state.json. Entries always enter their ledger as status
-# "draft". Consumed drafts are removed only AFTER the ledger write lands;
+# file optimizer-state.json. Entries enter their ledger as status "draft",
+# EXCEPT a draft carrying a recorded human disposition — a disposed status
+# plus a review_note (Phase 88) — which folds in with the disposition
+# preserved; a draft whose id is already in the ledger is consumed without
+# touching the ledger entry (the ledger is the authority). Consumed drafts
+# are removed only AFTER the ledger write lands;
 # unparseable drafts are renamed *.malformed (kept for human review, never
 # silently deleted, never retried). DRAFT-ONLY: this seam writes the two
 # ledgers and the counter file, nothing else - it never touches a model pin,
@@ -164,9 +168,18 @@ for path in draft_paths:
                 base = base[len(family) + 1:]
             d["id"] = f"{family}-{base}-{hashlib.sha1(raw).hexdigest()[:8]}"
         if d["id"] in seen:
-            consumed.append(path)   # already in the ledger: just clean up
+            consumed.append(path)   # already in the ledger: ledger wins, just clean up
             continue
-        d["status"] = "draft"       # entries always ENTER as draft
+        # Phase 88: a draft carrying a recorded human disposition — a
+        # disposed status PLUS a non-empty review_note, the pair only a
+        # review writes (producers never write review_note) — keeps it.
+        # Anything else, including a bare non-draft status without the
+        # note, fails closed to draft: nothing self-approves through the
+        # fold, and the silent-disposition-loss class (bb0a3e9) is closed.
+        disposed = d.get("status") in ("approved", "applied", "rejected")
+        reviewed = isinstance(d.get("review_note"), str) and d["review_note"].strip()
+        if not (disposed and reviewed):
+            d["status"] = "draft"   # entries otherwise ENTER as draft
         d.setdefault(ts_field, now)
         props.append(d)
         seen.add(d["id"])

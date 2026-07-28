@@ -285,3 +285,7 @@ jobs:
       - name: Scenario - plugin-context-matcher
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh plugin-context-matcher
+
+      - name: Scenario - fold-status-preserve
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh fold-status-preserve
