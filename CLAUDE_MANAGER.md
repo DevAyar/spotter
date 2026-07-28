@@ -370,18 +370,20 @@ Every skeleton commit — phase mechanism, integration, doc-maintenance, release
 
 ### Ship reports open with a receipt block
 
-Every phase ship report OPENS with a receipt block — the skim layer before the prose (grounding: scannability; git's own diffstat is the field-proven precedent). At most 10 plain-text lines, terminal-safe; **every line derived from real data only** — the diff, guard runs, counters — never estimated. **Design rule, load-bearing: the receipt is written in PLAIN LANGUAGE for a reader with average technical knowledge; precision rides in parentheses, never the other way around.** "The cost readout now stays quiet on normal days (sessionstart-cost-summary.sh, 4 guard legs)" — not "deviation-first ambient display refactor with four-leg assertion coverage." Each line passes the test: would a smart person who doesn't program understand it? Jargon that must appear goes in parentheses after its plain translation.
+Every phase ship report OPENS with a receipt block — the skim layer before the prose (grounding: scannability; git's own diffstat is the field-proven precedent). At most 12 plain-text lines, terminal-safe; **every line derived from real data only** — the diff, guard runs, counters — never estimated. **Two design laws, both load-bearing.** (1) **PLAIN LANGUAGE:** written for a reader with average technical knowledge; precision rides in parentheses after the plain statement, never instead of it. (2) **COHERENCE:** every receipt line is a complete thought, readable aloud as a sentence; compressed fragments ("dollars → typical") are forbidden even when short, because incoherent-but-simple erodes trust faster than jargon does. The test per line: would a smart person who doesn't program both understand it AND believe someone competent wrote it?
 
-Shape: a verdict line (what shipped, in one plain sentence + commit + pushed/held); 2-4 "what changed" lines as plain before → after statements; a safety line (N automated checks written to fail on the old code, all pass on the new — that phrasing class, not "legs red/green"); a flags line (anything surprising, near-misses — OMIT when none); a to-do line (what's pending, named plainly). The technical prose follows below, unchanged — the receipt adds a skim layer, it removes nothing. Worked example (Phase 91's actual receipt, written to the rule):
+Fields: **VERDICT** — what shipped, one plain sentence + commit + pushed/held. **WHAT CHANGED** — 2-4 lines, each a full before/after sentence ("Sessions used to end with a dollar figure every time; now a calm one-line status appears unless spending is genuinely unusual"). **SAFETY** — the checks, in the written-to-fail-then-pass phrasing class ("4 automated checks were written to fail against the old code; all 4 pass against the new"). **FLAGS** — anything surprising or near-missed, plainly; omit if none. **TO DO LATER** — pending items named plainly. **NEXT UP** — the next planned phase number + one small plain tidbit on what it does, when known; omit honestly when the next phase is undecided. The technical prose follows below, unchanged — the receipt adds a skim layer, it removes nothing. Worked example (Phase 91's actual receipt, written to both laws):
 
 ```
-Phase 91 — the session-start cost readout now stays quiet on normal days (f5b24c0, pushed)
-normal day: one short line, no dollar amounts ("sitting: typical | 7d: 88% of threshold")
-over the limit, or too little history to judge: full dollar figures, now labeled API-equiv (a subscription pays for this, not those dollars)
-"normal" comes from this project's own history (median of recent sittings, computed from existing records)
-safety: 4 automated checks written to fail on the old code, all pass on the new (cost-line-sitting-delta)
-to-do: the change reaches the other two installs with the next update bundle (87+88+91)
+VERDICT: Phase 91 shipped and pushed (f5b24c0) — the session-start cost readout now stays quiet on normal days.
+WHAT CHANGED: Sessions used to open with a dollar figure every time; now a one-line status appears unless spending is genuinely unusual ("sitting: typical | 7d: 88% of threshold").
+WHAT CHANGED: When spending crosses a limit, the full dollar figures still print, now labeled "API-equiv" — a subscription pays for this work, not those dollars.
+WHAT CHANGED: What counts as normal comes from this project's own history — the middle value of its recent work sessions (median, computed from records that already existed).
+SAFETY: 4 automated checks were written to fail against the old code; all 4 pass against the new (cost-line-sitting-delta).
+TO DO LATER: The change still needs to reach the other two installs; it rides the next update bundle (87+88+91).
 ```
+
+(The example carries no FLAGS line — nothing surprising happened — and no NEXT UP line, because at Phase 91's ship time the next phase was undecided; both omissions are the rules applied, not oversights.)
 
 ## Plugin marketplace composition
 
