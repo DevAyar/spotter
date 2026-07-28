@@ -98,7 +98,7 @@ Components in scope:
 - **`plugin-context-matcher` (SHIPPED, Phase 77)** — verdicts discovered candidates against the project's recommendation manifest: evidence-cited `recommended`/`not_recommended` per closed classes, honest-middle default. Deliberately verdicts + reasons, never scores or ranks — a ranked list is a directory in disguise.
 - **SessionStart plugin-suggestion cadence (SHIPPED, Phase 76 — via the Phase 74 audits registry, not a new hook)** — `plugin_discovery` registers in gate-config's `audits` block; the `[infrastructure-audit]` line surfaces it on a sessions cadence (seed 30) with the existing 24h noise marker. The mechanism this line anticipated was built generically in Phase 74; Phase 76 registered discovery into it.
 - **First-install integration (SHIPPED, Phase 79)** — the recommendation flow is offered (never run) in the post-install message and the first-run welcome; `/plugin` stays the only install path.
-- **Composition-rule documentation** in `CLAUDE_MANAGER.md.template`.
+- **Composition-rule documentation (SHIPPED in substance — `template/CLAUDE_MANAGER.md.template` § Composition, not competition; truth-marked Phase 90)** in `CLAUDE_MANAGER.md.template`.
 
 v1.5 sits between v1.1.5 and v1.2.0 because per-project tuning (v1.2.0) needs the recommendation surface as one input — the per-project manager-optimizer watching dispatch patterns is more useful when the project has a clear sense of which plugins it composes with and why.
 
