@@ -366,16 +366,17 @@ Every skeleton commit — phase mechanism, integration, doc-maintenance, release
 
 ### Ship reports open with a receipt block
 
-Every phase ship report OPENS with a receipt block — the skim layer before the prose (grounding: scannability; git's own diffstat is the field-proven precedent). At most 10 plain-text lines, terminal-safe, no box-drawing required; **every line derived from real data only** — the diff, guard runs, counters — never estimated. Shape: a verdict line (phase + commit + pushed/held); 2-4 key changes as `name: before → after` lines; a guard line (N legs red→green, or the mechanical gate that stood in for one); a flags line (near-misses, premise corrections — OMIT when none); a pending line (propagation bundle / CI seam). The prose report follows below, unchanged — the receipt adds a skim layer, it removes nothing. Worked example (Phase 90's actual receipt):
+Every phase ship report OPENS with a receipt block — the skim layer before the prose (grounding: scannability; git's own diffstat is the field-proven precedent). At most 10 plain-text lines, terminal-safe; **every line derived from real data only** — the diff, guard runs, counters — never estimated. **Design rule, load-bearing: the receipt is written in PLAIN LANGUAGE for a reader with average technical knowledge; precision rides in parentheses, never the other way around.** "The cost readout now stays quiet on normal days (sessionstart-cost-summary.sh, 4 guard legs)" — not "deviation-first ambient display refactor with four-leg assertion coverage." Each line passes the test: would a smart person who doesn't program understand it? Jargon that must appear goes in parentheses after its plain translation.
+
+Shape: a verdict line (what shipped, in one plain sentence + commit + pushed/held); 2-4 "what changed" lines as plain before → after statements; a safety line (N automated checks written to fail on the old code, all pass on the new — that phrasing class, not "legs red/green"); a flags line (anything surprising, near-misses — OMIT when none); a to-do line (what's pending, named plainly). The technical prose follows below, unchanged — the receipt adds a skim layer, it removes nothing. Worked example (Phase 91's actual receipt, written to the rule):
 
 ```
-Phase 90 — shipped b71dbb1, pushed
-assumed_model: claude-opus-4-8 → claude-fable-5
-warn_usd_per_session: 95.0 → 190.0 (heaviest clean sitting 123.61 × 1.5)
-warn_usd_per_7d: 600.0 → 1200.0 (steady-state ceiling 1092 + ~10%)
-guard: replica-gated — cycle-three's 17-delta series reproduced exactly before any value landed
-flags: 7d stood at 588/600 on the wrong basis — one heavy day from a spurious trip
-pending: 87+88 propagation bundle; fast-lane CI at next seam
+Phase 91 — the session-start cost readout now stays quiet on normal days (f5b24c0, pushed)
+normal day: one short line, no dollar amounts ("sitting: typical | 7d: 88% of threshold")
+over the limit, or too little history to judge: full dollar figures, now labeled API-equiv (a subscription pays for this, not those dollars)
+"normal" comes from this project's own history (median of recent sittings, computed from existing records)
+safety: 4 automated checks written to fail on the old code, all pass on the new (cost-line-sitting-delta)
+to-do: the change reaches the other two installs with the next update bundle (87+88+91)
 ```
 
 ## Plugin marketplace composition
