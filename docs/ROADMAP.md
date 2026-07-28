@@ -116,6 +116,8 @@ The foundation is in v1.0 already: `CLAUDE_MANAGER.md.template`'s plugin marketp
 
 The point is not to list every plugin available. The point is to give the manager a discipline for picking the right ones for the project at hand and rejecting the wrong ones early.
 
+Design note (2026-07-28): cost display becomes billing-context-aware in a future pass — subscription installs default to the deviation-first relative line with API-equiv labels on trip (the Phase 91 shape); API-billed installs may opt into literal-dollar display, where the same telemetry is true spend accounting per project. A gate-config `billing_context` key (`subscription | api`) is the anticipated switch; no build now.
+
 ## Gated on telemetry maturity
 
 **Gate:** the substrate produces enough real telemetry to validate an uncertainty engine against and to feed visibility surfaces with actual data. Empirical, not chronological — the question is whether real session telemetry is rich enough to calibrate against and display, not how long the substrate has run. Independent of the v2.0 and v3+ gates; this tier could open before or after either, consistent with tiers not shipping in numeric order.
