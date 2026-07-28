@@ -2,6 +2,8 @@
 
 The structure of the Spotter project itself (engine codename `claude-skeleton`), how its pieces fit together, and how it gets installed into target projects.
 
+**Naming convention (ratified, Phase 87):** Spotter is the product name — it appears on public surfaces (README, repo name, doc titles, first mentions). `claude-skeleton` is the engine codename — it appears in internal identifiers, the version marker's fields, variable names, and path placeholders, which also reflect the real local checkout folder. Both are correct in their register; neither replaces the other, and no wholesale sweep of engine strings is planned. Functional URLs (clone fallbacks, printed links) point at the real repo name `DevAyar/spotter`; GitHub's rename redirect is a safety net, not a dependency.
+
 ## The two-`.claude/` distinction
 
 This project has two `.claude/` directories. They serve different purposes and must never be confused.

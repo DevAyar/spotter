@@ -11,7 +11,7 @@ TARGET_PATH=""
 CLAUDE_ONLY=false
 DRY_RUN=false
 FORCE=false
-SKELETON_REPO_URL="https://github.com/DevAyar/claude-skeleton.git"
+SKELETON_REPO_URL="https://github.com/DevAyar/spotter.git"
 TMP_CLONE_DIR=""
 
 # Rollback tracking
@@ -531,7 +531,7 @@ summary() {
   printf 'Nothing here runs anything without your approval; every protection has a stated off-switch.\n'
   echo
   printf 'Read next:  %s/docs/GETTING-STARTED.md\n' "$SOURCE_PATH"
-  printf '            (or https://github.com/DevAyar/claude-skeleton/blob/main/docs/GETTING-STARTED.md)\n'
+  printf '            (or https://github.com/DevAyar/spotter/blob/main/docs/GETTING-STARTED.md)\n'
   printf 'First move: /goals <a real small goal>  - research, one round of questions, then a\n'
   printf '            draft spec in .claude/specs/ that waits for YOUR approval.\n'
   printf 'Plugins:    ask for the plugin manifest - plugin-discovery drafts it with evidence, you review, /plugin installs by hand.\n'

@@ -1,6 +1,6 @@
 # Philosophy
 
-The design principles behind claude-skeleton. These are the things that make the skeleton coherent rather than a pile of patterns.
+The design principles behind Spotter (engine codename `claude-skeleton`). These are the things that make the skeleton coherent rather than a pile of patterns.
 
 ## Origins: MWP / ICM
 

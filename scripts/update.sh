@@ -10,7 +10,7 @@ TARGET_PATH=""
 AUTO_APPLY=false
 DRY_RUN=false
 CHECK_REMOTE=false
-SKELETON_REPO_URL="${SKELETON_REPO_URL:-https://github.com/DevAyar/claude-skeleton.git}"
+SKELETON_REPO_URL="${SKELETON_REPO_URL:-https://github.com/DevAyar/spotter.git}"
 TMP_CLONE_DIR=""
 
 # Phase 52 one-time migration: temp git worktree pinned to the install commit.
