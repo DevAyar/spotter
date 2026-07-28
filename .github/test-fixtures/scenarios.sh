@@ -2396,7 +2396,22 @@ EOF
   if printf '%s' "$html" | grep -qi "<script"; then
     echo "ERROR: card carries JS" >&2; exit 1
   fi
-  echo "  leg 1: full card, escaped text, tooltips, dated copy, zero external refs OK"
+  # Phase 95: the capture-tight form exists beside the normal one, carries
+  # the tight override, and passes the same no-internet / no-JS bars; the
+  # NORMAL form must NOT carry the override (structural separation).
+  local tight="$root/.claude/receipts/latest-tight.html"
+  [ -f "$tight" ] || { echo "ERROR: latest-tight.html not written" >&2; exit 1; }
+  local thtml
+  thtml=$(cat "$tight")
+  assert_contains "$thtml" "max-width:720px"
+  assert_contains "$thtml" "stays quiet on normal days"
+  if printf '%s' "$thtml" | grep -qi "http\|<script"; then
+    echo "ERROR: tight form carries an external ref or JS" >&2; exit 1
+  fi
+  if printf '%s' "$html" | grep -q "max-width:720px"; then
+    echo "ERROR: tight override leaked into the normal form" >&2; exit 1
+  fi
+  echo "  leg 1: full card, escaped text, tooltips, dated copy, tight form, zero external refs OK"
   # Leg 2: FLAGS + NEXT UP absent -> omitted from the card, not fabricated.
   grep -v "^FLAGS:\|^NEXT UP:" "$root/full.txt" > "$root/partial.txt"
   ( cd "$root" && CLAUDE_PROJECT_DIR="$root" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" "$root/partial.txt" )
@@ -2414,7 +2429,7 @@ EOF
   err=$( cd "$root2" && CLAUDE_PROJECT_DIR="$root2" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" "$root2/junk.txt" 2>&1 >/dev/null ) || rc=$?
   [ "$rc" -ne 0 ] || { echo "ERROR: malformed input exited 0" >&2; exit 1; }
   printf '%s' "$err" | grep -qi "no recognized receipt fields" || { echo "ERROR: stderr did not name the problem: $err" >&2; exit 1; }
-  if [ -e "$root2/.claude/receipts/latest.html" ]; then
+  if [ -e "$root2/.claude/receipts/latest.html" ] || [ -e "$root2/.claude/receipts/latest-tight.html" ]; then
     echo "ERROR: partial file written on malformed input" >&2; exit 1
   fi
   echo "  leg 3: malformed input errors cleanly, no partial file OK"

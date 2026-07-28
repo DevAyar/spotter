@@ -190,14 +190,28 @@ footer .sec{border-top:0;padding:.55rem 0}
 footer .sec h2{margin-bottom:.15rem}
 """
 
-page = (f"<!DOCTYPE html><html><head><meta charset='utf-8'>"
-        f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
-        f"<title>Ship receipt</title><style>{CSS}</style></head>"
-        f"<body><main class='card'>{body}</main></body></html>")
+# Phase 95: the capture-tight form - same body, tight override appended.
+# No centering slab: the card IS the page (capture geometry for the
+# ship-time inline screenshot; humans browse the normal form).
+TIGHT = """
+body{padding:12px;background:var(--card)}
+.card{width:100%;max-width:720px;margin:0;box-sizing:border-box}
+"""
+
+def page_for(css):
+    return (f"<!DOCTYPE html><html><head><meta charset='utf-8'>"
+            f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
+            f"<title>Ship receipt</title><style>{css}</style></head>"
+            f"<body><main class='card'>{body}</main></body></html>")
+
+pages = {
+    "latest.html": page_for(CSS),
+    f"{datetime.date.today().isoformat()}-{slug}.html": page_for(CSS),
+    "latest-tight.html": page_for(CSS + TIGHT),
+}
 
 os.makedirs(out_dir, exist_ok=True)
-today = datetime.date.today().isoformat()
-for name in ("latest.html", f"{today}-{slug}.html"):
+for name, page in pages.items():
     dest = os.path.join(out_dir, name)
     tmp = dest + f".tmp.{os.getpid()}"
     try:
