@@ -2417,6 +2417,12 @@ EOF
   assert_contains "$thtml" "scrollbar-width:none"
   assert_contains "$thtml" "::-webkit-scrollbar"
   assert_contains "$thtml" "font-size:12.5px"
+  # Phase 100: the tight form carries the id="top" anchor (for panes and
+  # browsers that honor file: fragments); the normal form does not.
+  assert_contains "$thtml" 'id="top"'
+  if printf '%s' "$html" | grep -q 'id="top"'; then
+    echo "ERROR: the top anchor leaked into the normal form" >&2; exit 1
+  fi
   if printf '%s' "$html" | grep -q "scrollbar-width:none\|::-webkit-scrollbar\|font-size:12.5px"; then
     echo "ERROR: density/scrollbar rules leaked into the normal form" >&2; exit 1
   fi
@@ -2571,6 +2577,36 @@ JSON
   ( cd "$root9" && CI=1 CLAUDE_PROJECT_DIR="$root9" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --live --window > /dev/null )
   [ -f "$root9/.claude/receipts/live.html" ] || { echo "ERROR: --live --window under CI did not write the strip" >&2; exit 1; }
   echo "  leg 9: --window recognized, composes with --live, launch suppressed under CI OK"
+  # Leg 10 (Phase 100): --ansi renders the terminal card - box-drawing
+  # frame, sentences intact, files still written; NO_COLOR strips every
+  # escape sequence (plain box + text).
+  local root10="$TEST_DIR/proj10"
+  mkdir -p "$root10/.claude"
+  local ansi_out
+  ansi_out=$( cd "$root10" && CLAUDE_PROJECT_DIR="$root10" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --ansi "$root/full.txt" 2>/dev/null )
+  printf '%s' "$ansi_out" | grep -q "─" || { echo "ERROR: --ansi output lacks box-drawing" >&2; exit 1; }
+  # wrap-proof tokens: textwrap may split longer phrases across lines
+  assert_contains "$ansi_out" "f5b24c0"
+  assert_contains "$ansi_out" "What changed"
+  [ -f "$root10/.claude/receipts/latest.html" ] || { echo "ERROR: --ansi did not still write the files" >&2; exit 1; }
+  local plain_out
+  plain_out=$( cd "$root10" && NO_COLOR=1 CLAUDE_PROJECT_DIR="$root10" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --ansi "$root/full.txt" 2>/dev/null )
+  if printf '%s' "$plain_out" | grep -q $'\x1b'; then
+    echo "ERROR: NO_COLOR output still carries escape sequences" >&2; exit 1
+  fi
+  printf '%s' "$plain_out" | grep -q "─" || { echo "ERROR: NO_COLOR lost the box frame" >&2; exit 1; }
+  echo "  leg 10: --ansi terminal card, NO_COLOR plain form OK"
+  # Leg 11 (Phase 100): --show dispatcher branches. CI forced empty for the
+  # vscode branch (runners export CI=true); CI set -> silent file-write.
+  local vs_out
+  vs_out=$( cd "$root10" && CI= TERM_PROGRAM=vscode CLAUDE_PROJECT_DIR="$root10" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --show "$root/full.txt" 2>/dev/null )
+  assert_contains "$vs_out" "Live Preview"
+  local ci_out
+  ci_out=$( cd "$root10" && CI=1 CLAUDE_PROJECT_DIR="$root10" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --show "$root/full.txt" 2>/dev/null )
+  if printf '%s' "$ci_out" | grep -q "Live Preview\|$(printf '\x1b')"; then
+    echo "ERROR: --show under CI was not silent: $ci_out" >&2; exit 1
+  fi
+  echo "  leg 11: --show dispatcher - vscode instruction, CI silent OK"
   echo "PASS receipt-render"
 }
 

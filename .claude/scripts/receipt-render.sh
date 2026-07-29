@@ -103,15 +103,55 @@ fi
 OPEN=0
 LIVE=0
 WINDOW=0
+ANSI=0
+SHOW=0
 INPUT="-"
 for arg in "$@"; do
   case "$arg" in
     --open) OPEN=1 ;;
     --live) LIVE=1 ;;
     --window) WINDOW=1 ;;   # app-mode launch (chrome-free); wins over --open
+    --ansi) ANSI=1 ;;       # terminal card to stdout (files still written)
+    --show) SHOW=1 ;;       # auto dispatcher: vscode note / TTY ansi / silent
     *) INPUT="$arg" ;;
   esac
 done
+
+# Phase 100: --show auto dispatch. Precedence: explicit --open/--window
+# override; CI -> silent file-write only; VS Code terminal -> path + a
+# Live Preview line (its tab auto-reloads on change - better than the
+# meta refresh); interactive TTY -> the ANSI card; non-TTY -> silent.
+VSCODE_NOTE=0
+if [ "$SHOW" -eq 1 ] && [ "$OPEN" -eq 0 ] && [ "$WINDOW" -eq 0 ]; then
+  if [ -n "${CI:-}" ]; then
+    :
+  elif [ "${TERM_PROGRAM:-}" = "vscode" ]; then
+    VSCODE_NOTE=1
+  elif [ -t 1 ]; then
+    ANSI=1
+  fi
+fi
+
+# Capability-honest color depth + width for the ANSI card. NO_COLOR
+# respected absolutely (plain box, zero escape sequences).
+ANSI_DEPTH="0"
+ANSI_WIDTH=80
+if [ "$ANSI" -eq 1 ]; then
+  if [ -z "${NO_COLOR:-}" ]; then
+    case "${COLORTERM:-}" in
+      *truecolor*|*24bit*) ANSI_DEPTH="24" ;;
+      *)
+        _colors=$(tput colors 2>/dev/null || echo 0)
+        case "$_colors" in ''|*[!0-9]*) _colors=0 ;; esac
+        if [ "$_colors" -ge 256 ]; then ANSI_DEPTH="256"
+        elif [ "$_colors" -ge 8 ]; then ANSI_DEPTH="16"; fi
+        ;;
+    esac
+  fi
+  ANSI_WIDTH="${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}"
+  case "$ANSI_WIDTH" in ''|*[!0-9]*) ANSI_WIDTH=80 ;; esac
+  [ "$ANSI_WIDTH" -lt 60 ] && ANSI_WIDTH=60
+fi
 if [ "$LIVE" -eq 0 ] && [ "$INPUT" != "-" ] && [ ! -f "$INPUT" ]; then
   echo "receipt-render: input file not found: $INPUT" >&2
   exit 1
@@ -376,16 +416,20 @@ h2{font-size:.72rem;margin:0 0 .2rem}
 footer .sec{padding:.3rem 0}
 """
 
-def page_for(css):
+def page_for(css, anchor=False):
+    # Phase 100: the tight form's card carries id="top" so fragment-honoring
+    # panes/browsers can force top-of-page; the normal form's bytes stay
+    # untouched (the anchor is tight-only).
+    main_open = "<main class='card' id=\"top\">" if anchor else "<main class='card'>"
     return (f"<!DOCTYPE html><html><head><meta charset='utf-8'>"
             f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
             f"<title>Ship receipt</title><style>{css}</style></head>"
-            f"<body><main class='card'>{body}</main></body></html>")
+            f"<body>{main_open}{body}</main></body></html>")
 
 pages = {
     "latest.html": page_for(CSS),
     f"{datetime.date.today().isoformat()}-{slug}.html": page_for(CSS),
-    "latest-tight.html": page_for(CSS + TIGHT),
+    "latest-tight.html": page_for(CSS + TIGHT, anchor=True),
 }
 
 os.makedirs(out_dir, exist_ok=True)
@@ -416,17 +460,101 @@ except Exception:
         os.remove(tmp)
     except OSError:
         pass
-print(os.path.join(out_dir, "latest.html"))
+# Phase 100: --ansi terminal card - same card language (frame, muted
+# labels, tinted chips, sentences intact), capability-honest coloring.
+mode = sys.argv[3] if len(sys.argv) > 3 else ""
+depth = sys.argv[4] if len(sys.argv) > 4 else "0"
+try:
+    width = max(60, int(sys.argv[5])) if len(sys.argv) > 5 else 80
+except ValueError:
+    width = 80
+
+if mode == "ansi":
+    import textwrap
+    # Windows text-mode stdout defaults to cp1252 when piped, which cannot
+    # encode box-drawing - force UTF-8 (the 47b shared-memory-lib lesson).
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", newline="\n")
+    except Exception:
+        pass
+    PAL = {  # the HTML dark palette
+        "good": ((143, 212, 154), (30, 51, 34)),
+        "info": ((138, 184, 236), (28, 44, 64)),
+        "plain": ((194, 194, 204), (40, 40, 46)),
+        "muted": ((139, 139, 149), None),
+        "amber": ((201, 143, 34), None),
+    }
+    def code(rgb, bg=False):
+        if depth == "24":
+            return f"\x1b[{48 if bg else 38};2;{rgb[0]};{rgb[1]};{rgb[2]}m"
+        if depth == "256":
+            idx = 16 + 36 * (rgb[0] * 5 // 255) + 6 * (rgb[1] * 5 // 255) + (rgb[2] * 5 // 255)
+            return f"\x1b[{48 if bg else 38};5;{idx}m"
+        if depth == "16":
+            return f"\x1b[{'42' if bg else '32'}m" if rgb == PAL['good'][0] else (f"\x1b[{'44' if bg else '34'}m" if rgb == PAL['info'][0] else f"\x1b[{'47' if bg else '37'}m")
+        return ""
+    RST = "\x1b[0m" if depth != "0" else ""
+    def chip(text, kind):
+        fgc, bgc = PAL[kind]
+        if depth == "0" or bgc is None:
+            return f"[{text}]"
+        return f"{code(bgc, bg=True)}{code(fgc)} {text} {RST}"
+    def muted(text):
+        return f"{code(PAL['muted'][0])}{text}{RST}" if depth != "0" else text
+    inner = width - 4
+    lines = []
+    title = f"Ship receipt - {slug.replace('phase-', 'Phase ')}" if slug != "receipt" else "Ship receipt"
+    head_meta = (" ".join(shas) + (f" [{pushed}]" if pushed else "")).strip()
+    lines.append("┌" + "─" * (width - 2) + "┐")
+    lines.append(f"  {title}" + (f"   {muted(head_meta)}" if head_meta else ""))
+    for w in textwrap.wrap(verdict, inner):
+        lines.append(f"  {w}")
+    if badges:
+        lines.append("  " + " ".join(chip(t, k) for t, k in badges))
+    ORDER = ("WHAT CHANGED", "SAFETY", "COST", "MODEL", "FLAGS", "TO DO LATER", "NEXT UP")
+    LBL = {"WHAT CHANGED": "What changed", "SAFETY": "Safety", "COST": "Cost so far this sitting",
+           "MODEL": "Who did the work", "FLAGS": "Flags", "TO DO LATER": "To do later", "NEXT UP": "Next up"}
+    for f in ORDER:
+        if f not in by:
+            continue
+        lines.append("")
+        if f == "FLAGS" and depth != "0":
+            mark = f"{code(PAL['amber'][0])}{LBL[f]}{RST}"
+        else:
+            mark = muted(LBL[f])
+        lines.append(f"  {mark}")
+        for v in by[f]:
+            for w in textwrap.wrap(v, inner - 2):
+                lines.append(f"    {w}")
+    lines.append("└" + "─" * (width - 2) + "┘")
+    print("\n".join(lines))
+else:
+    print(os.path.join(out_dir, "latest.html"))
 PYEOF
 )
 
-"$PYBIN" -c "$PROGRAM" "$INPUT" "$OUT_DIR"
+# Phase 100: optional in-terminal image leg, best-effort and dormant
+# until a PNG producer exists - chafa present AND a tight-form PNG on
+# disk -> show it; otherwise skip silently to the ANSI card.
+if [ "$ANSI" -eq 1 ] && command -v chafa >/dev/null 2>&1 && [ -f "$OUT_DIR/latest-tight.png" ]; then
+  chafa "$OUT_DIR/latest-tight.png" 2>/dev/null || true
+fi
+
+ANSI_MODE=""
+[ "$ANSI" -eq 1 ] && ANSI_MODE="ansi"
+"$PYBIN" -c "$PROGRAM" "$INPUT" "$OUT_DIR" "$ANSI_MODE" "$ANSI_DEPTH" "$ANSI_WIDTH"
 RENDER_RC=$?
 [ "$RENDER_RC" -eq 0 ] || exit "$RENDER_RC"
 
 # Phase 97: the ship render is one of the strip's two writers -
 # best-effort, never fails the render.
 render_live_strip >/dev/null 2>&1 || true
+
+# Phase 100: the VS Code branch of --show - a path + one instruction,
+# no launch (Live Preview's tab auto-reloads on file change).
+if [ "$VSCODE_NOTE" -eq 1 ]; then
+  echo "card: $OUT_DIR/latest.html - open it in a VS Code Live Preview tab (install 'Live Preview' once; it auto-reloads on change)"
+fi
 
 # Phase 94: --open hands latest.html to the platform's default browser.
 # A process launch on a LOCAL file - not a network call; the card itself
