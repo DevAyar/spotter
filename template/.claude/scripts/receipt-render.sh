@@ -91,6 +91,54 @@ send_toast() {
   return 0
 }
 
+# pin_window <title>: Phase 103 always-on-top with what the OS already
+# carries - powershell.exe + user32 SetWindowPos (the --toast precedent;
+# zero installs). Title-matching is the reliable location path here BY
+# EVIDENCE: Chromium --app launches hand off to the running browser
+# process, so launcher PIDs are meaningless, while the window titles are
+# ours deterministically ("Ship receipt" / "Spotter live" - the pages
+# set them). Bounded retry ~5s doubles as the launch-settle wait;
+# HWND_TOPMOST with NOMOVE|NOSIZE|NOACTIVATE|SHOWWINDOW (0x53) so the
+# pin never steals focus. Miss -> ONE honest stderr line, exit 0 -
+# never hang, never fail the render. RECEIPT_PIN_BIN (env test seam,
+# the toast-stub class): set -> that binary receives "<title> topmost"
+# instead of any real call. Non-Windows: wmctrl -b add,above where
+# present, else silent skip. CI-suppressed at the call sites.
+pin_window() {
+  local title="$1"
+  if [ -n "${RECEIPT_PIN_BIN:-}" ]; then
+    if [ -x "$RECEIPT_PIN_BIN" ]; then
+      "$RECEIPT_PIN_BIN" "$title" topmost >/dev/null 2>&1 || true
+    fi
+    return 0
+  fi
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*)
+      command -v powershell.exe >/dev/null 2>&1 || return 0
+      if ! powershell.exe -NoProfile -Command "
+        Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class SpotterPin { [DllImport(\"user32.dll\")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndAfter, int x, int y, int cx, int cy, uint flags); }'
+        \$deadline = (Get-Date).AddSeconds(5)
+        \$h = [IntPtr]::Zero
+        while ((Get-Date) -lt \$deadline) {
+          \$p = Get-Process msedge, chrome -ErrorAction SilentlyContinue | Where-Object { \$_.MainWindowTitle -eq '$title' } | Select-Object -First 1
+          if (\$p -and \$p.MainWindowHandle -ne [IntPtr]::Zero) { \$h = \$p.MainWindowHandle; break }
+          Start-Sleep -Milliseconds 500
+        }
+        if (\$h -eq [IntPtr]::Zero) { exit 1 }
+        [SpotterPin]::SetWindowPos(\$h, [IntPtr]::new(-1), 0, 0, 0, 0, 0x0053) | Out-Null
+      " >/dev/null 2>&1; then
+        echo "receipt-render: window not found; not pinned" >&2
+      fi
+      ;;
+    *)
+      if command -v wmctrl >/dev/null 2>&1; then
+        wmctrl -r "$title" -b add,above >/dev/null 2>&1 || echo "receipt-render: window not found; not pinned" >&2
+      fi
+      ;;
+  esac
+  return 0
+}
+
 # launch_window <file>: Phase 99 app-mode launch - a chrome-free window
 # (no URL bar, no tabs) the user can pin with Always On Top. Probes a
 # closed list of Chromium installs and passes --app= with a file URL
@@ -162,6 +210,7 @@ WINDOW=0
 ANSI=0
 SHOW=0
 TOAST=0
+PIN=0
 INPUT="-"
 for arg in "$@"; do
   case "$arg" in
@@ -171,6 +220,7 @@ for arg in "$@"; do
     --ansi) ANSI=1 ;;       # terminal card to stdout (files still written)
     --show) SHOW=1 ;;       # auto dispatcher: vscode note / TTY ansi / silent
     --toast) TOAST=1 ;;     # fire-once OS notification at ship time
+    --pin) PIN=1 ;;         # set the target window always-on-top (zero-install)
     *) INPUT="$arg" ;;
   esac
 done
@@ -297,7 +347,11 @@ if [ "$LIVE" -eq 1 ]; then
   STRIP_RC=$?
   if [ "$WINDOW" -eq 1 ] && [ -z "${CI:-}" ] && [ "$STRIP_RC" -eq 0 ]; then
     launch_window "$OUT_DIR/live.html" || true
-  elif [ "$OPEN" -eq 1 ] && [ -z "${CI:-}" ] && [ "$STRIP_RC" -eq 0 ]; then
+  fi
+  if [ "$PIN" -eq 1 ] && [ -z "${CI:-}" ] && [ "$STRIP_RC" -eq 0 ]; then
+    pin_window "Spotter live" || true
+  fi
+  if [ "$OPEN" -eq 1 ] && [ "$WINDOW" -eq 0 ] && [ -z "${CI:-}" ] && [ "$STRIP_RC" -eq 0 ]; then
     CARD="$OUT_DIR/live.html"
     case "$(uname -s)" in
       MINGW*|MSYS*|CYGWIN*)
@@ -620,6 +674,12 @@ render_live_strip >/dev/null 2>&1 || true
 # no launch (Live Preview's tab auto-reloads on file change).
 if [ "$VSCODE_NOTE" -eq 1 ]; then
   echo "card: $OUT_DIR/latest.html - open it in a VS Code Live Preview tab (install 'Live Preview' once; it auto-reloads on change)"
+fi
+
+# Phase 103: pin the card window always-on-top; composes with --window
+# (launch + pin) or alone (pin an already-open card window).
+if [ "$PIN" -eq 1 ] && [ -z "${CI:-}" ]; then
+  pin_window "Ship receipt" || true
 fi
 
 # Phase 102: the ship-time toast - fire-once, CI-suppressed like --open;

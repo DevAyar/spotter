@@ -2641,6 +2641,26 @@ EOF
   grep -q "stays quiet" "$TEST_DIR/toast.log" || { echo "ERROR: toast stub never received the verdict text" >&2; exit 1; }
   ( cd "$root13" && CI= RECEIPT_TOAST_BIN="/nonexistent/toaster" CLAUDE_PROJECT_DIR="$root13" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --toast "$root/full.txt" > /dev/null ) || { echo "ERROR: capability-miss was not a silent skip" >&2; exit 1; }
   echo "  leg 13: --toast attempt proven via stub, capability-miss silent OK"
+  # Leg 14 (Phase 103): --pin parses (piped-receipt discriminator - the
+  # Phase 99 lesson applied from the start); CI-suppressed; the
+  # RECEIPT_PIN_BIN seam proves the pin call is constructed with the
+  # right title per mode, zero real windows in tests.
+  local root14="$TEST_DIR/proj14"
+  mkdir -p "$root14/.claude/telemetry"
+  printf '{"audits": {}}\n' > "$root14/.claude/gate-config.json"
+  printf '{}\n' > "$root14/.claude/telemetry/audit-state.json"
+  ( cd "$root14" && CI=1 CLAUDE_PROJECT_DIR="$root14" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --pin < "$root/full.txt" > /dev/null )
+  [ -f "$root14/.claude/receipts/latest.html" ] || { echo "ERROR: --pin + piped receipt did not render" >&2; exit 1; }
+  cat > "$TEST_DIR/pin-stub.sh" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$(dirname "$0")/pin.log"
+EOF
+  chmod +x "$TEST_DIR/pin-stub.sh"
+  ( cd "$root14" && CI= RECEIPT_PIN_BIN="$TEST_DIR/pin-stub.sh" CLAUDE_PROJECT_DIR="$root14" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --live --pin > /dev/null 2>&1 )
+  grep -q "Spotter live topmost" "$TEST_DIR/pin.log" || { echo "ERROR: pin stub missing the strip title" >&2; exit 1; }
+  ( cd "$root14" && CI= RECEIPT_PIN_BIN="$TEST_DIR/pin-stub.sh" CLAUDE_PROJECT_DIR="$root14" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --pin "$root/full.txt" > /dev/null 2>&1 )
+  grep -q "Ship receipt topmost" "$TEST_DIR/pin.log" || { echo "ERROR: pin stub missing the card title" >&2; exit 1; }
+  echo "  leg 14: --pin parses; stub proves right title per mode; CI silent OK"
   echo "PASS receipt-render"
 }
 
