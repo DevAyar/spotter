@@ -2411,7 +2411,12 @@ EOF
   if printf '%s' "$html" | grep -q "max-width:720px"; then
     echo "ERROR: tight override leaked into the normal form" >&2; exit 1
   fi
-  echo "  leg 1: full card, escaped text, tooltips, dated copy, tight form, zero external refs OK"
+  # Phase 97: the ship render also stashes the verdict and refreshes the
+  # live strip (two of its writers ride this one invocation).
+  [ -f "$root/.claude/receipts/last-verdict.txt" ] || { echo "ERROR: verdict stash not written" >&2; exit 1; }
+  grep -q "stays quiet on normal days" "$root/.claude/receipts/last-verdict.txt" || { echo "ERROR: stash missing verdict text" >&2; exit 1; }
+  [ -f "$root/.claude/receipts/live.html" ] || { echo "ERROR: ship render did not refresh live.html" >&2; exit 1; }
+  echo "  leg 1: full card, escaped text, tooltips, dated copy, tight form, stash+strip, zero external refs OK"
   # Leg 2: FLAGS + NEXT UP absent -> omitted from the card, not fabricated.
   grep -v "^FLAGS:\|^NEXT UP:" "$root/full.txt" > "$root/partial.txt"
   ( cd "$root" && CLAUDE_PROJECT_DIR="$root" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" "$root/partial.txt" )
@@ -2429,7 +2434,7 @@ EOF
   err=$( cd "$root2" && CLAUDE_PROJECT_DIR="$root2" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" "$root2/junk.txt" 2>&1 >/dev/null ) || rc=$?
   [ "$rc" -ne 0 ] || { echo "ERROR: malformed input exited 0" >&2; exit 1; }
   printf '%s' "$err" | grep -qi "no recognized receipt fields" || { echo "ERROR: stderr did not name the problem: $err" >&2; exit 1; }
-  if [ -e "$root2/.claude/receipts/latest.html" ] || [ -e "$root2/.claude/receipts/latest-tight.html" ]; then
+  if [ -e "$root2/.claude/receipts/latest.html" ] || [ -e "$root2/.claude/receipts/latest-tight.html" ] || [ -e "$root2/.claude/receipts/live.html" ]; then
     echo "ERROR: partial file written on malformed input" >&2; exit 1
   fi
   echo "  leg 3: malformed input errors cleanly, no partial file OK"
@@ -2459,6 +2464,91 @@ EOF
   [ -f "$root5/.claude/receipts/latest.html" ] || { echo "ERROR: stdin render did not write the card" >&2; exit 1; }
   grep -q "stays quiet on normal days" "$root5/.claude/receipts/latest.html" || { echo "ERROR: stdin card missing field text" >&2; exit 1; }
   echo "  leg 5: piped stdin renders a valid card OK"
+  # Leg 6 (Phase 97): --live renders the pinnable strip from on-disk state:
+  # verdict stash + cost line (via the cost hook under COST_LINE_ONLY) +
+  # due-audit chips + the as-of stamp + the 10s meta refresh. No JS, no
+  # external refs, same bars as the cards.
+  local root6="$TEST_DIR/proj6"
+  mkdir -p "$root6/.claude/telemetry/sessions" "$root6/.claude/receipts"
+  cat > "$root6/.claude/telemetry/model-pricing.json" <<'JSON'
+{"models": {"test-model": {"input_per_mtok": 1, "output_per_mtok": 1}}, "cache_read_multiplier": 0, "cache_write_multiplier_5m": 0}
+JSON
+  cat > "$root6/.claude/gate-config.json" <<'JSON'
+{"cost": {"enabled": true, "assumed_model": "test-model", "warn_usd_per_session": 100, "warn_usd_per_7d": 1000},
+ "audits": {"artifact_fit_analyzer": {"enabled": true, "sessions_between_dispatches": 18}}}
+JSON
+  printf '{"artifact_fit_analyzer": {"sessions_since_dispatch": 20, "last_dispatched_at": null}}\n' > "$root6/.claude/telemetry/audit-state.json"
+  cat > "$root6/.claude/telemetry/sessions/one.md" <<'EOF'
+---
+session_id: one
+started: 2026-07-12T00:00:00Z
+ended: 2026-07-12T02:00:00Z
+total_tokens_in: 3000000
+total_tokens_out: 0
+total_cache_creation: 0
+total_cache_read: 0
+turns_with_usage: 1
+data_available: true
+---
+EOF
+  # cost hook must exist in the fixture root for --live's subprocess
+  mkdir -p "$root6/.claude/hooks"
+  cp "$SKELETON_DIR/.claude/hooks/sessionstart-cost-summary.sh" "$root6/.claude/hooks/sessionstart-cost-summary.sh"
+  printf 'VERDICT: Phase 90 shipped and pushed (b71dbb1) - fixture verdict for the strip.\n' > "$root6/.claude/receipts/last-verdict.txt"
+  ( cd "$root6" && CLAUDE_PROJECT_DIR="$root6" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --live > /dev/null )
+  local live="$root6/.claude/receipts/live.html"
+  [ -f "$live" ] || { echo "ERROR: --live did not write live.html" >&2; exit 1; }
+  local lhtml
+  lhtml=$(cat "$live")
+  assert_contains "$lhtml" 'http-equiv="refresh"'
+  assert_contains "$lhtml" "as of "
+  assert_contains "$lhtml" "fixture verdict for the strip"
+  assert_contains "$lhtml" "artifact_fit_analyzer"
+  assert_contains "$lhtml" "last sitting"
+  if printf '%s' "$lhtml" | grep -qi "http:\|https:\|<script"; then
+    echo "ERROR: strip carries an external ref or JS" >&2; exit 1
+  fi
+  echo "  leg 6: --live strip with verdict, cost line, due chip, as-of stamp OK"
+  # Leg 7: nothing due, no telemetry, no stash -> honest empties: no chips,
+  # 'no ship recorded yet', still a valid refreshing strip.
+  local root7="$TEST_DIR/proj7"
+  mkdir -p "$root7/.claude/telemetry"
+  cat > "$root7/.claude/gate-config.json" <<'JSON'
+{"audits": {"artifact_fit_analyzer": {"enabled": true, "sessions_between_dispatches": 18}}}
+JSON
+  printf '{"artifact_fit_analyzer": {"sessions_since_dispatch": 3, "last_dispatched_at": null}}\n' > "$root7/.claude/telemetry/audit-state.json"
+  ( cd "$root7" && CLAUDE_PROJECT_DIR="$root7" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --live > /dev/null )
+  local l7
+  l7=$(cat "$root7/.claude/receipts/live.html")
+  assert_contains "$l7" "no ship recorded yet"
+  if printf '%s' "$l7" | grep -q "artifact_fit_analyzer"; then
+    echo "ERROR: under-cadence audit surfaced as a chip: honest empty violated" >&2; exit 1
+  fi
+  echo "  leg 7: honest empties - no chips, no fabricated ship line OK"
+  # Leg 8 (the interference guard): COST_LINE_ONLY must end the cost hook
+  # after stanza 1 - no nudge line, no optimizer-state write - even when a
+  # nudge is genuinely due. This is what lets the strip embed the cost line
+  # without consuming the session's real nudge.
+  local root8="$TEST_DIR/proj8"
+  mkdir -p "$root8/.claude/telemetry/sessions"
+  cp "$root6/.claude/telemetry/model-pricing.json" "$root8/.claude/telemetry/model-pricing.json"
+  cp "$root6/.claude/telemetry/sessions/one.md" "$root8/.claude/telemetry/sessions/one.md"
+  cat > "$root8/.claude/gate-config.json" <<'JSON'
+{"cost": {"enabled": true, "assumed_model": "test-model", "warn_usd_per_session": 100, "warn_usd_per_7d": 1000},
+ "optimizer": {"enabled": true, "run_every_sessions": 2, "nudge_cooldown_sessions": 1}}
+JSON
+  printf '{"proposals": [{"id": "x", "status": "draft"}]}\n' > "$root8/.claude/telemetry/optimizer-proposals.json"
+  printf '{"sessions_since_last_run": 9, "last_run_at": null, "last_nudge_count": null}\n' > "$root8/.claude/telemetry/optimizer-state.json"
+  local pre8 out8 post8
+  pre8=$(sha256_of "$root8/.claude/telemetry/optimizer-state.json")
+  out8=$( cd "$root8" && COST_LINE_ONLY=1 CLAUDE_PROJECT_DIR="$root8" bash "$SKELETON_DIR/.claude/hooks/sessionstart-cost-summary.sh" 2>/dev/null )
+  post8=$(sha256_of "$root8/.claude/telemetry/optimizer-state.json")
+  assert_contains "$out8" "last sitting"
+  if printf '%s' "$out8" | grep -q "manager-optimizer"; then
+    echo "ERROR: COST_LINE_ONLY leaked the nudge stanza: $out8" >&2; exit 1
+  fi
+  assert_eq "$post8" "$pre8"
+  echo "  leg 8: COST_LINE_ONLY ends after stanza 1, nudge state untouched OK"
   echo "PASS receipt-render"
 }
 

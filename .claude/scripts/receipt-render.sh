@@ -21,7 +21,19 @@ ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 OUT_DIR="$ROOT/.claude/receipts"
 
 # ---- helpers ----
-# (none - the python block below owns parse + render)
+# render_live_strip: rebuild .claude/receipts/live.html (Phase 97) from
+# on-disk state - the verdict stash, the cost hook's own line (invoked
+# with COST_LINE_ONLY so no nudge state is touched; single source of the
+# Phase 91 display rules), and due-audit chips. Event-fresh: this runs
+# when hooks fire and at ship renders; the page's 10s meta-refresh only
+# re-reads the file.
+render_live_strip() {
+  local cost_line=""
+  if [ -f "$ROOT/.claude/hooks/sessionstart-cost-summary.sh" ]; then
+    cost_line=$(COST_LINE_ONLY=1 bash "$ROOT/.claude/hooks/sessionstart-cost-summary.sh" 2>/dev/null | head -1 | sed 's/^\[token-cost\] //')
+  fi
+  "$PYBIN" -c "$STRIP_PROGRAM" "$OUT_DIR" "$cost_line" "$ROOT"
+}
 
 # ---- main ----
 # python||python3 validated by EXECUTION, not presence — the Windows Store
@@ -43,16 +55,113 @@ fi
 # successful write (Phase 94); the first non-flag arg is the input file
 # (default: stdin). Rendering is byte-identical with or without the flag.
 OPEN=0
+LIVE=0
 INPUT="-"
 for arg in "$@"; do
   case "$arg" in
     --open) OPEN=1 ;;
+    --live) LIVE=1 ;;
     *) INPUT="$arg" ;;
   esac
 done
-if [ "$INPUT" != "-" ] && [ ! -f "$INPUT" ]; then
+if [ "$LIVE" -eq 0 ] && [ "$INPUT" != "-" ] && [ ! -f "$INPUT" ]; then
   echo "receipt-render: input file not found: $INPUT" >&2
   exit 1
+fi
+
+# Phase 97: the live-strip builder. Reads the verdict stash (absent ->
+# "no ship recorded yet", honest), takes the cost line as argv (gathered
+# by render_live_strip from the cost hook itself), derives due-audit
+# chips from gate-config vs audit-state (same n >= cadence rule the
+# rules hook's due line uses; the 24h line-marker is deliberately not
+# consulted - it gates the ambient LINE, this is a persistent surface).
+STRIP_PROGRAM=$(cat <<'PYEOF'
+import datetime, html, json, os, sys
+
+out_dir, cost_line, root = sys.argv[1], sys.argv[2], sys.argv[3]
+e = html.escape
+
+verdict = ""
+try:
+    raw = open(os.path.join(out_dir, "last-verdict.txt"), encoding="utf-8-sig").read().strip()
+    verdict = raw[len("VERDICT:"):].strip() if raw.startswith("VERDICT:") else raw
+except Exception:
+    pass
+ship = verdict if verdict else "no ship recorded yet"
+
+chips = []
+try:
+    conf = json.load(open(os.path.join(root, ".claude", "gate-config.json"), encoding="utf-8"))
+    state = json.load(open(os.path.join(root, ".claude", "telemetry", "audit-state.json"), encoding="utf-8"))
+    for name, a in (conf.get("audits") or {}).items():
+        if not (isinstance(a, dict) and a.get("enabled") is True):
+            continue
+        cad, n = a.get("sessions_between_dispatches"), (state.get(name) or {}).get("sessions_since_dispatch")
+        ok = lambda v: isinstance(v, int) and not isinstance(v, bool)
+        if ok(cad) and ok(n) and n >= cad:
+            chips.append(f"{name} due")
+except Exception:
+    chips = []
+
+now = datetime.datetime.now().strftime("%H:%M")
+cost_html = f'<span class="cost">{e(cost_line)}</span>' if cost_line.strip() else ""
+chip_html = "".join(f'<span class="chip">{e(c)}</span>' for c in chips)
+
+CSS = """
+:root{color-scheme:light dark;--fg:#1c1c1e;--muted:#71717a;--bg:#fff;--line:#e0e0e6;--chipbg:#fbeed6;--chipfg:#7a5210}
+@media(prefers-color-scheme:dark){:root{--fg:#ececf0;--muted:#8b8b95;--bg:#161618;--line:#2c2c33;--chipbg:#3a2e14;--chipfg:#e5b566}}
+body{margin:0;font:13px/1.4 system-ui,sans-serif;color:var(--fg);background:var(--bg)}
+.strip{display:flex;flex-wrap:wrap;align-items:center;gap:.6em;padding:.45em .8em;border-bottom:1px solid var(--line)}
+.ship{font-weight:600}
+.cost{color:var(--muted)}
+.chip{background:var(--chipbg);color:var(--chipfg);border-radius:.6em;padding:.1em .55em;font-size:.85em}
+.asof{margin-left:auto;color:var(--muted);font-size:.85em}
+"""
+
+page = (f'<!DOCTYPE html><html><head><meta charset="utf-8">'
+        f'<meta http-equiv="refresh" content="10">'
+        f'<meta name="viewport" content="width=device-width,initial-scale=1">'
+        f'<title>Spotter live</title><style>{CSS}</style></head>'
+        f'<body><div class="strip">'
+        f'<span class="ship" title="The most recent shipped phase, from its receipt.">{e(ship)}</span>'
+        f'{cost_html}{chip_html}'
+        f'<span class="asof" title="This strip updates when hooks fire; it is as fresh as the last event, never real-time.">as of {now}</span>'
+        f'</div></body></html>')
+
+os.makedirs(out_dir, exist_ok=True)
+dest = os.path.join(out_dir, "live.html")
+tmp = dest + f".tmp.{os.getpid()}"
+try:
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+        f.write(page)
+    os.replace(tmp, dest)
+except Exception as exc:
+    try:
+        os.remove(tmp)
+    except OSError:
+        pass
+    print(f"receipt-render: live strip write failed: {exc}", file=sys.stderr)
+    sys.exit(1)
+PYEOF
+)
+
+# --live: standalone strip refresh - no receipt parsing, live.html only.
+if [ "$LIVE" -eq 1 ]; then
+  render_live_strip
+  STRIP_RC=$?
+  if [ "$OPEN" -eq 1 ] && [ -z "${CI:-}" ] && [ "$STRIP_RC" -eq 0 ]; then
+    CARD="$OUT_DIR/live.html"
+    case "$(uname -s)" in
+      MINGW*|MSYS*|CYGWIN*)
+        if command -v cmd.exe >/dev/null 2>&1 && command -v cygpath >/dev/null 2>&1; then
+          cmd.exe //c start "" "$(cygpath -w "$CARD")" >/dev/null 2>&1 || true
+        fi
+        ;;
+      Darwin) command -v open >/dev/null 2>&1 && { open "$CARD" >/dev/null 2>&1 || true; } ;;
+      *) command -v xdg-open >/dev/null 2>&1 && { xdg-open "$CARD" >/dev/null 2>&1 & } || true ;;
+    esac
+  fi
+  exit "$STRIP_RC"
 fi
 
 # Phase 96: the program is captured into a variable and passed via -c so
@@ -234,6 +343,19 @@ for name, page in pages.items():
             pass
         print(f"receipt-render: write failed for {name}: {exc}", file=sys.stderr)
         sys.exit(1)
+# Phase 97: stash the verdict for the live strip (best-effort - the
+# cards are the render's product; the stash serves the strip's writers).
+stash = os.path.join(out_dir, "last-verdict.txt")
+tmp = stash + f".tmp.{os.getpid()}"
+try:
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+        f.write("VERDICT: " + verdict + "\n")
+    os.replace(tmp, stash)
+except Exception:
+    try:
+        os.remove(tmp)
+    except OSError:
+        pass
 print(os.path.join(out_dir, "latest.html"))
 PYEOF
 )
@@ -241,6 +363,10 @@ PYEOF
 "$PYBIN" -c "$PROGRAM" "$INPUT" "$OUT_DIR"
 RENDER_RC=$?
 [ "$RENDER_RC" -eq 0 ] || exit "$RENDER_RC"
+
+# Phase 97: the ship render is one of the strip's two writers -
+# best-effort, never fails the render.
+render_live_strip >/dev/null 2>&1 || true
 
 # Phase 94: --open hands latest.html to the platform's default browser.
 # A process launch on a LOCAL file - not a network call; the card itself

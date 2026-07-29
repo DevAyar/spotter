@@ -118,6 +118,14 @@ if [ -f "$GATE_CONF" ] && [ -f "$AUDIT_STATE" ]; then
   fi
 fi
 
+# Phase 97: refresh the live status strip (file write only, ZERO output,
+# fail-soft - the ambient-line budget is untouched). One of the strip's
+# two writers; the other is the ship-time render.
+RECEIPT_RENDER=".claude/scripts/receipt-render.sh"
+if [ -f "$RECEIPT_RENDER" ]; then
+  bash "$RECEIPT_RENDER" --live >/dev/null 2>&1 || true
+fi
+
 if [ -z "$PROMPT" ] && [ -z "$DRIFT_OUTPUT" ] && [ -z "$WATCHDOG_OUTPUT" ] && [ -z "$GOALS_OUTPUT" ] && [ -z "$WELCOME_OUTPUT" ] && [ -z "$AUDIT_OUTPUT" ]; then
   exit 0
 fi

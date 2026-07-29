@@ -243,6 +243,13 @@ print(line)
 PYEOF
 fi
 
+# Phase 97: COST_LINE_ONLY (env - an invocation contract, not a config
+# key) ends the hook after stanza 1: no nudge logic, no state write.
+# Used by receipt-render's live-strip build so the strip can embed the
+# cost line without consuming a due optimizer nudge (the strip renders
+# from the rules hook, which runs BEFORE this hook in the chain).
+[ -n "${COST_LINE_ONLY:-}" ] && exit 0
+
 # ---- Phase 53: optimizer nudge (at most ONE additional ambient line) ----
 OPT_LEDGER="$ROOT/.claude/telemetry/optimizer-proposals.json"
 OPT_STATE="$ROOT/.claude/telemetry/optimizer-state.json"
