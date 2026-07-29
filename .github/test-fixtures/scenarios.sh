@@ -2558,6 +2558,19 @@ JSON
   fi
   assert_eq "$post8" "$pre8"
   echo "  leg 8: COST_LINE_ONLY ends after stanza 1, nudge state untouched OK"
+  # Leg 9 (Phase 99): --window is a RECOGNIZED flag - alone with a piped
+  # receipt it must not be mistaken for an input filename (the pre-99
+  # script errored "input file not found: --window" here) - and it
+  # composes with --live, suppressed under CI exactly like --open.
+  local root9="$TEST_DIR/proj9"
+  mkdir -p "$root9/.claude/telemetry"
+  printf '{"audits": {}}\n' > "$root9/.claude/gate-config.json"
+  printf '{}\n' > "$root9/.claude/telemetry/audit-state.json"
+  ( cd "$root9" && CI=1 CLAUDE_PROJECT_DIR="$root9" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --window < "$root/full.txt" > /dev/null )
+  [ -f "$root9/.claude/receipts/latest.html" ] || { echo "ERROR: --window + piped receipt did not render" >&2; exit 1; }
+  ( cd "$root9" && CI=1 CLAUDE_PROJECT_DIR="$root9" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --live --window > /dev/null )
+  [ -f "$root9/.claude/receipts/live.html" ] || { echo "ERROR: --live --window under CI did not write the strip" >&2; exit 1; }
+  echo "  leg 9: --window recognized, composes with --live, launch suppressed under CI OK"
   echo "PASS receipt-render"
 }
 

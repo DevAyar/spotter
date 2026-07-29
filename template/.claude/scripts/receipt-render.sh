@@ -35,6 +35,52 @@ render_live_strip() {
   "$PYBIN" -c "$STRIP_PROGRAM" "$OUT_DIR" "$cost_line" "$ROOT"
 }
 
+# launch_window <file>: Phase 99 app-mode launch - a chrome-free window
+# (no URL bar, no tabs) the user can pin with Always On Top. Probes a
+# closed list of Chromium installs and passes --app= with a file URL
+# (cygpath -m: forward-slash Windows form). --window-size is best-effort
+# (honored for new app windows; an existing profile process may ignore
+# it). No probe hit -> degrade to the plain --open launch (chromed, but
+# the strip still appears). Best-effort throughout - never fails the
+# render. Suppressed under CI by the caller.
+launch_window() {
+  local target="$1" exe=""
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*)
+      for exe in \
+        "/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" \
+        "/c/Program Files/Google/Chrome/Application/chrome.exe" \
+        "/c/Program Files (x86)/Google/Chrome/Application/chrome.exe"; do
+        if [ -f "$exe" ] && command -v cygpath >/dev/null 2>&1; then
+          "$exe" --app="file:///$(cygpath -m "$target")" --window-size=900,120 >/dev/null 2>&1 &
+          return 0
+        fi
+      done
+      # no app-capable browser found: chromed fallback
+      if command -v cmd.exe >/dev/null 2>&1 && command -v cygpath >/dev/null 2>&1; then
+        cmd.exe //c start "" "$(cygpath -w "$target")" >/dev/null 2>&1 || true
+      fi
+      ;;
+    Darwin)
+      if [ -d "/Applications/Google Chrome.app" ]; then
+        open -na "Google Chrome" --args --app="file://$target" >/dev/null 2>&1 || true
+      else
+        command -v open >/dev/null 2>&1 && { open "$target" >/dev/null 2>&1 || true; }
+      fi
+      ;;
+    *)
+      for exe in google-chrome chromium chromium-browser; do
+        if command -v "$exe" >/dev/null 2>&1; then
+          "$exe" --app="file://$target" --window-size=900,120 >/dev/null 2>&1 &
+          return 0
+        fi
+      done
+      command -v xdg-open >/dev/null 2>&1 && { xdg-open "$target" >/dev/null 2>&1 & } || true
+      ;;
+  esac
+  return 0
+}
+
 # ---- main ----
 # python||python3 validated by EXECUTION, not presence — the Windows Store
 # alias stub passes `command -v` but exits nonzero (the Phase 57
@@ -56,11 +102,13 @@ fi
 # (default: stdin). Rendering is byte-identical with or without the flag.
 OPEN=0
 LIVE=0
+WINDOW=0
 INPUT="-"
 for arg in "$@"; do
   case "$arg" in
     --open) OPEN=1 ;;
     --live) LIVE=1 ;;
+    --window) WINDOW=1 ;;   # app-mode launch (chrome-free); wins over --open
     *) INPUT="$arg" ;;
   esac
 done
@@ -149,7 +197,9 @@ PYEOF
 if [ "$LIVE" -eq 1 ]; then
   render_live_strip
   STRIP_RC=$?
-  if [ "$OPEN" -eq 1 ] && [ -z "${CI:-}" ] && [ "$STRIP_RC" -eq 0 ]; then
+  if [ "$WINDOW" -eq 1 ] && [ -z "${CI:-}" ] && [ "$STRIP_RC" -eq 0 ]; then
+    launch_window "$OUT_DIR/live.html" || true
+  elif [ "$OPEN" -eq 1 ] && [ -z "${CI:-}" ] && [ "$STRIP_RC" -eq 0 ]; then
     CARD="$OUT_DIR/live.html"
     case "$(uname -s)" in
       MINGW*|MSYS*|CYGWIN*)
@@ -384,7 +434,9 @@ render_live_strip >/dev/null 2>&1 || true
 # it). Best-effort: a launch failure never fails the render. Suppressed
 # when CI is set (GitHub Actions exports CI=true on every runner), and
 # each branch is command-existence-gated so headless boxes skip silently.
-if [ "$OPEN" -eq 1 ] && [ -z "${CI:-}" ]; then
+if [ "$WINDOW" -eq 1 ] && [ -z "${CI:-}" ]; then
+  launch_window "$OUT_DIR/latest.html" || true
+elif [ "$OPEN" -eq 1 ] && [ -z "${CI:-}" ]; then
   CARD="$OUT_DIR/latest.html"
   case "$(uname -s)" in
     MINGW*|MSYS*|CYGWIN*)
