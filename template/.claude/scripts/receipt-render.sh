@@ -55,7 +55,16 @@ if [ "$INPUT" != "-" ] && [ ! -f "$INPUT" ]; then
   exit 1
 fi
 
-"$PYBIN" - "$INPUT" "$OUT_DIR" <<'PYEOF'
+# Phase 96: the program is captured into a variable and passed via -c so
+# the caller's stdin stays free for a piped receipt. The pre-96 shape
+# ("$PYBIN" - <<'PYEOF') parked the program ON stdin, so piped input
+# collided with it and every stdin invocation failed — the exact
+# heredoc-occupies-stdin class the 47b shared-memory-lib documented;
+# found live by EoG's 93+94+95 propagation leg. The quoted heredoc via
+# command substitution keeps bash expansion out of the python, same as
+# before; argv indexing is identical under - and -c, so the python body
+# is byte-unchanged.
+PROGRAM=$(cat <<'PYEOF'
 import datetime, html, os, re, sys
 
 input_arg, out_dir = sys.argv[1], sys.argv[2]
@@ -227,7 +236,9 @@ for name, page in pages.items():
         sys.exit(1)
 print(os.path.join(out_dir, "latest.html"))
 PYEOF
+)
 
+"$PYBIN" -c "$PROGRAM" "$INPUT" "$OUT_DIR"
 RENDER_RC=$?
 [ "$RENDER_RC" -eq 0 ] || exit "$RENDER_RC"
 

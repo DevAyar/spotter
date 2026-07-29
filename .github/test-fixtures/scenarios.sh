@@ -2449,6 +2449,16 @@ EOF
   h_plain=$(sha256_of "$root4/.claude/receipts/latest.html")
   assert_eq "$h_open" "$h_plain"
   echo "  leg 4: --open under CI renders byte-identically, launch suppressed OK"
+  # Leg 5 (Phase 96): stdin mode as advertised — pipe the receipt in with no
+  # file arg. The pre-96 script parked the python program on stdin (heredoc),
+  # so piped input collided with it and every stdin call failed with "no
+  # recognized receipt fields" (found by EoG's 93+94+95 propagation leg).
+  local root5="$TEST_DIR/proj5"
+  mkdir -p "$root5/.claude"
+  ( cd "$root5" && CLAUDE_PROJECT_DIR="$root5" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" < "$root/full.txt" > /dev/null )
+  [ -f "$root5/.claude/receipts/latest.html" ] || { echo "ERROR: stdin render did not write the card" >&2; exit 1; }
+  grep -q "stays quiet on normal days" "$root5/.claude/receipts/latest.html" || { echo "ERROR: stdin card missing field text" >&2; exit 1; }
+  echo "  leg 5: piped stdin renders a valid card OK"
   echo "PASS receipt-render"
 }
 
