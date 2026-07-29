@@ -2411,6 +2411,15 @@ EOF
   if printf '%s' "$html" | grep -q "max-width:720px"; then
     echo "ERROR: tight override leaked into the normal form" >&2; exit 1
   fi
+  # Phase 98: the tight form densifies to fit the pane (type down, tight
+  # padding, scrollbars hidden IN THIS FORM ONLY); the normal form must
+  # carry none of the density/scrollbar rules.
+  assert_contains "$thtml" "scrollbar-width:none"
+  assert_contains "$thtml" "::-webkit-scrollbar"
+  assert_contains "$thtml" "font-size:12.5px"
+  if printf '%s' "$html" | grep -q "scrollbar-width:none\|::-webkit-scrollbar\|font-size:12.5px"; then
+    echo "ERROR: density/scrollbar rules leaked into the normal form" >&2; exit 1
+  fi
   # Phase 97: the ship render also stashes the verdict and refreshes the
   # live strip (two of its writers ride this one invocation).
   [ -f "$root/.claude/receipts/last-verdict.txt" ] || { echo "ERROR: verdict stash not written" >&2; exit 1; }

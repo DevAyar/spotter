@@ -312,8 +312,18 @@ footer .sec h2{margin-bottom:.15rem}
 # No centering slab: the card IS the page (capture geometry for the
 # ship-time inline screenshot; humans browse the normal form).
 TIGHT = """
-body{padding:12px;background:var(--card)}
-.card{width:100%;max-width:720px;margin:0;box-sizing:border-box}
+body{padding:10px;background:var(--card);font-size:12.5px;line-height:1.35;scrollbar-width:none}
+body::-webkit-scrollbar{display:none}
+.card{width:100%;max-width:720px;margin:0;box-sizing:border-box;padding:.9rem 1rem;border:0}
+h1{font-size:1rem}
+h2{font-size:.72rem;margin:0 0 .2rem}
+.verdict{font-size:.95em;margin:.25rem 0 .4rem}
+.sec{padding:.45rem 0}
+.cell{padding:.35rem .55rem;margin:.25rem 0;border-radius:6px}
+.duo{gap:0 .9rem}
+.badges{margin:.25rem 0 .1rem}
+.badge{font-size:.68rem;padding:.12em .5em}
+footer .sec{padding:.3rem 0}
 """
 
 def page_for(css):
