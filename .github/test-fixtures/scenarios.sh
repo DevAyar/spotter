@@ -2390,8 +2390,10 @@ EOF
   assert_contains "$html" "next update bundle"
   assert_contains "$html" "Phase 92 formalizes"
   assert_contains "$html" "title="
-  if printf '%s' "$html" | grep -qi "http"; then
-    echo "ERROR: card carries an external reference: $(printf '%s' "$html" | grep -i http | head -1)" >&2; exit 1
+  # precise external-ref pattern: http-equiv (the Phase 102 refresh meta)
+  # is not a reference; only scheme-bearing URLs are.
+  if printf '%s' "$html" | grep -qi "http:\|https:"; then
+    echo "ERROR: card carries an external reference: $(printf '%s' "$html" | grep -i "http:\|https:" | head -1)" >&2; exit 1
   fi
   if printf '%s' "$html" | grep -qi "<script"; then
     echo "ERROR: card carries JS" >&2; exit 1
@@ -2405,7 +2407,7 @@ EOF
   thtml=$(cat "$tight")
   assert_contains "$thtml" "max-width:720px"
   assert_contains "$thtml" "stays quiet on normal days"
-  if printf '%s' "$thtml" | grep -qi "http\|<script"; then
+  if printf '%s' "$thtml" | grep -qi "http:\|https:\|<script"; then
     echo "ERROR: tight form carries an external ref or JS" >&2; exit 1
   fi
   if printf '%s' "$html" | grep -q "max-width:720px"; then
@@ -2461,12 +2463,14 @@ EOF
   mkdir -p "$root3/.claude"
   ( cd "$root3" && CI=1 CLAUDE_PROJECT_DIR="$root3" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --open "$root/full.txt" > /dev/null )
   [ -f "$root3/.claude/receipts/latest.html" ] || { echo "ERROR: --open render did not write the card" >&2; exit 1; }
+  # Phase 102: latest.html carries a rendered-at stamp, so byte compares
+  # are timestamp-normalized (the live-strip method).
   local h_open h_plain
-  h_open=$(sha256_of "$root3/.claude/receipts/latest.html")
+  h_open=$(sed 's/rendered [0-9:]*//' "$root3/.claude/receipts/latest.html" | $SHA256_CMD | awk '{print $1}')
   local root4="$TEST_DIR/proj4"
   mkdir -p "$root4/.claude"
   ( cd "$root4" && CLAUDE_PROJECT_DIR="$root4" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" "$root/full.txt" > /dev/null )
-  h_plain=$(sha256_of "$root4/.claude/receipts/latest.html")
+  h_plain=$(sed 's/rendered [0-9:]*//' "$root4/.claude/receipts/latest.html" | $SHA256_CMD | awk '{print $1}')
   assert_eq "$h_open" "$h_plain"
   echo "  leg 4: --open under CI renders byte-identically, launch suppressed OK"
   # Leg 5 (Phase 96): stdin mode as advertised — pipe the receipt in with no
@@ -2607,6 +2611,36 @@ JSON
     echo "ERROR: --show under CI was not silent: $ci_out" >&2; exit 1
   fi
   echo "  leg 11: --show dispatcher - vscode instruction, CI silent OK"
+  # Leg 12 (Phase 102): latest.html self-refreshes (meta refresh + a muted
+  # rendered-at stamp); dated copies are FROZEN history - no refresh, no
+  # stamp; the tight form gains neither (leak guard).
+  grep -q 'http-equiv="refresh"' "$root/.claude/receipts/latest.html" || { echo "ERROR: latest.html lacks the refresh meta" >&2; exit 1; }
+  grep -q 'rendered ' "$root/.claude/receipts/latest.html" || { echo "ERROR: latest.html lacks the rendered stamp" >&2; exit 1; }
+  local dated_file
+  dated_file=$(ls "$root/.claude/receipts/" | grep "phase-91.html" | head -1)
+  if grep -q 'http-equiv="refresh"\|rendered ' "$root/.claude/receipts/$dated_file"; then
+    echo "ERROR: refresh/stamp leaked into the frozen dated copy" >&2; exit 1
+  fi
+  if grep -q 'http-equiv="refresh"\|rendered ' "$root/.claude/receipts/latest-tight.html"; then
+    echo "ERROR: refresh/stamp leaked into the tight form" >&2; exit 1
+  fi
+  echo "  leg 12: latest self-refreshes; dated + tight stay frozen OK"
+  # Leg 13 (Phase 102): --toast parses; CI silent; the RECEIPT_TOAST_BIN
+  # seam proves the attempt (stub log carries the verdict) and the
+  # capability-miss (nonexistent bin -> silent skip) with zero popups.
+  local root13="$TEST_DIR/proj13"
+  mkdir -p "$root13/.claude"
+  ( cd "$root13" && CI=1 CLAUDE_PROJECT_DIR="$root13" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --toast "$root/full.txt" > /dev/null )
+  [ -f "$root13/.claude/receipts/latest.html" ] || { echo "ERROR: --toast render failed under CI" >&2; exit 1; }
+  cat > "$TEST_DIR/toast-stub.sh" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$@" >> "$(dirname "$0")/toast.log"
+EOF
+  chmod +x "$TEST_DIR/toast-stub.sh"
+  ( cd "$root13" && CI= RECEIPT_TOAST_BIN="$TEST_DIR/toast-stub.sh" CLAUDE_PROJECT_DIR="$root13" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --toast "$root/full.txt" > /dev/null )
+  grep -q "stays quiet" "$TEST_DIR/toast.log" || { echo "ERROR: toast stub never received the verdict text" >&2; exit 1; }
+  ( cd "$root13" && CI= RECEIPT_TOAST_BIN="/nonexistent/toaster" CLAUDE_PROJECT_DIR="$root13" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --toast "$root/full.txt" > /dev/null ) || { echo "ERROR: capability-miss was not a silent skip" >&2; exit 1; }
+  echo "  leg 13: --toast attempt proven via stub, capability-miss silent OK"
   echo "PASS receipt-render"
 }
 

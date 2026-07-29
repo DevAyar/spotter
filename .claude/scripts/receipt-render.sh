@@ -35,6 +35,62 @@ render_live_strip() {
   "$PYBIN" -c "$STRIP_PROGRAM" "$OUT_DIR" "$cost_line" "$ROOT"
 }
 
+# send_toast <text>: Phase 102 fire-once OS notification - best-effort,
+# capability-gated, never fails the render. RECEIPT_TOAST_BIN (env, the
+# COST_LINE_ONLY invocation-contract class) is the test seam: when set,
+# that binary receives the text instead of any real notifier - guards
+# prove the attempt and the capability-miss with zero real popups.
+# Windows: BurntToast when already installed, else the raw
+# Windows.UI.Notifications WinRT path on PowerShell 5.1 (zero
+# dependencies; the standard PowerShell AppId). Click-to-open is
+# attempted via protocol activation where the API allows it -
+# file-protocol activation is often blocked, and the plain notification
+# is the honest degradation. Non-Windows: notify-send / osascript,
+# existence-gated. Nothing available -> silent skip.
+send_toast() {
+  local text="$1"
+  if [ -n "${RECEIPT_TOAST_BIN:-}" ]; then
+    if [ -x "$RECEIPT_TOAST_BIN" ]; then
+      "$RECEIPT_TOAST_BIN" "$text" >/dev/null 2>&1 || true
+    fi
+    return 0
+  fi
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*)
+      command -v powershell.exe >/dev/null 2>&1 || return 0
+      local ps_text launch_url
+      ps_text=$(printf '%s' "$text" | sed "s/'/''/g")
+      launch_url="file:///$(cygpath -m "$OUT_DIR/latest.html" 2>/dev/null || true)"
+      powershell.exe -NoProfile -Command "
+        if (Get-Module -ListAvailable BurntToast) {
+          Import-Module BurntToast; New-BurntToastNotification -Text 'Spotter ship', '$ps_text'
+        } else {
+          [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+          \$xml = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
+          \$texts = \$xml.GetElementsByTagName('text')
+          \$texts.Item(0).AppendChild(\$xml.CreateTextNode('Spotter ship')) | Out-Null
+          \$texts.Item(1).AppendChild(\$xml.CreateTextNode('$ps_text')) | Out-Null
+          try {
+            \$xml.DocumentElement.SetAttribute('activationType','protocol')
+            \$xml.DocumentElement.SetAttribute('launch','$launch_url')
+          } catch {}
+          \$appId = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\WindowsPowerShell\\v1.0\\powershell.exe'
+          [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier(\$appId).Show([Windows.UI.Notifications.ToastNotification]::new(\$xml))
+        }
+      " >/dev/null 2>&1 || true
+      ;;
+    Darwin)
+      command -v osascript >/dev/null 2>&1 && \
+        osascript -e "display notification \"$text\" with title \"Spotter ship\"" >/dev/null 2>&1 || true
+      ;;
+    *)
+      command -v notify-send >/dev/null 2>&1 && \
+        notify-send "Spotter ship" "$text" >/dev/null 2>&1 || true
+      ;;
+  esac
+  return 0
+}
+
 # launch_window <file>: Phase 99 app-mode launch - a chrome-free window
 # (no URL bar, no tabs) the user can pin with Always On Top. Probes a
 # closed list of Chromium installs and passes --app= with a file URL
@@ -105,6 +161,7 @@ LIVE=0
 WINDOW=0
 ANSI=0
 SHOW=0
+TOAST=0
 INPUT="-"
 for arg in "$@"; do
   case "$arg" in
@@ -113,6 +170,7 @@ for arg in "$@"; do
     --window) WINDOW=1 ;;   # app-mode launch (chrome-free); wins over --open
     --ansi) ANSI=1 ;;       # terminal card to stdout (files still written)
     --show) SHOW=1 ;;       # auto dispatcher: vscode note / TTY ansi / silent
+    --toast) TOAST=1 ;;     # fire-once OS notification at ship time
     *) INPUT="$arg" ;;
   esac
 done
@@ -416,18 +474,26 @@ h2{font-size:.72rem;margin:0 0 .2rem}
 footer .sec{padding:.3rem 0}
 """
 
-def page_for(css, anchor=False):
+def page_for(css, anchor=False, refresh=False, stamp=False):
     # Phase 100: the tight form's card carries id="top" so fragment-honoring
-    # panes/browsers can force top-of-page; the normal form's bytes stay
-    # untouched (the anchor is tight-only).
+    # panes/browsers can force top-of-page. Phase 102: latest.html gains the
+    # strip's meta-refresh + a muted rendered-at stamp so a pinned card
+    # window stays current in place; DATED copies get neither (frozen
+    # history) and the tight form is unchanged.
     main_open = "<main class='card' id=\"top\">" if anchor else "<main class='card'>"
-    return (f"<!DOCTYPE html><html><head><meta charset='utf-8'>"
+    refresh_meta = '<meta http-equiv="refresh" content="10">' if refresh else ""
+    stamp_html = ""
+    if stamp:
+        now_hm = datetime.datetime.now().strftime("%H:%M")
+        stamp_html = (f'<p class="asof" style="color:var(--muted);font-size:.72rem;'
+                      f'margin:.6rem 0 0">rendered {now_hm}</p>')
+    return (f"<!DOCTYPE html><html><head><meta charset='utf-8'>{refresh_meta}"
             f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
             f"<title>Ship receipt</title><style>{css}</style></head>"
-            f"<body>{main_open}{body}</main></body></html>")
+            f"<body>{main_open}{body}{stamp_html}</main></body></html>")
 
 pages = {
-    "latest.html": page_for(CSS),
+    "latest.html": page_for(CSS, refresh=True, stamp=True),
     f"{datetime.date.today().isoformat()}-{slug}.html": page_for(CSS),
     "latest-tight.html": page_for(CSS + TIGHT, anchor=True),
 }
@@ -554,6 +620,15 @@ render_live_strip >/dev/null 2>&1 || true
 # no launch (Live Preview's tab auto-reloads on file change).
 if [ "$VSCODE_NOTE" -eq 1 ]; then
   echo "card: $OUT_DIR/latest.html - open it in a VS Code Live Preview tab (install 'Live Preview' once; it auto-reloads on change)"
+fi
+
+# Phase 102: the ship-time toast - fire-once, CI-suppressed like --open;
+# text = the verdict sentence, truncated sane.
+if [ "$TOAST" -eq 1 ] && [ -z "${CI:-}" ]; then
+  TOAST_TEXT=$(head -1 "$OUT_DIR/last-verdict.txt" 2>/dev/null | sed 's/^VERDICT: //' | cut -c1-120)
+  if [ -n "$TOAST_TEXT" ]; then
+    send_toast "$TOAST_TEXT" || true
+  fi
 fi
 
 # Phase 94: --open hands latest.html to the platform's default browser.
