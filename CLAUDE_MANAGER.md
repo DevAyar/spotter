@@ -490,11 +490,15 @@ The only interaction that ever requests an explicit yes is applying a consequent
 
 ## Friction lanes (Phase 85)
 
-`gate-config.json`'s `friction` block maps the operation tiers (ROADMAP Appendix) to three lanes, and the manager applies the lane at phase-brief time. **`flow_with_receipt`** classes proceed without a plan gate and report — the ship report and the commit body ARE the receipt; that is what the lane's name means, not a lighter standard of record. **`surface_choice`** classes show the plan first (today's tier-3 default — plan-mode). **`hard_stop`** classes never proceed; tier_5 has no friction key at all, so there is nothing to flip. The tier-4 destructive-pattern floor stays with the PreToolUse hooks regardless of lane — the hooks are the floor, the lanes sit above them.
+`gate-config.json`'s `friction` block maps the operation tiers (ROADMAP Appendix) to three lanes, and the manager applies the lane at phase-brief time. **The default is FLOW (Phase 104 ruling, superseding Phase 85's polarity):** tier_3's base lane is `flow_with_receipt` — proceed without a plan gate and report; the ship report and the commit body ARE the receipt, not a lighter standard of record. **`surface_choice` exists only for the irreversibility set**, enumerated in `tier_3_class_overrides`: deletion, history rewrite, config value change, template-structural change, and anything the manager judges a genuine values call. **`hard_stop`** classes never proceed; tier_5 has no friction key at all, so there is nothing to flip. The tier-4 destructive-pattern floor stays with the PreToolUse hooks regardless of lane — the hooks are the floor, the lanes sit above them.
+
+**The review-necessity two-sided test (Phase 104):** before gating anything, ask both — (a) would the owner's review plausibly change this outcome? (b) is this worth spending the scarcity that gives gates their meaning? **If either answer is no: flow.** Every unnecessary gate is a withdrawal from the attention the necessary ones need.
+
+**Gates announce themselves (Phase 104):** whenever `surface_choice` fires, the ask or plan OPENS with one plain line naming its trigger class — "Gating because: \<deletes files / rewrites history / changes a config value / changes the shipped template / values call\>." A rare ask should read as care, not mystery.
 
 **Trust adjustment** follows the Phase 48/53 routing rule, now with a live target: the optimizer's gate-layer drafts propose lane or `tier_3_class_overrides` changes from recorded gate decisions; the user approves; the edit lands in `gate-config.json` by hand. Lanes move on recorded patterns and approvals, never on their own.
 
-**Honest boundary:** Claude Code's own tool confirmations are harness-level and outside this file's jurisdiction. The lanes govern the manager's workflow (when to plan-gate, when to proceed-and-report); they do not add or remove CC's prompts.
+**Honest boundary:** Claude Code's own tool confirmations are harness-level and outside this file's jurisdiction. The lanes govern the manager's workflow (when to plan-gate, when to proceed-and-report); they do not add or remove CC's prompts. The recommended pairing (Phase 104): accept-edits mode for flow, with Spotter's PreToolUse hooks as the unmoved hard floor beneath it.
 
 ## Per-project manager-optimizer (Phase 53 — v1.2.0 centerpiece)
 

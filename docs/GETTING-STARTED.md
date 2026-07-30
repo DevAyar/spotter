@@ -5,6 +5,9 @@ unfamiliar session-start output. This walks what happened, what you'll see,
 and what to do first. (Install mechanics themselves — modes, flags, updates —
 live in [`INSTALLATION.md`](INSTALLATION.md).)
 
+Spotter flows by default and hands you receipts; it stops you only at the few
+doors that don't reopen, and when it stops you, it tells you why.
+
 ## What just happened to your project
 
 The install copied the skeleton baseline in (a fresh run reports ~82 files):

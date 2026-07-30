@@ -142,6 +142,12 @@ for p in sys.argv[1:4]:
     for cls, lane in (fr.get("tier_3_class_overrides") or {}).items():
         assert lane in LANES, f"{p}: override {cls} lane invalid"
     assert "tier_5" in (d.get("operation_tiers") or {}), f"{p}: tier_5 classification missing"
+# Phase 104 ruling lock: the SHIPPED default is flow-with-receipt at tier_3
+# (gates only for the irreversibility set, named in the overrides) - a
+# quiet conservative revert must not slip through.
+tmpl = json.load(open(sys.argv[1], encoding="utf-8"))
+assert tmpl["friction"]["tier_3"]["lane"] == "flow_with_receipt", \
+    "template tier_3 base lane must be flow_with_receipt (the Phase 104 ruling)"
 print("  friction lanes schema-valid across template/installed/dogfood copies")
 PYEOF
   if grep -q '{{' "$TEST_DIR/.claude/settings.json"; then
