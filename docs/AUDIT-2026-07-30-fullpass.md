@@ -88,27 +88,27 @@ Severity scale: BLOCKER-for-strangers / SHOULD-FIX / COSMETIC. CLEAN is a legiti
 
 | file | lines | reviewed at | verdict |
 |---|---|---|---|
-| .claude/agents/05_meta/script-builder.schema.md | 213 | — | — |
-| .claude/agents/05_meta/session-observer.schema.md | 151 | — | — |
-| .claude/agents/05_meta/workflow-suggester.schema.md | 150 | — | — |
-| .claude/gate-config.json | 84 | — | — |
-| .claude/recommendations/recommendation.schema.md | 67 | — | — |
-| .claude/settings.json | 105 | — | — |
-| .claude/specs/goal-spec.schema.md | 43 | — | — |
-| .gitattributes | 14 | — | — |
-| .github/test-fixtures/scenarios.sh | 3076 | — | — |
-| .github/workflows/ci.yml | 295 | — | — |
-| .gitignore | 79 | — | — |
-| template/.claude/agents/05_meta/script-builder.schema.md | 213 | — | — |
-| template/.claude/agents/05_meta/session-observer.schema.md | 151 | — | — |
-| template/.claude/agents/05_meta/workflow-suggester.schema.md | 150 | — | — |
-| template/.claude/gate-config.json | 80 | — | — |
-| template/.claude/recommendations/recommendation.schema.md | 67 | — | — |
-| template/.claude/settings.json.template | 97 | — | — |
-| template/.claude/specs/goal-spec.schema.md | 43 | — | — |
-| template/.gitignore.template | 56 | — | — |
-| template/CLAUDE.md.template | 38 | — | — |
-| template/ROUTING.md.template | 57 | — | — |
+| .claude/agents/05_meta/script-builder.schema.md | 213 | 777dbb3 | CLEAN |
+| .claude/agents/05_meta/session-observer.schema.md | 151 | 777dbb3 | 3 SHOULD-FIX / 3 COSMETIC |
+| .claude/agents/05_meta/workflow-suggester.schema.md | 150 | 777dbb3 | 1 COSMETIC |
+| .claude/gate-config.json | 84 | 777dbb3 | CLEAN |
+| .claude/recommendations/recommendation.schema.md | 67 | 777dbb3 | CLEAN |
+| .claude/settings.json | 105 | 777dbb3 | CLEAN |
+| .claude/specs/goal-spec.schema.md | 43 | 777dbb3 | 1 COSMETIC |
+| .gitattributes | 14 | 777dbb3 | CLEAN |
+| .github/test-fixtures/scenarios.sh | 3076 | 777dbb3 | 2 SHOULD-FIX / 4 COSMETIC |
+| .github/workflows/ci.yml | 295 | 777dbb3 | 2 SHOULD-FIX / 1 COSMETIC |
+| .gitignore | 79 | 777dbb3 | CLEAN |
+| template/.claude/agents/05_meta/script-builder.schema.md | 213 | 777dbb3 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/05_meta/session-observer.schema.md | 151 | 777dbb3 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/05_meta/workflow-suggester.schema.md | 150 | 777dbb3 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/gate-config.json | 80 | 777dbb3 | CLEAN |
+| template/.claude/recommendations/recommendation.schema.md | 67 | 777dbb3 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/settings.json.template | 97 | 777dbb3 | 1 SHOULD-FIX |
+| template/.claude/specs/goal-spec.schema.md | 43 | 777dbb3 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.gitignore.template | 56 | 777dbb3 | CLEAN |
+| template/CLAUDE.md.template | 38 | 777dbb3 | 2 SHOULD-FIX |
+| template/ROUTING.md.template | 57 | 777dbb3 | CLEAN |
 
 ## Wave D — agents, commands, skills, directive contracts (83 files, 5,986 lines)
 
@@ -511,6 +511,49 @@ Severity scale: BLOCKER-for-strangers / SHOULD-FIX / COSMETIC. CLEAN is a legiti
   - evidence: docs/PLUGINS-GETTING-STARTED.md:121 says "shipped as the v1.5 flow above (Phases 76-78)" while the installed version a stranger sees at session start is 1.1.5 (VERSION file, and the GETTING-STARTED transcript). ROADMAP.md does define v1.5 as the ecosystem-integration tier distinct from v1.1.5, so the claim is internally coherent — but on this page there is no gloss, and 'v1.5' vs '1.1.5' differ by one dot. A parenthetical like "(the ROADMAP v1.5 ecosystem tier, not install version 1.1.5)" removes the ambiguity.
 - **COSMETIC** — `docs/ROADMAP.md:97` — Path imprecision: 'Ships with scripts/plugin-discovery.sh' points at the wrong directory
   - evidence: Repo-top scripts/ contains only install.sh and update.sh; the shipped script lives at template/.claude/scripts/plugin-discovery.sh (mirrored in .claude/scripts/). A stranger following the stated path finds nothing.
+
+### Wave C findings
+
+- **SHOULD-FIX** — `.claude/agents/05_meta/session-observer.schema.md:20` — task-watchdog observation baea6a01… has its 4 evidence events duplicated verbatim (entries 0-3 == 4-7) and occurrences: 8 double-counts them — the 'known watchdog duplication bug' named in capture fe22198… is still live on disk.
+  - evidence: .claude/observations/baea6a01b67690e5…json evidence[0]/[4], [1]/[5], [2]/[6], [3]/[7] are byte-identical pairs; capture fe22198210607aea…md line 16-17 admits 'the evidence array carries each event twice — known watchdog duplication bug, flagged for its own phase'.
+- **SHOULD-FIX** — `.claude/agents/05_meta/session-observer.schema.md:21` — 52 of 249 observations (49 session-end-telemetry, 3 task-watchdog) violate the declared YYYY-MM-DDTHH:MM:SSZ timestamp format with millisecond timestamps in first_seen/last_seen/evidence.
+  - evidence: e.g. .claude/observations/01144d0a…json first_seen: "2026-05-19T21:42:39.232Z"; baea6a01…json all 8 evidence timestamps carry .NNN milliseconds. Producers emit a format the schema forbids — either fix the producers or widen the schema's stated format.
+- **SHOULD-FIX** — `.claude/agents/05_meta/session-observer.schema.md:50` — Redaction rules only strip POSIX '/Users/<u>/…' home paths; Windows home paths pass the filter and real evidence leaks the username — on the platform this project actually runs on.
+  - evidence: .claude/observations/baea6a01…json evidence[1].args_redacted contains 'C:\Users\darre\AppData\Local\Temp\claude\…' verbatim; the observation is privacy_class share-with-redaction, so this string is in the class that can leave the project boundary.
+- **SHOULD-FIX** — `.github/test-fixtures/scenarios.sh:179` — fresh-install's existing-install leg can false-pass: the update.sh run is `|| true`-masked and the two follow-up checks are absence-only (.first-run absent, welcome not printed) — both hold trivially if update.sh dies before doing anything.
+  - evidence: `bash .../update.sh ... > /dev/null 2>&1 || true` followed by `[ ! -f .first-run ]` and `grep -q "First session"` negative check on hout3; a syntax error or early exit in update.sh leaves both assertions vacuously green. A single positive assertion on update.sh output would close it.
+- **SHOULD-FIX** — `.github/test-fixtures/scenarios.sh:1177` — local-mod-preserve can false-pass: update.sh exit is masked with `|| true` and the only assertion is that the file hash did NOT change — a crash-at-startup update.sh also changes nothing, so the scenario passes vacuously.
+  - evidence: `printf 'k\n' | bash ... update.sh ... || true` then only `[ "$hash_after" != "$hash_before" ] -> ERROR`; no assert_contains on update.out proving the LOCALLY_MODIFIED prompt was ever reached (contrast raw-baseline-migrate line 1250 which asserts positive output). Fix: assert_contains "$(cat update.out)" "locally modified files:       1".
+- **SHOULD-FIX** — `.github/workflows/ci.yml:14` — The weekly scheduled full-matrix drift net shares concurrency group `ci-${{ github.ref }}` (refs/heads/main) with ordinary pushes, and cancel-in-progress: true means a Monday-morning push to main cancels the in-progress weekly run (and vice versa) — the drift net is lost with no failure signal.
+  - evidence: Both `schedule` and `push` on main resolve to group `ci-refs/heads/main`; GitHub cancels the older run regardless of triggering event. Fix: `group: ci-${{ github.event_name }}-${{ github.ref }}` or exempt schedule runs from cancellation.
+- **SHOULD-FIX** — `.github/workflows/ci.yml:49` — Portability detection diffs only the last commit of a push (`git diff HEAD^ HEAD` with fetch-depth: 2), so a multi-commit push whose earlier commits touched scripts/hooks/lib but whose tip commit did not runs linux-only — the windows/macos matrix is silently skipped for exactly the surfaces it guards.
+  - evidence: Push `A(edits scripts/install.sh) + B(docs tweak)` to main: HEAD^..HEAD sees only B's docs change -> os_list=linux. Fix: diff `${{ github.event.before }}..HEAD` (with the existing fail-open when `before` is all-zeros/unreachable), fetching enough depth.
+- **SHOULD-FIX** — `template/.claude/settings.json.template:5` — Fresh installs get blanket auto-approval of Bash/PowerShell/Edit/Write with defaultMode 'default'; the only destructive gate is the pattern-matching PreToolUse blocklist, which is bypassable by construction (obfuscated/novel command shapes).
+  - evidence: allow list contains bare "Bash" and "PowerShell" (lines 6-7); the hard floor is gate-config's destructive_pattern_floor citing .claude/lib/destructive-bash-patterns.sh — a blocklist, not an allowlist. Deliberate Phase 104 flow-with-receipt design, but a stranger installing the template should meet this trade-off in install docs or get a prompting default with an opt-in to flow.
+- **SHOULD-FIX** — `template/CLAUDE.md.template:7` — Companion-surface link `docs/ROADMAP.md` is dead in every fresh install — template/docs/ ships only ARCHITECTURE/SESSION_LOG/STATUS templates, no ROADMAP.
+  - evidence: ls template/docs/ → ARCHITECTURE.md.template, SESSION_LOG.md.template, STATUS.md.template only; nothing in the install path creates docs/ROADMAP.md, so line 7's '[`docs/ROADMAP.md`](docs/ROADMAP.md) carries the locked architectural principles' points at a nonexistent file until a user hand-creates one.
+- **SHOULD-FIX** — `template/CLAUDE.md.template:38` — Closing line promises an audit triad including `cruft-checker`, but cruft-checker is dogfood-only — template ships no cruft-checker agent, no cruft-check.sh, and no SessionStart wiring for it.
+  - evidence: template/.claude/agents/05_meta/code-quality-auditor.md:11 states 'unlike `cruft-checker`, which is dogfood-only'; template/.claude/scripts/ has no cruft-check.sh and settings.json.template's SessionStart chain omits it. A target install's constitution describes a watchdog it doesn't have.
+- **COSMETIC** — `.claude/agents/05_meta/session-observer.schema.md:33` — target_resource category 'tool' (baea6a01… uses 'tool:Bash') is not in the registered category list (agent/skill/command/script/plugin/hook/file/session).
+  - evidence: Schema line 33 enumerates eight categories; 'tool' is absent. Either register it or re-key the watchdog's emission.
+- **COSMETIC** — `.claude/agents/05_meta/session-observer.schema.md:43` — 4 observations exceed the 120-char caps: manual notes at 615 and 589 chars, manual evidence summaries at 141-208 chars, roadmap-auditor evidence summaries up to 232 chars — the truncate-with-ellipsis rule is not applied by hand-written or roadmap-auditor emissions.
+  - evidence: 917948cf…json notes=615 chars; d7a4a948…json notes=589; 6708b966…json summaries 141/207; ddee6613…json (roadmap-auditor) summaries 164/197/232.
+- **COSMETIC** — `.claude/agents/05_meta/session-observer.schema.md:141` — token_telemetry observations carry ~8 extra fields (total_tokens_in/out, total_cache_creation/read, turns_with_usage, useful_units_drafted/shipped, tokens_per_useful_unit, data_available) that the schema doc never registers.
+  - evidence: 01144d0a…json lines 3, 20-27. Permitted by the extensibility note ('add a new optional field with a clear name') but the schema's own rule is that new fields are added to the doc — these never were.
+- **COSMETIC** — `.claude/agents/05_meta/workflow-suggester.schema.md:53` — Real artifact nit: capture fe22198…md's Approving/rejecting section still reads 'Edit `status: draft` above to `approved`' while its frontmatter status is already `shipped` — the lifecycle instructions weren't updated at promote.
+  - evidence: .claude/captures/fe22198210607aea…md line 39 vs frontmatter line 5 (status: shipped). Harmless (idempotency keys off status, not body text) but the file contradicts itself.
+- **COSMETIC** — `.claude/specs/goal-spec.schema.md:22` — The real spec appends a sixth section, '## Consumption record', that the schema's 5-section body doesn't define — useful content (landing commits for both legs) with no schema-sanctioned home.
+  - evidence: .claude/specs/propagate-skeleton-tv-eog.md:78. Consider registering an optional consumption-record section for status: consumed, since the first real consumed spec already needed one.
+- **COSMETIC** — `.github/test-fixtures/scenarios.sh:54` — verify_marker's default expected_count of 25 is stale — every caller passes 81; the dead default invites a wrong-count assertion if a future call site omits the argument (it would fail loudly, not silently, so no false-pass).
+  - evidence: `local expected_count="${1:-25}"` at line 54; only invocations are `verify_marker 81` (lines 111, 1216) and raw-baseline checks hardcoding 81 (lines 1272). Drop the default or update it to 81.
+- **COSMETIC** — `.github/test-fixtures/scenarios.sh:690` — A few `git ls-tree -r | grep -q` pipelines contradict the file's own have_glob rationale (avoiding early-close SIGPIPE under pipefail); with ~90 paths the output fits the pipe buffer so it cannot realistically trip, but the pattern is inconsistent with lines 92-100.
+  - evidence: Lines 690, 736, 825 pipe `git ls-tree -r --name-only` into `grep -q` under `set -euo pipefail`; the helper comment at line 92 exists specifically to avoid this shape.
+- **COSMETIC** — `.github/test-fixtures/scenarios.sh:1409` — Python-missing SKIP paths report as PASS: watchdog-transcript-resolution / watchdog-dedup-reobserve exit 0 from the subshell on SKIP and the outer function still echoes "PASS <scenario>", so a runner without python shows a green PASS line for a test that never ran.
+  - evidence: `[ -n "$pybin" ] || { echo "SKIP ..."; exit 0; }` inside `( ... )` at lines 1409 and 1498; execution falls through to `echo "PASS watchdog-transcript-resolution"` (line 1465). Low practical risk since ci.yml installs Python 3.11, but the output is misleading.
+- **COSMETIC** — `.github/test-fixtures/scenarios.sh:3069` — Redundant tautology in the help branch: `[ -z "${1:-}" ] && exit 0 || exit 0` exits 0 on both sides — the test expression is dead code.
+  - evidence: Line 3069; equivalent to plain `exit 0`. Harmless (CI never invokes with an empty arg), just noise.
+- **COSMETIC** — `.github/workflows/ci.yml:59` — The test job has no timeout-minutes; 51 sequential scenarios that each run full installs plus git operations would consume the 360-minute default before a hang is surfaced.
+  - evidence: No `timeout-minutes:` anywhere in the workflow; a wedged interactive prompt in update.sh (stdin not always redirected inside scenarios) would burn runner minutes until GitHub's 6-hour default kills it.
 
 ## Wave G — close
 
