@@ -230,6 +230,10 @@ jobs:
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh hook-fp-exemption-git-commit-message
 
+      - name: Scenario - hook-destructive-canonicalization
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh hook-destructive-canonicalization
+
       - name: Scenario - watchdog-transcript-resolution
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh watchdog-transcript-resolution
