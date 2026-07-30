@@ -29,14 +29,42 @@ readonly DENY_REASON="BLOCKED by ${HOOK_NAME} hook: command matches destructive 
 # project root. Phase 30b robustness fix — relative-only path fail-closed
 # spuriously when harness CWD drifted from project root.
 readonly LIB="${CLAUDE_PROJECT_DIR:-.}/.claude/lib/destructive-bash-patterns.sh"
+readonly PS_LIB="${CLAUDE_PROJECT_DIR:-.}/.claude/lib/destructive-powershell-patterns.sh"
+
+# Phase 106 (P5 — valid JSON always): the pre-flight deny payloads are
+# emitted before jq is known to exist, so they are FIXED, path-free
+# constants. Interpolating $LIB produced unparseable JSON on Windows
+# paths (backslashes are invalid JSON escapes), which meant the deny
+# could be dropped entirely — a fail-closed branch that failed open.
+emit_preflight_deny() {
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s (%s — fail-closed; see .claude/lib/ and the hook log)"}}\n' \
+    "$DENY_REASON" "$1"
+  exit 0
+}
+
 if [ ! -f "$LIB" ]; then
   # Fail-closed: missing lib means we can't safely vet commands.
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s (destructive-pattern lib missing at %s — fail-closed)"}}\n' \
-    "$DENY_REASON" "$LIB"
-  exit 0
+  emit_preflight_deny "destructive-pattern lib missing"
 fi
 # shellcheck disable=SC1090,SC1091
 source "$LIB"
+# Phase 106 (P3 — fail closed, ASSERTED): a present-but-empty or truncated
+# lib left the array unset, and "${ARR[@]}" on an unset array expands to
+# nothing even under set -u, so the match loop ran zero times and EVERY
+# command was allowed. Verify the array is declared AND non-empty.
+if ! declare -p DESTRUCTIVE_BASH_PATTERNS >/dev/null 2>&1 || [ "${#DESTRUCTIVE_BASH_PATTERNS[@]}" -eq 0 ]; then
+  emit_preflight_deny "destructive-pattern lib present but empty or unreadable"
+fi
+# Cross-shell (P4): a Bash invocation can launch PowerShell, so the
+# PowerShell set is loaded too and applied when the command does that.
+PS_PATTERNS_OK=0
+if [ -f "$PS_LIB" ]; then
+  # shellcheck disable=SC1090,SC1091
+  source "$PS_LIB"
+  if declare -p DESTRUCTIVE_POWERSHELL_PATTERNS >/dev/null 2>&1 && [ "${#DESTRUCTIVE_POWERSHELL_PATTERNS[@]}" -gt 0 ]; then
+    PS_PATTERNS_OK=1
+  fi
+fi
 
 emit_allow() {
   jq -cn '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "allow"}}'
@@ -64,6 +92,14 @@ emit_deny() {
 redact_git_commit_messages() {
   local cmd="$1"
   if [[ ! "$cmd" =~ ^[[:space:]]*git[[:space:]]+commit([[:space:]]|$) ]]; then
+    printf '%s' "$cmd"
+    return
+  fi
+  # Phase 106: a message body containing a command substitution is NOT
+  # exempt — the shell expands $(...) / `...` before git ever sees it, so
+  # `git commit -m "$(rm -rf /tmp/x)"` really does run the inner command.
+  # Ambiguity resolves toward scanning (P2).
+  if [[ "$cmd" == *'$('* ]] || [[ "$cmd" == *'`'* ]]; then
     printf '%s' "$cmd"
     return
   fi
@@ -101,8 +137,17 @@ strip_bash_heredocs() {
       [ $first -eq 0 ] && out+=$'\n'
       out+="$line"
       first=0
-      if [[ "$line" =~ \<\<-?[[:space:]]*[\'\"]?([A-Za-z_][A-Za-z0-9_]*)[\'\"]? ]]; then
-        in_heredoc="${BASH_REMATCH[1]}"
+      # Phase 106 (P2 — when unsure, DO NOT blank). An opener counts only
+      # when we are confident: the marker must END the line (the real
+      # `cat > f <<EOF` shape), the line must carry no `#` before the
+      # `<<` (a comment mentioning <<EOF is not an opener), and `<<<`
+      # here-strings are excluded. Anything else is scanned, not skipped:
+      # over-scanning risks a false positive, under-scanning permits the
+      # operation. Pre-106 this blanked every following line on ANY
+      # `<<IDENT` sighting, so a comment could hide `rm -rf /`.
+      if [[ ! "$line" =~ \<\<\< ]] \
+         && [[ "$line" =~ ^([^#]*)\<\<-?[[:space:]]*[\'\"]?([A-Za-z_][A-Za-z0-9_]*)[\'\"]?[[:space:]]*$ ]]; then
+        in_heredoc="${BASH_REMATCH[2]}"
       fi
     fi
   done <<< "$input"
@@ -145,11 +190,58 @@ fi
 REDACTED_COMMAND=$(redact_git_commit_messages "$COMMAND")
 REDACTED_COMMAND=$(strip_bash_heredocs "$REDACTED_COMMAND")
 
+# Phase 106 (P1 — canonicalize, don't enumerate). Normalize the command
+# so single-character spelling variants collapse onto one shape:
+#   \rm -> rm            (backslash escapes dropped)
+#   ;rm / &&rm / (rm     (delimiters spaced out, so commands are anchored)
+#   --recursive -> -r    (long flags expanded)
+#   -fr -> -f -r         (single-dash clusters split, repeatedly)
+# The canonical form is scanned IN ADDITION to the raw command, never
+# instead of it: canonicalization is text rewriting on untrusted input,
+# and every rewrite is a chance to erase something that mattered, so the
+# raw pass stays as the floor. A match in either form denies.
+canonicalize_bash() {
+  local c="$1"
+  c=$(printf '%s' "$c" | sed -E \
+        -e 's/\\([A-Za-z])/\1/g' \
+        -e 's/([;()&|{}<>])/ \1 /g' \
+        -e 's/"/ " /g' \
+        -e "s/'/ ' /g" \
+        -e 's/--recursive/-r/g; s/--force/-f/g; s/--dir/-d/g')
+  local i
+  for i in 1 2 3 4; do
+    c=$(printf '%s' "$c" | sed -E 's/(^| )-([A-Za-z])([A-Za-z]+)/\1-\2 -\3/g')
+  done
+  printf '%s' "$c" | tr -s '[:space:]' ' '
+}
+CANONICAL_COMMAND=$(canonicalize_bash "$REDACTED_COMMAND")
+
 for pattern in "${DESTRUCTIVE_BASH_PATTERNS[@]}"; do
-  if [[ "$REDACTED_COMMAND" =~ $pattern ]]; then
+  if [[ "$REDACTED_COMMAND" =~ $pattern ]] || [[ "$CANONICAL_COMMAND" =~ $pattern ]]; then
     emit_deny "$DENY_REASON"
   fi
 done
+
+# Cross-shell (P4): this Bash command launches PowerShell, so its payload
+# is PowerShell — apply that pattern set too. Pre-106 each hook was blind
+# to the other's shell, so `powershell.exe -c "Remove-Item -Recurse
+# -Force C:\Windows"` walked straight through the Bash gate.
+if [ "$PS_PATTERNS_OK" -eq 1 ] && [[ "$REDACTED_COMMAND" =~ (^|[[:space:]/\\])(powershell(\.exe)?|pwsh(\.exe)?)([[:space:]]|$) ]]; then
+  PS_VIEW=$(printf '%s' "$REDACTED_COMMAND" | tr '[:upper:]' '[:lower:]' \
+    | sed -E -e 's/"/ " /g' \
+             -e "s/'/ ' /g" \
+             -e 's/([;()&|{}])/ \1 /g' \
+             -e 's/(^|[[:space:]])-r(e(c(u(r(s(e)?)?)?)?)?)?([[:space:]]|$)/\1-recurse\8/g' \
+             -e 's/(^|[[:space:]])-f(o(r(c(e)?)?)?)?([[:space:]]|$)/\1-force\6/g')
+  shopt -s nocasematch
+  for pattern in "${DESTRUCTIVE_POWERSHELL_PATTERNS[@]}"; do
+    if [[ "$REDACTED_COMMAND" =~ $pattern ]] || [[ "$PS_VIEW" =~ $pattern ]]; then
+      shopt -u nocasematch
+      emit_deny "$DENY_REASON"
+    fi
+  done
+  shopt -u nocasematch
+fi
 
 emit_allow
 
