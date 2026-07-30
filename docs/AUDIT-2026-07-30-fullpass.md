@@ -115,88 +115,88 @@ Severity scale: BLOCKER-for-strangers / SHOULD-FIX / COSMETIC. CLEAN is a legiti
 | file | lines | reviewed at | verdict |
 |---|---|---|---|
 | .claude/agents/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| .claude/agents/01_research/research-helper.md | 42 | — | — |
-| .claude/agents/02_audit/audit-helper.md | 43 | — | — |
-| .claude/agents/03_monitoring/monitoring-helper.md | 42 | — | — |
-| .claude/agents/04_planning/plan-coordinator.md | 44 | — | — |
-| .claude/agents/05_meta/agent-slicer.md | 77 | — | — |
-| .claude/agents/05_meta/artifact-fit-analyzer.md | 142 | — | — |
-| .claude/agents/05_meta/code-quality-auditor.md | 118 | — | — |
-| .claude/agents/05_meta/cruft-checker.md | 130 | — | — |
-| .claude/agents/05_meta/drift-checker.md | 77 | — | — |
-| .claude/agents/05_meta/integration-installer.md | 115 | — | — |
-| .claude/agents/05_meta/manager-optimizer.md | 133 | — | — |
-| .claude/agents/05_meta/plugin-context-matcher.md | 78 | — | — |
-| .claude/agents/05_meta/plugin-discovery-agent.md | 88 | — | — |
-| .claude/agents/05_meta/project-tuner-helper.md | 188 | — | — |
-| .claude/agents/05_meta/roadmap-auditor.md | 109 | — | — |
-| .claude/agents/05_meta/script-builder.md | 107 | — | — |
-| .claude/agents/05_meta/self-audit-helper.md | 94 | — | — |
-| .claude/agents/05_meta/system-memory-helper.md | 73 | — | — |
-| .claude/agents/05_meta/task-watchdog.md | 77 | — | — |
-| .claude/agents/05_meta/token-cost-monitor.md | 92 | — | — |
-| .claude/agents/05_meta/workflow-suggester.md | 85 | — | — |
+| .claude/agents/01_research/research-helper.md | 42 | f6967fa | CLEAN |
+| .claude/agents/02_audit/audit-helper.md | 43 | f6967fa | 2 COSMETIC |
+| .claude/agents/03_monitoring/monitoring-helper.md | 42 | f6967fa | 1 SHOULD-FIX |
+| .claude/agents/04_planning/plan-coordinator.md | 44 | f6967fa | CLEAN |
+| .claude/agents/05_meta/agent-slicer.md | 77 | f6967fa | 1 SHOULD-FIX |
+| .claude/agents/05_meta/artifact-fit-analyzer.md | 142 | f6967fa | 1 SHOULD-FIX |
+| .claude/agents/05_meta/code-quality-auditor.md | 118 | f6967fa | 1 SHOULD-FIX |
+| .claude/agents/05_meta/cruft-checker.md | 130 | f6967fa | 2 SHOULD-FIX |
+| .claude/agents/05_meta/drift-checker.md | 77 | f6967fa | 1 SHOULD-FIX |
+| .claude/agents/05_meta/integration-installer.md | 115 | f6967fa | CLEAN |
+| .claude/agents/05_meta/manager-optimizer.md | 133 | f6967fa | 1 COSMETIC |
+| .claude/agents/05_meta/plugin-context-matcher.md | 78 | f6967fa | 1 COSMETIC |
+| .claude/agents/05_meta/plugin-discovery-agent.md | 88 | f6967fa | 1 COSMETIC |
+| .claude/agents/05_meta/project-tuner-helper.md | 188 | f6967fa | 1 COSMETIC |
+| .claude/agents/05_meta/roadmap-auditor.md | 109 | f6967fa | 1 SHOULD-FIX / 1 COSMETIC |
+| .claude/agents/05_meta/script-builder.md | 107 | f6967fa | 1 COSMETIC |
+| .claude/agents/05_meta/self-audit-helper.md | 94 | f6967fa | CLEAN |
+| .claude/agents/05_meta/system-memory-helper.md | 73 | f6967fa | 1 SHOULD-FIX |
+| .claude/agents/05_meta/task-watchdog.md | 77 | f6967fa | CLEAN |
+| .claude/agents/05_meta/token-cost-monitor.md | 92 | f6967fa | 1 COSMETIC |
+| .claude/agents/05_meta/workflow-suggester.md | 85 | f6967fa | 1 SHOULD-FIX / 2 COSMETIC |
 | .claude/commands/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| .claude/commands/audit.md | 14 | — | — |
-| .claude/commands/commit.md | 11 | — | — |
-| .claude/commands/deploy.md | 15 | — | — |
-| .claude/commands/goals.md | 50 | — | — |
-| .claude/commands/graduation-review.md | 17 | — | — |
-| .claude/commands/share-disable.md | 36 | — | — |
-| .claude/commands/share-enable.md | 33 | — | — |
-| .claude/commands/share-preview.md | 17 | — | — |
-| .claude/commands/share-push.md | 23 | — | — |
-| .claude/commands/share-status.md | 13 | — | — |
-| .claude/commands/smoke-test.md | 13 | — | — |
+| .claude/commands/audit.md | 14 | f6967fa | CLEAN |
+| .claude/commands/commit.md | 11 | f6967fa | CLEAN |
+| .claude/commands/deploy.md | 15 | f6967fa | CLEAN |
+| .claude/commands/goals.md | 50 | f6967fa | CLEAN |
+| .claude/commands/graduation-review.md | 17 | f6967fa | CLEAN |
+| .claude/commands/share-disable.md | 36 | f6967fa | CLEAN |
+| .claude/commands/share-enable.md | 33 | f6967fa | CLEAN |
+| .claude/commands/share-preview.md | 17 | f6967fa | CLEAN |
+| .claude/commands/share-push.md | 23 | f6967fa | CLEAN |
+| .claude/commands/share-status.md | 13 | f6967fa | CLEAN |
+| .claude/commands/smoke-test.md | 13 | f6967fa | CLEAN |
 | .claude/skills/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| .claude/skills/bash-safety/SKILL.md | 94 | — | — |
-| .claude/skills/god-file-grep-first/SKILL.md | 45 | — | — |
-| .claude/skills/plugin-roster-search/SKILL.md | 49 | — | — |
-| .claude/skills/post-edit-test-suggest/SKILL.md | 41 | — | — |
-| .claude/skills/schema-verify-before-edit/SKILL.md | 37 | — | — |
-| .claude/skills/token-efficiency-monitor/SKILL.md | 57 | — | — |
-| CLAUDE.md | 38 | — | — |
-| CLAUDE_MANAGER.md | 557 | — | — |
-| ROUTING.md | 58 | — | — |
+| .claude/skills/bash-safety/SKILL.md | 94 | f6967fa | CLEAN |
+| .claude/skills/god-file-grep-first/SKILL.md | 45 | f6967fa | CLEAN |
+| .claude/skills/plugin-roster-search/SKILL.md | 49 | f6967fa | CLEAN |
+| .claude/skills/post-edit-test-suggest/SKILL.md | 41 | f6967fa | 1 COSMETIC |
+| .claude/skills/schema-verify-before-edit/SKILL.md | 37 | f6967fa | CLEAN |
+| .claude/skills/token-efficiency-monitor/SKILL.md | 57 | f6967fa | CLEAN |
+| CLAUDE.md | 38 | f6967fa | CLEAN |
+| CLAUDE_MANAGER.md | 557 | f6967fa | 1 SHOULD-FIX / 2 COSMETIC |
+| ROUTING.md | 58 | f6967fa | 1 COSMETIC |
 | template/.claude/agents/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| template/.claude/agents/01_research/research-helper.md | 42 | — | — |
-| template/.claude/agents/02_audit/audit-helper.md | 43 | — | — |
-| template/.claude/agents/03_monitoring/monitoring-helper.md | 42 | — | — |
-| template/.claude/agents/04_planning/plan-coordinator.md | 44 | — | — |
-| template/.claude/agents/05_meta/agent-slicer.md | 77 | — | — |
-| template/.claude/agents/05_meta/artifact-fit-analyzer.md | 142 | — | — |
-| template/.claude/agents/05_meta/code-quality-auditor.md | 118 | — | — |
-| template/.claude/agents/05_meta/drift-checker.md | 77 | — | — |
-| template/.claude/agents/05_meta/integration-installer.md | 115 | — | — |
-| template/.claude/agents/05_meta/manager-optimizer.md | 133 | — | — |
-| template/.claude/agents/05_meta/plugin-context-matcher.md | 78 | — | — |
-| template/.claude/agents/05_meta/plugin-discovery-agent.md | 88 | — | — |
-| template/.claude/agents/05_meta/project-tuner-helper.md | 188 | — | — |
-| template/.claude/agents/05_meta/script-builder.md | 107 | — | — |
-| template/.claude/agents/05_meta/self-audit-helper.md | 94 | — | — |
-| template/.claude/agents/05_meta/system-memory-helper.md | 73 | — | — |
-| template/.claude/agents/05_meta/task-watchdog.md | 77 | — | — |
-| template/.claude/agents/05_meta/token-cost-monitor.md | 92 | — | — |
-| template/.claude/agents/05_meta/workflow-suggester.md | 85 | — | — |
+| template/.claude/agents/01_research/research-helper.md | 42 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/02_audit/audit-helper.md | 43 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/03_monitoring/monitoring-helper.md | 42 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/04_planning/plan-coordinator.md | 44 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/05_meta/agent-slicer.md | 77 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/05_meta/artifact-fit-analyzer.md | 142 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/05_meta/code-quality-auditor.md | 118 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/05_meta/drift-checker.md | 77 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/05_meta/integration-installer.md | 115 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/05_meta/manager-optimizer.md | 133 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/05_meta/plugin-context-matcher.md | 78 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/05_meta/plugin-discovery-agent.md | 88 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/05_meta/project-tuner-helper.md | 188 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/05_meta/script-builder.md | 107 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/05_meta/self-audit-helper.md | 94 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/05_meta/system-memory-helper.md | 73 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/05_meta/task-watchdog.md | 77 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/05_meta/token-cost-monitor.md | 92 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/agents/05_meta/workflow-suggester.md | 85 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
 | template/.claude/commands/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| template/.claude/commands/audit.md | 14 | — | — |
-| template/.claude/commands/commit.md | 11 | — | — |
-| template/.claude/commands/deploy.md | 15 | — | — |
-| template/.claude/commands/goals.md | 50 | — | — |
-| template/.claude/commands/share-disable.md | 36 | — | — |
-| template/.claude/commands/share-enable.md | 33 | — | — |
-| template/.claude/commands/share-preview.md | 17 | — | — |
-| template/.claude/commands/share-push.md | 23 | — | — |
-| template/.claude/commands/share-status.md | 13 | — | — |
-| template/.claude/commands/smoke-test.md | 13 | — | — |
+| template/.claude/commands/audit.md | 14 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/commands/commit.md | 11 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/commands/deploy.md | 15 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/commands/goals.md | 50 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/commands/share-disable.md | 36 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/commands/share-enable.md | 33 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/commands/share-preview.md | 17 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/commands/share-push.md | 23 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/commands/share-status.md | 13 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/commands/smoke-test.md | 13 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
 | template/.claude/skills/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
-| template/.claude/skills/bash-safety/SKILL.md | 94 | — | — |
-| template/.claude/skills/god-file-grep-first/SKILL.md | 45 | — | — |
-| template/.claude/skills/plugin-roster-search/SKILL.md | 49 | — | — |
-| template/.claude/skills/post-edit-test-suggest/SKILL.md | 41 | — | — |
-| template/.claude/skills/schema-verify-before-edit/SKILL.md | 37 | — | — |
-| template/.claude/skills/token-efficiency-monitor/SKILL.md | 57 | — | — |
-| template/CLAUDE_MANAGER.md.template | 551 | — | — |
+| template/.claude/skills/bash-safety/SKILL.md | 94 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/skills/god-file-grep-first/SKILL.md | 45 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/skills/plugin-roster-search/SKILL.md | 49 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/skills/post-edit-test-suggest/SKILL.md | 41 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/skills/schema-verify-before-edit/SKILL.md | 37 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/.claude/skills/token-efficiency-monitor/SKILL.md | 57 | f6967fa | mirror-parity (byte-identical to the reviewed twin) |
+| template/CLAUDE_MANAGER.md.template | 551 | f6967fa | 1 SHOULD-FIX |
 
 ## Wave E — public docs (9 files, 1,488 lines)
 
@@ -236,6 +236,7 @@ Severity scale: BLOCKER-for-strangers / SHOULD-FIX / COSMETIC. CLEAN is a legiti
 | .claude/telemetry/sessions/.gitkeep | 0 | 0d28839 | CLEAN (empty dir-keeper, 0 bytes — verified) |
 | VERSION | 1 | 8f5ae35 | CLEAN |
 | docs/AUDIT-2026-07-27-spotter-state.md | 167 | 8f5ae35 | CLEAN |
+| docs/AUDIT-2026-07-30-fullpass.md | 669 | f6967fa | self — this pass's own output, tracked after Wave 0's ledger was built; counted here so ledger rows reconcile with git ls-files exactly |
 | docs/AUDIT-v1.1.4-cc-side.md | 338 | 8f5ae35 | CLEAN |
 | docs/AUDIT-v1.1.4-marker-refresh-dryrun.md | 159 | 8f5ae35 | CLEAN |
 | docs/AUDIT-v1.1.4-state.md | 962 | 8f5ae35 | CLEAN |
@@ -555,6 +556,115 @@ Severity scale: BLOCKER-for-strangers / SHOULD-FIX / COSMETIC. CLEAN is a legiti
 - **COSMETIC** — `.github/workflows/ci.yml:59` — The test job has no timeout-minutes; 51 sequential scenarios that each run full installs plus git operations would consume the 360-minute default before a hang is surfaced.
   - evidence: No `timeout-minutes:` anywhere in the workflow; a wedged interactive prompt in update.sh (stdin not always redirected inside scenarios) would burn runner minutes until GitHub's 6-hour default kills it.
 
+### Wave D findings
+
+- **SHOULD-FIX** — `.claude/agents/03_monitoring/monitoring-helper.md:23` — The agent's whole premise — grade recent sessions from the tail of docs/SESSION_LOG.md — targets a frozen historical record: the automated writer was retired Phase 58, the last real entry is 2026-05-13, and the project's operating record is docs/CHANGELOG.md. The doc (incl. 'Before bumping a VERSION — confirm the session log shows the expected work', line 17) carries no note of this, so a dispatch for 'the last 5 sessions' returns 2026-05 data.
+  - evidence: docs/SESSION_LOG.md header: 'HISTORICAL RECORD (retired Phase 65). The automated writer of this log (session-observer) was retired in Phase 58; the last real entry is 2026-05-13, and nothing has maintained the file since... current operating record is docs/CHANGELOG.md'. CHANGELOG Phase 58/65 entries confirm. Only the manual /audit command still appends (.claude/commands/audit.md:2).
+- **SHOULD-FIX** — `.claude/agents/05_meta/agent-slicer.md:38` — The schema lists `model` (sonnet|opus|haiku) as a frontmatter field with no optionality note, but 12 of the 17 shipped agents — including four of agent-slicer's own 05_meta neighbors it consults for 'local convention' — omit `model` entirely; validating 'against the schema' as written would flag most of the valid fleet.
+  - evidence: grep -L '^model:' over .claude/agents/*/*.md: artifact-fit-analyzer, code-quality-auditor, cruft-checker, drift-checker, manager-optimizer, plugin-context-matcher, plugin-discovery-agent, roadmap-auditor, script-builder, task-watchdog, token-cost-monitor, workflow-suggester all lack the field. Doc lines 33-38 present the four-field schema without marking model optional; line 55-57 ('Preserve model selection') assumes it is present.
+- **SHOULD-FIX** — `.claude/agents/05_meta/artifact-fit-analyzer.md:131` — 'scheduled cadence is explicitly deferred to infrastructure-auditor' is stale: Phase 74 shipped the audits registry (a coordinator, not an agent) and artifact_fit_analyzer is registered in it with an 18-session cadence — the analyzer now has a live scheduled dispatch surface the doc says doesn't exist yet.
+  - evidence: .claude/gate-config.json audits block: '"artifact_fit_analyzer": { "enabled": true, "sessions_between_dispatches": 18 }' with _meta noting 'Live (Phase 74)'; docs/ROADMAP.md:80: 'infrastructure-auditor (project-level — SHIPPED, Phase 74, as a coordinator, not an agent)'. The description (line 3) likewise omits the registry cadence from its dispatch triggers.
+- **SHOULD-FIX** — `.claude/agents/05_meta/code-quality-auditor.md:96` — 'v1.2.0's infrastructure-auditor will eventually orchestrate all three on a scheduled cadence' is stale and mismatched to what shipped: Phase 74 delivered it as the audits registry (coordinator, not agent), and the shipped shape does not orchestrate these three — drift-checker fires from the SessionStart chain every session, this auditor keeps its own 24h cooldown, and cruft-checker is dogfood-only.
+  - evidence: docs/ROADMAP.md:80 'SHIPPED, Phase 74, as a coordinator, not an agent'; ROADMAP.md:262: 'drift-checker fires from the SessionStart chain every session and the plugin auditor on its own 24h cooldown; cruft-checker is dogfood-only and never ships'; gate-config.json audits registry contains artifact_fit_analyzer/roadmap_auditor/plugin_discovery — none of the triad.
+- **SHOULD-FIX** — `.claude/agents/05_meta/cruft-checker.md:122` — Lines 20 and 122 still frame project-level cruft as owned by a future 'infrastructure-auditor (v1.2.0, ships in template/)' agent, contradicting the doc's own line 11, which correctly records that Phase 74 shipped this as the infrastructure-audit coordinator's registry ('a coordinator, not an agent').
+  - evidence: Doc line 11: 'fire via the infrastructure-audit coordinator's registry (Phase 74 — a coordinator, not an agent)'; doc line 20: "that's v1.2.0's infrastructure-auditor in template/"; doc line 122: 'infrastructure-auditor (v1.2.0, ships in template/) owns audits'. ROADMAP.md:80 marks it SHIPPED Phase 74.
+- **SHOULD-FIX** — `.claude/agents/05_meta/cruft-checker.md:130` — Mechanism reference claims cruft-check.sh is '~280 lines including the inline Python helper'; the shipped script is 657 lines — the count is stale by more than 2x.
+  - evidence: wc -l .claude/scripts/cruft-check.sh -> 657. Doc line 130: '~280 lines including the inline Python helper.'
+- **SHOULD-FIX** — `.claude/agents/05_meta/drift-checker.md:17` — 'From v1.2.0 infrastructure-auditor. Future v1.2.0 component dispatches drift-checker alongside cruft-checker and artifact-fit-analyzer as part of a scheduled project-level audit pass' is doubly stale: the coordinator shipped in Phase 74 as a registry (not a future agent) and the shipped shape does not route drift-checker through it (it fires from the SessionStart chain every session); and cruft-checker is dogfood-only skeleton-level, never part of a project-level pass.
+  - evidence: ROADMAP.md:80 'SHIPPED, Phase 74, as a coordinator, not an agent'; ROADMAP.md:262 'drift-checker fires from the SessionStart chain every session... cruft-checker is dogfood-only and never ships'; gate-config.json audits registry lists artifact_fit_analyzer/roadmap_auditor/plugin_discovery only; cruft-checker.md:11 confirms the skeleton-level/project-level split.
+- **SHOULD-FIX** — `.claude/agents/05_meta/roadmap-auditor.md:22` — The closed input list names 'the four schema/contract surfaces' but the Phase 76/77 recommendation.schema.md (a live producer-backed contract, one phase newer than this agent) is absent — the CONTRACT-DRIFT lane cannot cover the plugin-recommendation manifest under its own closed-inputs rule.
+  - evidence: .claude/recommendations/recommendation.schema.md and manifest.md both exist and are actively written by plugin-discovery.sh; roadmap-auditor.md:22-25 enumerates only session-observer.schema.md, workflow-suggester.schema.md, specs/goal-spec.schema.md, and the three ledger _meta blocks. script-builder.schema.md and lib/shared-memory.schema.md are likewise uncovered. 'Inputs — a closed list; nothing else' (line 18) makes the omission binding rather than illustrative.
+- **SHOULD-FIX** — `.claude/agents/05_meta/system-memory-helper.md:36` — Claims plugin directories are 'declared in .claude/settings.json (or its user-level overlay)' — the dogfood settings.json declares no plugin directories, and the fleet's own plugin-discovery-agent documents the real surface as ~/.claude/plugins/installed_plugins.json; an agent following this doc would report an empty plugin inventory.
+  - evidence: .claude/settings.json top-level keys are exactly ['model', 'permissions', 'compactPrompt', 'hooks'] (no plugin declaration; the only 'plugin' grep hit is the plugin-quality-check.sh hook command on line 73). plugin-discovery-agent.md:41-43 names ~/.claude/plugins/installed_plugins.json and known_marketplaces.json as the installed/marketplace surfaces.
+- **SHOULD-FIX** — `.claude/agents/05_meta/workflow-suggester.md:76` — 'Those are future X-builders (script-builder lands next in the v1.1+ sequence)' — script-builder shipped long ago (same directory, drafts dir live); same stale future framing at line 11 ('that's later v1.1+ phases — script-builder first'). A stranger reads that the first downstream builder does not exist yet.
+  - evidence: .claude/agents/05_meta/script-builder.md and script-builder.schema.md exist; .claude/scripts/drafts/ exists; script-builder.md line 9 describes itself as shipped ('The first downstream X-builder of the v1.1+ capture/reuse loop').
+- **SHOULD-FIX** — `CLAUDE_MANAGER.md:314` — Stale T1 script count: claims 'the thirteen scripts under .claude/scripts/' but the template ships fourteen (receipt-render.sh, Phase 93, was never folded into the count).
+  - evidence: template/.claude/scripts/ contains 14 scripts (commit, deploy, drift-check, goals-surface, plugin-context-matcher, plugin-discovery, plugin-quality-check, receipt-render, share-disable, share-enable, share-status, shared-memory-produce, shared-memory-push, task-watchdog). git log: the 'thirteen' count last landed at d19f693 (Phase 77 B); receipt-render.sh entered template at a3952c8 (Phase 93). The same line says 'Counts are re-derived mechanically when this line changes' — the rule was not applied. Identical stale text in template/CLAUDE_MANAGER.md.template.
+- **SHOULD-FIX** — `template/CLAUDE_MANAGER.md.template:1` — Dogfood CLAUDE_MANAGER.md diverges from the template beyond placeholder resolution: four install-local measurement blocks exist only in the dogfood copy, which contradicts the doc's own mirror invariant ('differing ONLY in resolved placeholder values', dogfood line 451).
+  - evidence: diff shows: {{PROJECT_NAME}} resolution (expected) PLUS dogfood-only insertions at lines 50-52 (second/third optimizer measured passes), line 150 (token_telemetry triage addendum), and lines 514-515 (cycle-four measurement bar, self-labeled 'install-local — dogfood only, per the install-local-measurements policy'). That policy is recorded only in docs/CHANGELOG.md (Phase 90 bullet); § Dogfood mirror invariants (line 451) still states mirrors differ ONLY in placeholder values and names no install-local carve-out. Either codify the carve-out in the invariants section or the parity claim is misleading to auditors — the task brief itself asserted byte-identical, and it is not.
+- **COSMETIC** — `.claude/agents/02_audit/audit-helper.md:3` — docs/STATUS.md is named as the lead audit target but does not exist in this install (only template/docs/STATUS.md.template ships; the dogfood operating record is docs/CHANGELOG.md per SESSION_LOG's retirement header).
+  - evidence: `ls docs/STATUS.md` -> 'No such file or directory'; template/docs/ contains STATUS.md.template. Doc lines 3, 14, 25 all reference docs/STATUS.md as a live example.
+- **COSMETIC** — `.claude/agents/02_audit/audit-helper.md:28` — Step 4 'Cross-reference git history if asked... When Bash is unavailable' implies Bash may be available, but the frontmatter tools list (Glob, Grep, Read) never includes Bash — the fallback is the only path.
+  - evidence: Line 4: `tools: Glob, Grep, Read`; line 28: 'When `Bash` is unavailable, infer from filenames and CHANGELOG entries.'
+- **COSMETIC** — `.claude/agents/05_meta/manager-optimizer.md:34` — Producer enumeration 'all producers (task-watchdog, cruft-checker, code-quality-auditor, session-end-telemetry)' omits roadmap-auditor, which has 14 live observations in the dogfood .claude/observations/.
+  - evidence: python count of .claude/observations/*.json source fields: {'cruft-checker': 176, 'session-end-telemetry': 53, 'roadmap-auditor': 14, 'manual': 3, 'task-watchdog': 3}. Correct for template installs (roadmap-auditor is dogfood-only), incomplete for the dogfood copy; 'all producers' is the operative phrase so behavior is unaffected.
+- **COSMETIC** — `.claude/agents/05_meta/plugin-context-matcher.md:3` — Frontmatter description says 'Runs scripts/plugin-context-matcher.sh' but the script lives at .claude/scripts/; the repo also has a root scripts/ dir (install.sh, update.sh) so the shorthand is ambiguous.
+  - evidence: ls scripts/ -> install.sh, update.sh only; ls .claude/scripts/ -> plugin-context-matcher.sh present. Body line 15 has the correct path (bash .claude/scripts/plugin-context-matcher.sh).
+- **COSMETIC** — `.claude/agents/05_meta/plugin-discovery-agent.md:3` — Frontmatter description says 'running scripts/plugin-discovery.sh'; actual path is .claude/scripts/plugin-discovery.sh (root scripts/ holds only install.sh/update.sh).
+  - evidence: ls scripts/ -> install.sh, update.sh. Body line 15 states the correct path.
+- **COSMETIC** — `.claude/agents/05_meta/project-tuner-helper.md:107` — 'Nine placeholders' — only 8 exist as literal {{...}} markers in the template tree; COMPACT_PROMPT is not a placeholder but a pre-filled default in settings.json.template.
+  - evidence: grep for {{[A-Z_]+}} across template/*.template + template/.claude finds 7 distinct in the three docs plus {{TEST_COMMAND}} in post-edit-test-suggest/SKILL.md = 8. template/.claude/settings.json.template:19 ships a filled compactPrompt with the note '(Generic defaults - dispatch project-tuner-helper to tune this block...)'. The doc's own 'What it generates' correctly says 'Writes the project-specific compactPrompt into .claude/settings.json', so only the count framing is off.
+- **COSMETIC** — `.claude/agents/05_meta/roadmap-auditor.md:75` — 'findings route to .claude/observations/ -> workflow suggester / manual triage, exactly like every other producer' overstates the workflow-suggester leg: this agent emits occurrences: 1 (line 68), which sits below workflow-suggester's occurrences >= 3 capture threshold, so the practical route is manual triage until 3 re-detections (~75 sessions at cadence 25).
+  - evidence: roadmap-auditor.md:68 ('occurrences: 1 with full-resolve-pass semantics') vs workflow-suggester.md:34 ('occurrences >= 3 — at least three sightings'). The '/ manual triage' alternative keeps the sentence technically true.
+- **COSMETIC** — `.claude/agents/05_meta/script-builder.md:65` — Length comparison cites 'commit.sh (58 lines)'; commit.sh is 57 lines.
+  - evidence: wc -l .claude/scripts/commit.sh -> 57.
+- **COSMETIC** — `.claude/agents/05_meta/token-cost-monitor.md:84` — 'the v1.2.0 optimizer will draft against it, approval-gated' — future tense for a component that shipped (manager-optimizer, Phase 53) and now does draft against gate-config.
+  - evidence: gate-config.json _meta.consumers: 'manager-optimizer (second consumer, Phase 53 — ... DRAFTS adjustments to existing keys...)'; manager-optimizer.md ships in the same directory. The frontmatter's own description already names it 'the v1.2.0 per-project manager-optimizer is its second [consumer]' in present terms.
+- **COSMETIC** — `.claude/agents/05_meta/workflow-suggester.md:9` — Producer roster '(task-watchdog, cruft-checker, code-quality-auditor, session-end telemetry)' omits roadmap-auditor, which has 14 live observations in the dogfood observations directory.
+  - evidence: Observation source counts: cruft-checker 176, session-end-telemetry 53, roadmap-auditor 14, manual 3, task-watchdog 3. Correct for template installs (roadmap-auditor is dogfood-only); mirror rule makes a dogfood-only fix awkward, so a producer-agnostic phrasing would be the clean resolution.
+- **COSMETIC** — `.claude/agents/05_meta/workflow-suggester.md:77` — 'Pruning observations is the future manager-optimizer's role' — manager-optimizer itself is shipped (Phase 53); only the loop-pruning capability remains future, per ROADMAP.
+  - evidence: manager-optimizer.md ships in the same directory (draft-only v1, no pruning in its charter); docs/ROADMAP.md v1.2.0-class list still carries 'Loop pruning (via manager-optimizer)' as unshipped, so the role attribution holds but the 'future manager-optimizer' phrasing is stale.
+- **COSMETIC** — `.claude/skills/post-edit-test-suggest/SKILL.md:22` — The {{TEST_COMMAND}} placeholder is unresolved in the dogfood install, so the skill's promised next-step line ('run {{TEST_COMMAND}} to verify') is literally unactionable here.
+  - evidence: Line 22: '{{TEST_COMMAND}} is project-specific. project-tuner-helper fills this at install time.' The dogfood copy is byte-identical with the template (consistent with .claude/ byte-parity), but the skeleton acting as 'its own first installed project' never got its tuner fill — its real test command (the CI scenarios runner) is nowhere named on this surface.
+- **COSMETIC** — `CLAUDE_MANAGER.md:166` — § When to dispatch task-watchdog describes only two pattern shapes (bash ≥5min + recurring failures) and omits the Agent-dispatch duration leg (60-min threshold) that the shipped script and the roster row (line 300) both carry.
+  - evidence: .claude/scripts/task-watchdog.sh:25 'AGENT_DURATION_THRESHOLD_MS=3600000 # 60 minutes — Agent awaits exceeding this are flagged' and :298 'Duration check — Bash + Agent (obs 6708b966...)'. CLAUDE_MANAGER.md:166 says 'writes observation files for two pattern shapes: long-running bash calls (≥5min ...) and recurring failures' — the Agent leg shipped after this prose and never got folded in.
+- **COSMETIC** — `CLAUDE_MANAGER.md:495` — Borderline wedge-register phrasing: the review-necessity test frames the owner's attention as a managed psychological budget ('spending the scarcity', 'a withdrawal from the attention the necessary ones need').
+  - evidence: Line 495: 'is this worth spending the scarcity that gives gates their meaning? ... Every unnecessary gate is a withdrawal from the attention the necessary ones need.' This is attention-economics framing of the person rather than of the mechanism; milder than the gate-config.json 'habituation' line (flagged separately) but the same register family.
+- **COSMETIC** — `ROUTING.md:45` — Inconsistent dogfood-only coverage: roadmap-auditor (dogfood-only) has a routing row, but the equally dogfood-only /graduation-review command and the cruft-check.sh SessionStart hook entry (both live in this install) have none.
+  - evidence: .claude/commands/graduation-review.md exists and settings.json registers 'cruft-check.sh --hook' as a SessionStart entry, yet ROUTING.md's slash-command and hook rows omit both while line 45 carries the dogfood-only roadmap-auditor row. A stranger using ROUTING as the task→handler table won't find either; CLAUDE_MANAGER §§ cruft-checker / mirror-invariants are the only pointers.
+
 ## Wave G — close
 
-*(summary lands here at close: findings by wave and severity; the BLOCKER list as the pre-sharing punch list; ledger 100% verification)*
+**Coverage: 242 of 242 ledger rows stamped (100%)** — the 241 tracked at Wave 0 plus this doc's own row, added at close so the ledger reconciles with `git ls-files` exactly. Every row carries the sha it was reviewed at; 84 rows are template mirrors stamped by verified byte-parity with their reviewed dogfood twin (md5-compared at review time — 88 of 90 pairs identical; the 2 that differ, `gate-config.json` and `optimizer-proposals.json`, were reviewed as separate files). All 159 findings are also written as observations (severity in `notes`) so the triage machinery owns them from here. **Nothing was fixed in-pass.**
+
+### Findings by wave and severity
+
+| wave | scope | BLOCKER-for-strangers | SHOULD-FIX | COSMETIC |
+|---|---|---|---|---|
+| A | shipped scripts | 2 | 24 | 26 |
+| B | hooks + libs | 6 | 17 | 11 |
+| C | config/schemas/fixtures/CI | 0 | 10 | 10 |
+| D | agents/commands/skills/directives | 0 | 12 | 15 |
+| E | public docs | 4 | 4 | 4 |
+| F | the remainder | 0 | 9 | 5 |
+| **total** | **241 files / 33,062 lines** | **12** | **76** | **71** |
+
+### The pre-sharing punch list (BLOCKERS)
+
+Ordered by what an outside pair of eyes hits first. Nothing here is fixed; this is the list.
+
+**1. The safety layer does not hold its own contract (6 blockers, Wave B).** Every one was reproduction-verified against the live hooks, not reasoned about:
+
+- `.claude/hooks/pretooluse-bash-safety.sh:104` — strip_bash_heredocs treats any `<<IDENT` on a line — including inside a comment, a quoted string, or a `<<<` here-string — as a heredoc opener, blanking every subsequent line so the pattern scan never sees it.
+  - evidence: Verified against the live hook: `# note <<EOF\nrm -rf /` => allow; `echo "see <<EOF for docs"\nrm -rf /` => allow; `cat <<<HELLO\nrm -rf /` => allow (regex matches the 2nd+3rd `<` of `<<<`). Baseline `rm -rf /` => deny.
+- `.claude/hooks/pretooluse-bash-safety.sh:148` — Fail-OPEN when the lib file exists but is empty/truncated/syntax-broken: under bash 5 `"${ARR[@]}"` on an unset array is empty even with `set -u`, so the loop body never runs and every command is allowed with no signal.
+  - evidence: Verified: with CLAUDE_PROJECT_DIR pointed at a dir containing a zero-byte .claude/lib/destructive-bash-patterns.sh, `rm -rf /` => `permissionDecision: allow`, exit 0. Contradicts the file header's "Fail-closed" contract (line 10); a partial clone/copy of this template silently disarms the hook.
+- `.claude/hooks/pretooluse-powershell-safety.sh:108` — strip_ps_herestrings opens a here-string on ANY line ending in `@"` or `@'`, including inside ordinary quoted text, blanking every following line until a closer that may never come.
+  - evidence: Verified: `Write-Host "mail a@"\nRemove-Item -Recurse -Force C:\foo` => allow, while the same Remove-Item alone => deny.
+- `.claude/hooks/pretooluse-powershell-safety.sh:156` — Same fail-OPEN as the Bash hook when destructive-powershell-patterns.sh is present but empty/corrupt — unset array under bash 5 yields a zero-iteration loop and a blanket allow.
+  - evidence: Confirmed by the equivalent Bash-hook test (zero-byte lib => allow, exit 0); the code path here is identical (source at line 45, loop at 156, no post-source array-populated assertion).
+- `.claude/lib/destructive-bash-patterns.sh:17` — The `rm -rf` pattern is defeated by flag order, flag splitting, long flags, or any non-space delimiter before `rm`.
+  - evidence: All verified => allow against the live hook: `rm -fr /`, `rm -r -f /`, `rm --recursive --force /`, `echo hi;rm -rf /`, `(rm -rf /)`, `\rm -rf /`. Only the literal ` rm -rf ` form denies. Fix shape: anchor `(^|[^[:alnum:]_./-])` and match `-[a-zA-Z]*r[a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*r|--recursive`.
+- `.claude/lib/destructive-powershell-patterns.sh:19` — PowerShell accepts unambiguous parameter-name prefixes, but the regex only matches `-r`/`-recurse` and `-f`/`-force` exactly, so abbreviated flags bypass a genuinely destructive delete.
+  - evidence: Verified: `Remove-Item -rec -for C:\Windows` => allow (PowerShell executes this identically to `-Recurse -Force`), while `Remove-Item C:\Windows -Recurse -Force` => deny. Fix: `-r(e(c(u(r(s(e)?)?)?)?)?)?` style prefix matching.
+
+**2. `update.sh` can corrupt an install on its own declared platform (2 blockers, Wave A).**
+
+- `scripts/update.sh:384` — cleanup_backups/rollback expand empty arrays unguarded; fatal under set -u on bash < 4.4 (macOS 3.2, the script's stated target)
+  - evidence: Lines 366/369/374/384/388 use "${MODIFIED[@]}" etc. without the :- guard used everywhere else (cf. lines 77, 609, 1108). cleanup_backups is called unconditionally at line 1183; a run where MODIFIED and DELETED_BACKUPS are empty (e.g. only NEW files applied) dies with 'unbound variable' AFTER write_version_marker, then the EXIT trap's rollback deletes the just-applied files while the marker keeps their hashes — corrupted install state. rollback itself has the same landmine (MODIFIED non-empty but ADDED_FILES empty crashes at line 366 mid-restore, leaving overwritten files and stray .bak.$$ litter).
+- `scripts/update.sh:182` — detect_json_tool prefers `python` over `python3` and never verifies the interpreter actually runs or is Python >= 3.7
+  - evidence: On stock Windows the WindowsApps `python.exe` stub satisfies `command -v python` but exits 9009 (Store nag), so dump_marker dies with the misleading 'failed to parse .skeleton-version'. On systems where `python` is Python 2, dump_marker's f-strings are a SyntaxError; on 3.6, sys.stdout.reconfigure (line 203) is AttributeError. Should try python3 first and probe with e.g. `"$t" -c 'import sys; sys.exit(0 if sys.version_info>=(3,7) else 1)'`.
+
+**3. Stranger-facing language (4 blockers, Wave E) — one substantive, three register.** Disposition note added at close, having read all four lines verbatim: README's mid-task claim is a genuine factual contradiction with the shipped PreToolUse/PreCompact hooks and belongs on this list. The two `overriding a deny rule` hits (ROADMAP:198, STORY:65) sit inside the *protections-can-be-turned-off-but-never-silently* principle — the word describes a user action on a rule, which reads as benign-technical rather than wedge register; they are recorded at the reviewer's severity but flagged here as likely downgrades for the owner's call. GETTING-STARTED:8's "it stops you… when it stops you" is the newest line in the repo (Phase 104, written this session) and is the one register hit I would not argue with.
+
+- `docs/GETTING-STARTED.md:101` — Wedge grep hit: "nudge" — behavior-psychology vocabulary on a stranger-facing surface where the mandate expects zero.
+- `docs/GETTING-STARTED.md:8` — Governs-the-person phrasing: "it stops you only at the few doors that don't reopen, and when it stops you, it tells you why" — the system acting on the person, twice in one sentence, in the opening frame of the doc.
+- `docs/ROADMAP.md:198` — Literal wedge-grep hit: 'overriding' in 'overriding a deny rule'
+- `docs/STORY.md:65` — Literal wedge-grep hit: 'overriding' in 'overriding a deny rule'
+
+### Honest notes on the pass itself
+
+- **CLEAN was used freely** — a large majority of the 241 rows carry no findings, including whole groups (the six skills, most commands, LICENSE/COMMERCIAL/PLUGINS-GETTING-STARTED, both gate-configs, every frozen audit record but one).
+- **The two densest failure classes are the oldest code.** The safety hooks and pattern libs date to Phases 14c/21/24 and have been touched mainly for false-positive relief since; the full pass is the first time anything attacked them adversarially.
+- **What this pass did NOT cover:** runtime behavior under real concurrent sessions, the installed experience on a machine that is not this one (macOS/Linux findings are read-derived, not executed), and the CHANGELOG body (frozen history, headnote only — stated in its row).
+
