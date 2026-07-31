@@ -30,7 +30,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          # Phase 107: full history so the ENTIRE push range is diffable.
+          # fetch-depth 2 only reached HEAD^, so a multi-commit push whose
+          # TIP was docs-only ran linux-only even when earlier commits
+          # touched scripts/hooks/libs — which is exactly how Phase 106's
+          # safety code got single-platform coverage. Cost: a few seconds
+          # on one ubuntu job, against shipping portability-sensitive code
+          # unverified on two platforms.
+          fetch-depth: 0
       - id: diff
         shell: bash
         run: |
@@ -41,12 +48,22 @@ jobs:
             echo "full matrix: event=${{ github.event_name }} ref_type=${{ github.ref_type }}"
             exit 0
           fi
-          if ! git rev-parse HEAD^ >/dev/null 2>&1; then
+          # Diff the whole push range, not just its tip. Fail OPEN (full
+          # matrix) on branch creation (all-zero before), a missing before,
+          # or a before this clone cannot resolve (force push).
+          before='${{ github.event.before }}'
+          case "$before" in
+            ''|0000000000000000000000000000000000000000)
+              echo "os_list=$full" >> "$GITHUB_OUTPUT"
+              echo "full matrix: no before-sha (branch creation) — fail-open"
+              exit 0 ;;
+          esac
+          if ! git rev-parse --verify "$before^{commit}" >/dev/null 2>&1; then
             echo "os_list=$full" >> "$GITHUB_OUTPUT"
-            echo "full matrix: no parent commit (first/force push) — fail-open"
+            echo "full matrix: before-sha unreachable (force push?) — fail-open"
             exit 0
           fi
-          changed=$(git diff --name-only HEAD^ HEAD)
+          changed=$(git diff --name-only "$before" HEAD)
           echo "$changed"
           if printf '%s\n' "$changed" | grep -qE '^(scripts/|\.claude/(scripts|hooks|lib)/|template/\.claude/(scripts|hooks|lib)/|\.github/(test-fixtures/|workflows/ci\.yml))'; then
             echo "os_list=$full" >> "$GITHUB_OUTPUT"
