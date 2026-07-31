@@ -108,7 +108,7 @@ scenario_fresh_install() {
   out=$(bash "$SKELETON_DIR/scripts/install.sh" \
     --source "$SKELETON_DIR" --target "$TEST_DIR" \
     --mode=fresh --claude-only)
-  verify_marker 81
+  verify_marker 82
   # Phase 72: the post-install message points somewhere real, and the
   # greeting surface carries no literal placeholder.
   assert_contains "$out" "GETTING-STARTED"
@@ -1213,7 +1213,7 @@ LEGACY
     cat "$TEST_DIR/.claude/.skeleton-version" >&2
     exit 1
   fi
-  verify_marker 81
+  verify_marker 82
   echo "PASS backfill-migrate"
 }
 
@@ -1268,8 +1268,8 @@ with open(sys.argv[1]) as f:
     d = json.load(f)
 raw = d.get('raw_template_baselines')
 n = len(raw) if isinstance(raw, dict) else None
-if n != 81:
-    sys.exit(f'ERROR: expected 81 raw_template_baselines after migration, got {n}')
+if n != 82:
+    sys.exit(f'ERROR: expected 82 raw_template_baselines after migration, got {n}')
 print(f'  raw_template_baselines present after migration: {n} entries')
 " "$marker"
   echo "PASS raw-baseline-migrate"
@@ -2869,6 +2869,86 @@ scenario_replace_with_yes_piped() {
   echo "PASS replace-with-yes-piped"
 }
 
+# ---- Phase 112: interpreter-probe class sweep ----
+# One canonical detector, every consumer. Each leg runs a consumer with a
+# PATH where a NON-RUNNABLE `python` shadows a working `python3` (the
+# Windows Store stub shape) and then with only a non-runnable candidate,
+# asserting correct selection and an HONEST failure message — the audit's
+# complaint was misdiagnosis, not just breakage.
+scenario_interpreter_probe_class() {
+  echo ">> interpreter-probe-class: python3 selected under a stub-shadowed PATH; honest message when none works (Phase 112)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only > /dev/null
+
+  # Two PATH shapes, built once.
+  local stub="$TEST_DIR/stubpath" none="$TEST_DIR/nonepath" real_py
+  mkdir -p "$stub" "$none"
+  real_py=$(command -v python3 2>/dev/null || command -v python)
+  python3 -c 'pass' >/dev/null 2>&1 || real_py=$(command -v python)
+  printf '#!/usr/bin/env bash\nexit 9\n' > "$stub/python"
+  printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "$real_py" > "$stub/python3"
+  printf '#!/usr/bin/env bash\nexit 9\n' > "$none/python"
+  printf '#!/usr/bin/env bash\nexit 9\n' > "$none/python3"
+  chmod +x "$stub/python" "$stub/python3" "$none/python" "$none/python3"
+  # A PATH with ONLY the broken candidates plus the core utilities the
+  # scripts need (so the leg tests the probe, not a missing coreutils).
+  local core; core=$(dirname "$(command -v sed)")
+  local none_path="$none:$core:/usr/bin:/bin"
+
+  # Leg 1 — the lib itself selects python3, never the broken python.
+  local sel
+  sel=$(PATH="$stub:$PATH" bash -c ". '$TEST_DIR/.claude/lib/detect-python.sh'; printf '%s' \"\$DETECTED_PYTHON\"")
+  assert_eq "$sel" "python3"
+  local sel_none
+  sel_none=$(PATH="$none_path" bash -c ". '$TEST_DIR/.claude/lib/detect-python.sh'; printf '%s' \"\$DETECTED_PYTHON\"")
+  [ -z "$sel_none" ] || { echo "ERROR: probe accepted a non-runnable interpreter: [$sel_none]" >&2; exit 1; }
+  echo "  leg 1: lib selects python3 under a stub-shadowed PATH; empty (never a guess) when none works OK"
+
+  # Leg 2 — share-status: correct under the stub PATH, and on a
+  # no-python PATH it must say python is required, NOT advise update.sh
+  # (the audit's misdiagnosis case).
+  local out
+  out=$(cd "$TEST_DIR" && PATH="$stub:$PATH" bash .claude/scripts/share-status.sh 2>&1 || true)
+  printf '%s' "$out" | grep -qi "python 3" && { echo "ERROR: share-status wrongly reported a python problem with a working python3" >&2; exit 1; }
+  out=$(cd "$TEST_DIR" && PATH="$none_path" bash .claude/scripts/share-status.sh 2>&1 || true)
+  printf '%s' "$out" | grep -qi "python 3.7+ required" \
+    || { echo "ERROR: share-status did not report the real cause: $out" >&2; exit 1; }
+  printf '%s' "$out" | grep -qi "update.sh" \
+    && { echo "ERROR: share-status still gives the WRONG remedy (update.sh) for a missing interpreter" >&2; exit 1; }
+  echo "  leg 2: share-status correct under stub PATH; honest cause, no wrong remedy, when none works OK"
+
+  # Leg 3 — cruft-check: the audit's worst case. With no interpreter it
+  # silently exit-0'd, so the auditor APPEARED to pass. It must still
+  # exit 0 (hook-invoked; never blocks a session) but say why on stderr.
+  # cruft-check is DOGFOOD-ONLY (never installed into a target), so this
+  # leg runs the skeleton's own copy against a scratch project dir.
+  local cerr crc=0
+  cerr=$(cd "$TEST_DIR" && PATH="$none_path" CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$SKELETON_DIR/.claude/scripts/cruft-check.sh" 2>&1 >/dev/null) || crc=$?
+  assert_eq "$crc" "0"
+  printf '%s' "$cerr" | grep -qi "python 3.7+ required" \
+    || { echo "ERROR: cruft-check still passes SILENTLY with no interpreter (appears to have audited): [$cerr]" >&2; exit 1; }
+  echo "  leg 3: cruft-check exits 0 but names the real cause instead of appearing to pass OK"
+
+  # Leg 4 — every shipped consumer sources the one detector; no
+  # presence-only probe survives outside the documented bootstrap.
+  local leftovers
+  # detect-python.sh is EXPECTED to contain the probe — it IS the probe.
+  leftovers=$(grep -ln 'command -v python' \
+    "$TEST_DIR"/.claude/scripts/*.sh "$TEST_DIR"/.claude/lib/*.sh 2>/dev/null \
+    | grep -v 'detect-python.sh' || true)
+  if [ -n "$leftovers" ]; then
+    echo "ERROR: presence-only probes survive in the installed tree:" >&2
+    printf '%s\n' "$leftovers" >&2; exit 1
+  fi
+  grep -q 'detect-python.sh' "$TEST_DIR/.claude/lib/shared-memory-lib.sh" \
+    || { echo "ERROR: shared-memory-lib does not source the canonical detector" >&2; exit 1; }
+  echo "  leg 4: no presence-only probe survives in the installed tree OK"
+
+  echo "PASS interpreter-probe-class (4 legs)"
+}
+
 # ---- Phase 110: update.sh install-integrity scenario ----
 # The update path is the one surface where a defect can leave a project
 # WORSE than before the run. Each leg proves one Phase 105 finding.
@@ -3246,6 +3326,7 @@ case "${1:-}" in
   hook-fp-exemption-git-commit-message) scenario_hook_fp_exemption_git_commit_message ;;
   hook-destructive-canonicalization) scenario_hook_destructive_canonicalization ;;
   update-integrity)                 scenario_update_integrity ;;
+  interpreter-probe-class)          scenario_interpreter_probe_class ;;
   all)
     scenario_fresh_install
     scenario_raw_baseline_install
@@ -3300,6 +3381,7 @@ case "${1:-}" in
     scenario_hook_fp_exemption_git_commit_message
     scenario_hook_destructive_canonicalization
     scenario_update_integrity
+    scenario_interpreter_probe_class
     echo "ALL SCENARIOS PASSED"
     ;;
   ""|-h|--help)
@@ -3340,6 +3422,7 @@ Scenarios:
   raw-baseline-migrate         Pre-Phase-52 marker → inline migration; tuner edit stays LOCALLY_MODIFIED (Phase 52).
   check-remote-cached          --check-remote against mock bare repo populates cached_skeleton_head (Phase 30b H5).
   hook-fail-closed-bash-safety Missing lib → PreToolUse hook emits deny JSON (Phase 30b H5).
+  interpreter-probe-class      One canonical python detector across every consumer; honest failure message (Phase 112).
   update-integrity             Empty-array cleanup, interpreter probe, glob source path, marker-commit validation, EOF-skip (Phase 110).
   hook-destructive-canonicalization  Canonicalized matching: single-char variants deny, confident stripping, cross-shell, empty lib fails closed, deny JSON valid (Phase 106).
   cruft-check-fixture          Broken markdown link → cruft-check.sh heuristic-i observation (Phase 30b H5).
