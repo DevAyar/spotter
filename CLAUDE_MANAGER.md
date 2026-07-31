@@ -313,7 +313,7 @@ Helpers live in `.claude/agents/`. The baseline roster:
 
 ## Tier system
 
-- **T1 — Always-on baseline.** The nineteen helpers above (four core + fifteen meta), the thirteen scripts under `.claude/scripts/`, the seven hook scripts wired across four events (PreCompact, PreToolUse, SessionStart, SessionEnd), the six skills (`schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, `bash-safety`, `token-efficiency-monitor`, `plugin-roster-search`). Ships in every install. Counts are re-derived mechanically when this line changes (see § Roster and doc surfaces update in the same phase).
+- **T1 — Always-on baseline.** The nineteen helpers above (four core + fifteen meta), the fourteen scripts under `.claude/scripts/`, the seven hook scripts wired across four events (PreCompact, PreToolUse, SessionStart, SessionEnd), the six skills (`schema-verify-before-edit`, `post-edit-test-suggest`, `god-file-grep-first`, `bash-safety`, `token-efficiency-monitor`, `plugin-roster-search`). Ships in every install. Counts are re-derived mechanically when this line changes (see § Roster and doc surfaces update in the same phase).
 - **T2 — Escalation.** Helpers and scripts added for this project's specific needs. Loaded by default but project-specific.
 - **T3 — On-demand plugins.** Opt-in tooling (e.g. `browser-tester`). The manager only invokes T3 when explicitly relevant.
 

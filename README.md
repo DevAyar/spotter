@@ -38,8 +38,12 @@ in this repo (engine codename `claude-skeleton`) is the seed, not the product.
   ([plugin-quality-check.sh](template/.claude/scripts/plugin-quality-check.sh),
   [drift-check.sh](template/.claude/scripts/drift-check.sh)).
 
-Everything runs from SessionStart and SessionEnd hooks. No cron, no daemons,
-nothing fires mid-task.
+The watchers and reports run at session start and session end. Three things
+fire mid-task, deliberately: the two destructive-command gates
+([bash](template/.claude/hooks/pretooluse-bash-safety.sh),
+[PowerShell](template/.claude/hooks/pretooluse-powershell-safety.sh)) and a
+pre-compact backup — each announces itself when it acts. No cron, no daemons,
+nothing polling in the background.
 
 ## The system keeps receipts
 

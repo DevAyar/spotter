@@ -5,12 +5,13 @@ unfamiliar session-start output. This walks what happened, what you'll see,
 and what to do first. (Install mechanics themselves — modes, flags, updates —
 live in [`INSTALLATION.md`](INSTALLATION.md).)
 
-Spotter flows by default and hands you receipts; it stops you only at the few
-doors that don't reopen, and when it stops you, it tells you why.
+Spotter flows by default and hands you receipts. Gates fire on the few
+operations that can't be undone, and every gate names the trigger that fired
+it.
 
 ## What just happened to your project
 
-The install copied the skeleton baseline in (a fresh run reports ~82 files):
+The install copied the skeleton baseline in (a fresh run reports 81 files):
 
 - **`.claude/agents/`** — 19 helpers in numbered role folders: research,
   audit, monitoring, planning, and a meta tier that watches the system
@@ -18,8 +19,8 @@ The install copied the skeleton baseline in (a fresh run reports ~82 files):
 - **`.claude/skills/`** — 6 behavioral conventions the manager follows
   without needing a hook (grep-before-reading-huge-files, bash-safety
   excludes, schema-check-before-config-edits, and so on).
-- **`.claude/scripts/`** — 13 mechanical wrappers (commit, deploy, drift
-  check, the goals surfacer, shared-memory tooling).
+- **`.claude/scripts/`** — 14 mechanical wrappers (commit, deploy, drift
+  check, the goals surfacer, the receipt renderer, shared-memory tooling).
 - **`.claude/commands/`** — 10 slash commands, including `/goals` (more on
   that below) and `/commit`.
 - **`.claude/hooks/`** — 7 hook scripts wired across four events in
@@ -98,7 +99,7 @@ Line by line:
   context segment so you see both).
 
 Two more lines exist that you won't see for a while, correctly: the
-manager-optimizer nudge (needs draft proposals or a session-count threshold)
+manager-optimizer reminder line (needs draft proposals or a session-count threshold)
 and the `[goals]` line (needs an *approved* spec with a due schedule). A
 fresh install's first session is mostly quiet. That's not a failure to
 launch — the system speaks when it has observed something, and it hasn't
