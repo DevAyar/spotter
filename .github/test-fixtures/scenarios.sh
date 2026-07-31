@@ -2667,6 +2667,53 @@ EOF
   ( cd "$root14" && CI= RECEIPT_PIN_BIN="$TEST_DIR/pin-stub.sh" CLAUDE_PROJECT_DIR="$root14" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --pin "$root/full.txt" > /dev/null 2>&1 )
   grep -q "Ship receipt topmost" "$TEST_DIR/pin.log" || { echo "ERROR: pin stub missing the card title" >&2; exit 1; }
   echo "  leg 14: --pin parses; stub proves right title per mode; CI silent OK"
+  # Leg 15 (Phase 107): a receipt whose COST line is the TRIPPED dollar
+  # form must render. Pre-107 the badge builder emitted kind "warn" for
+  # that state while the ANSI palette defined no such key, so the card
+  # crashed with KeyError: 'warn' - exactly when spending matters most.
+  local root15="$TEST_DIR/proj15"
+  mkdir -p "$root15/.claude"
+  cat > "$root15/tripped.txt" <<'EOF'
+VERDICT: Phase 90 shipped and pushed (b71dbb1) - fixture for the tripped-cost card.
+WHAT CHANGED: A fixture line.
+SAFETY: 2 automated checks were written to fail against the old code; all 2 pass against the new (fixture).
+COST: last sitting ~$75.18 (in 130 / out 0.1M / cache 44.1M @ claude-fable-5 rates, API-equiv) !! over threshold (7d>1200)
+MODEL: Written by Claude Fable 5, per the commit's signature line.
+EOF
+  local trip_out trip_rc=0
+  trip_out=$( cd "$root15" && COLUMNS=78 CLAUDE_PROJECT_DIR="$root15" \
+    bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --ansi "$root15/tripped.txt" 2>&1 ) || trip_rc=$?
+  [ "$trip_rc" -eq 0 ] || { echo "ERROR: tripped-cost receipt failed to render (rc=$trip_rc):" >&2; printf '%s\n' "$trip_out" >&2; exit 1; }
+  printf '%s' "$trip_out" | grep -q "spending flagged" || { echo "ERROR: tripped card lost the flagged badge" >&2; exit 1; }
+  printf '%s' "$trip_out" | grep -q "over threshold" || { echo "ERROR: tripped card lost the cost sentence" >&2; exit 1; }
+  echo "  leg 15: tripped-cost receipt renders with the flagged badge OK"
+  # Leg 16 (Phase 107): an UNKNOWN badge state must degrade to a neutral
+  # style, never raise. The shipped parser cannot emit an unknown kind
+  # today (all five emit sites use palette keys), so this asserts the
+  # structural fallback against the renderer's own program text rather
+  # than claiming coverage the parser cannot reach.
+  local fallback_out
+  fallback_out=$(python - "$SKELETON_DIR/.claude/scripts/receipt-render.sh" <<'PYEOF' 2>&1
+import re, sys
+src = open(sys.argv[1], encoding="utf-8").read()
+m = re.search(r"^PROGRAM=\$\(cat <<'PYEOF'\n(.*?)\nPYEOF\n\)", src, re.S | re.M)
+if not m:
+    print("PROBE-FAIL: could not extract the renderer program"); raise SystemExit(1)
+prog = m.group(1)
+chip = re.search(r"def chip\(text, kind\):\n(.*?)\n    def ", prog, re.S)
+if not chip:
+    print("PROBE-FAIL: could not locate chip()"); raise SystemExit(1)
+body = chip.group(1)
+if "PAL[kind]" in body:
+    print("PROBE-FAIL: chip() still indexes PAL directly - an unknown badge state raises")
+    raise SystemExit(1)
+if ".get(" not in body:
+    print("PROBE-FAIL: chip() has no palette fallback"); raise SystemExit(1)
+print("PROBE-OK: chip() resolves the palette with a fallback; unknown states degrade")
+PYEOF
+) || { echo "ERROR: unknown-badge-state fallback probe failed:" >&2; printf '%s\n' "$fallback_out" >&2; exit 1; }
+  printf '%s' "$fallback_out" | grep -q "PROBE-OK" || { echo "ERROR: fallback probe did not confirm: $fallback_out" >&2; exit 1; }
+  echo "  leg 16: unknown badge state degrades to neutral (structural probe) OK"
   echo "PASS receipt-render"
 }
 

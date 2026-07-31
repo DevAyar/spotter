@@ -597,9 +597,14 @@ if mode == "ansi":
         sys.stdout.reconfigure(encoding="utf-8", newline="\n")
     except Exception:
         pass
-    PAL = {  # the HTML dark palette
+    PAL = {  # the HTML dark palette - keys must cover every badge state
         "good": ((143, 212, 154), (30, 51, 34)),
         "info": ((138, 184, 236), (28, 44, 64)),
+        # Phase 107: the flagged-spending badge. Its absence crashed the
+        # card with KeyError: 'warn' whenever cost was over threshold -
+        # exactly when the card matters most. Values are the HTML card's
+        # own --warn-fg / --warn-bg so both renders agree.
+        "warn": ((229, 181, 102), (58, 46, 20)),
         "plain": ((194, 194, 204), (40, 40, 46)),
         "muted": ((139, 139, 149), None),
         "amber": ((201, 143, 34), None),
@@ -615,7 +620,10 @@ if mode == "ansi":
         return ""
     RST = "\x1b[0m" if depth != "0" else ""
     def chip(text, kind):
-        fgc, bgc = PAL[kind]
+        # Phase 107: resolve with a fallback - an unknown badge state must
+        # degrade to the neutral style, never raise. A missing colour is a
+        # cosmetic problem; a traceback loses the whole receipt.
+        fgc, bgc = PAL.get(kind, PAL["plain"])
         if depth == "0" or bgc is None:
             return f"[{text}]"
         return f"{code(bgc, bg=True)}{code(fgc)} {text} {RST}"
