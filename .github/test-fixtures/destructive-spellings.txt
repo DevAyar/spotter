@@ -1,0 +1,63 @@
+# Phase 108 command-word spellings — DATA, never typed on a command line.
+#
+# Why a fixture and not inline cases: writing these literals into a live
+# shell invocation trips the PreToolUse gate they exist to test (the
+# operational lesson both propagation legs recorded). The scenario reads
+# this file and feeds each spelling to the hook as JSON, so the literals
+# never appear in a command the harness actually runs.
+#
+# Format:  shell|expected|description|spelling
+#   shell       bash | ps
+#   expected    deny | allow
+#   spelling    everything after the third pipe, verbatim, may contain pipes
+#
+# Every deny case below was RED against the pre-108 hooks: Phase 106
+# canonicalized flags but never the command word, so a directory-prefixed
+# or wrapper-passed invocation reached allow. Surfaced by Trainer-View's
+# Phase 106 propagation leg (c465884).
+
+# --- directory-prefixed invocations (the TV finding) ---
+bash|deny|absolute-path rm|/bin/rm -rf /
+bash|deny|usr-bin absolute-path rm|/usr/bin/rm -rf /
+bash|deny|relative dot-slash rm|./rm -rf /
+bash|deny|deep relative path rm|../../bin/rm -rf /
+bash|deny|absolute path with split flags|/bin/rm -r -f /
+bash|deny|absolute path with long flags|/usr/bin/rm --recursive --force /
+bash|deny|windows-separator path rm|C:\msys64\usr\bin\rm.exe -rf /
+bash|deny|absolute-path dd to device|/bin/dd if=/dev/zero of=/dev/nvme0n1
+bash|deny|absolute-path mkfs|/sbin/mkfs.ext4 /dev/nvme0n1p1
+bash|deny|absolute-path shred|/usr/bin/shred /
+
+# --- wrapper prefixes that pass a command through ---
+bash|deny|env wrapper|env rm -rf /
+bash|deny|env with assignment|env FOO=1 rm -rf /
+bash|deny|command builtin wrapper|command rm -rf /
+bash|deny|exec wrapper|exec rm -rf /
+bash|deny|nohup wrapper|nohup rm -rf /
+bash|deny|time wrapper|time rm -rf /
+bash|deny|xargs wrapper|xargs rm -rf /
+bash|deny|sudo wrapper|sudo rm -rf /
+bash|deny|doas wrapper|doas rm -rf /
+bash|deny|stacked wrappers|sudo env nohup rm -rf /
+bash|deny|wrapper plus absolute path|sudo /bin/rm -rf /
+
+# --- quoted command words ---
+bash|deny|double-quoted command word|"rm" -rf /
+bash|deny|single-quoted command word|'rm' -rf /
+bash|deny|quoted absolute path|"/bin/rm" -rf /
+
+# --- PowerShell qualified cmdlet forms ---
+ps|deny|module-qualified Remove-Item|Microsoft.PowerShell.Management\Remove-Item -Recurse -Force C:\Windows
+ps|deny|module-qualified with abbreviation|Microsoft.PowerShell.Management\Remove-Item -rec -for C:\Windows
+ps|deny|snapin-style qualified name|Microsoft.PowerShell.Core\Remove-Item -Recurse -Force C:\Windows
+ps|deny|ampersand-invoked path form|& "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -c "Remove-Item -Recurse -Force C:\Windows"
+
+# --- false-positive guard: ordinary paths and words must still ALLOW ---
+bash|allow|absolute-path git|/usr/bin/git status --short
+bash|allow|absolute-path bash script call|/bin/bash scripts/install.sh --help
+bash|allow|env wrapper on an ordinary command|env FOO=1 npm install
+bash|allow|sudo on an ordinary command|sudo apt-get install -y jq
+bash|allow|word merely containing rm|npm run format
+bash|allow|path segment merely containing rm|./tools/format/run.sh
+bash|allow|in-project single-file delete|rm -f .claude/receipts/latest.html
+ps|allow|ordinary qualified read cmdlet|Microsoft.PowerShell.Management\Get-ChildItem -Path . -Recurse

@@ -2879,10 +2879,15 @@ scenario_replace_with_yes_piped() {
 fp_assert_bash() {
   local expected="$1" desc="$2" cmd="$3"
   local payload
-  payload=$(python -c '
+  # Phase 108: the command travels on STDIN, not argv. Passing it as an
+  # argument let MSYS/Git-Bash path-convert POSIX-looking spellings into
+  # Windows absolute paths before python ever saw them (a /bin/... test
+  # case arrived as a C:/Program Files/... path), so the hook was being
+  # asked about a command the fixture never wrote. stdin is immune.
+  payload=$(printf '%s' "$cmd" | python -c '
 import json, sys
-print(json.dumps({"tool_name": "Bash", "tool_input": {"command": sys.argv[1]}}))
-' "$cmd")
+print(json.dumps({"tool_name": "Bash", "tool_input": {"command": sys.stdin.read()}}))
+')
   local out
   out=$(printf '%s' "$payload" | CLAUDE_PROJECT_DIR="$TEST_DIR" \
     bash "$TEST_DIR/.claude/hooks/pretooluse-bash-safety.sh" 2>&1)
@@ -2897,10 +2902,11 @@ print(json.dumps({"tool_name": "Bash", "tool_input": {"command": sys.argv[1]}}))
 fp_assert_ps() {
   local expected="$1" desc="$2" cmd="$3"
   local payload
-  payload=$(python -c '
+  # Phase 108: command on STDIN, not argv — see fp_assert_bash.
+  payload=$(printf '%s' "$cmd" | python -c '
 import json, sys
-print(json.dumps({"tool_name": "PowerShell", "tool_input": {"command": sys.argv[1]}}))
-' "$cmd")
+print(json.dumps({"tool_name": "PowerShell", "tool_input": {"command": sys.stdin.read()}}))
+')
   local out
   out=$(printf '%s' "$payload" | CLAUDE_PROJECT_DIR="$TEST_DIR" \
     bash "$TEST_DIR/.claude/hooks/pretooluse-powershell-safety.sh" 2>&1)
@@ -3033,7 +3039,30 @@ scenario_hook_destructive_canonicalization() {
     || { echo "ERROR (E2): PS lib-missing payload is not valid JSON with a deny decision:" >&2; printf '%s\n' "$out_json_ps" >&2; exit 1; }
   echo "  OK (E2 PowerShell lib-missing deny payload parses as JSON)"
 
-  echo "PASS hook-destructive-canonicalization (34 cases)"
+  # --- F. Phase 108: command-word spellings, read from the data fixture ---
+  # The spellings live in destructive-spellings.txt and are fed to the hook
+  # as JSON — they are never typed into a command line, because inline
+  # literals trip the live gate they exist to test (the lesson both
+  # propagation legs recorded). Surfaced by Trainer-View's Phase 106 leg.
+  local spell_file="$SCRIPT_DIR/destructive-spellings.txt"
+  [ -f "$spell_file" ] || { echo "ERROR: destructive-spellings.txt fixture missing" >&2; exit 1; }
+  local f_count=0 line shell_kind expected desc spelling
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|'#'*) continue ;; esac
+    shell_kind=${line%%|*}; line=${line#*|}
+    expected=${line%%|*}; line=${line#*|}
+    desc=${line%%|*}; spelling=${line#*|}
+    if [ "$shell_kind" = "bash" ]; then
+      fp_assert_bash "$expected" "F: $desc" "$spelling"
+    else
+      fp_assert_ps "$expected" "F: $desc" "$spelling"
+    fi
+    f_count=$((f_count + 1))
+  done < "$spell_file"
+  [ "$f_count" -ge 30 ] || { echo "ERROR: fixture yielded only $f_count cases — expected >= 30" >&2; exit 1; }
+  echo "  legs F: $f_count command-word spellings from the fixture OK"
+
+  echo "PASS hook-destructive-canonicalization (34 + $f_count cases)"
 }
 
 # ---- dispatch ----
