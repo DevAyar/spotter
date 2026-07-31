@@ -590,6 +590,17 @@ migrate_raw_baselines() {
   info "Migrating baseline scheme to raw-template hashes (one-time)…"
 
   local commit="${MARKER_COMMIT:-}"
+  # Phase 110: the marker's commit value flows into `git fetch` and
+  # `git worktree add`. Validate it as a bare hex sha BEFORE use — an
+  # arbitrary string there is an argument-injection shape (a value
+  # beginning with a dash would be read as an option). Non-conforming is
+  # NOT fatal: a legacy or hand-edited marker must still update, so this
+  # takes the same safe path as a missing commit.
+  if [ -n "$commit" ] && [ "$commit" != "unknown" ] \
+     && ! printf '%s' "$commit" | grep -qE '^[0-9a-fA-F]{7,40}$'; then
+    warn "marker commit is not a valid sha — ignoring it and classifying against the current template"
+    commit=""
+  fi
   if [ -z "$commit" ] || [ "$commit" = "unknown" ]; then
     warn "marker has no usable install commit — classifying against the current template"
     warn "(safe: tuner/user customizations surface as LOCALLY_MODIFIED, never auto-overwritten)."
@@ -687,7 +698,12 @@ classify() {
     case "$src" in
       */.gitkeep) continue ;;
     esac
-    rel="${src#$skel_claude/}"
+    # Phase 110: QUOTED prefix strip. Unquoted, the prefix is treated as a
+    # glob pattern, so a source path containing [ ] ? or * fails to strip
+    # and an ABSOLUTE machine path gets recorded as the marker's relative
+    # key — silently breaking every later classification. Same quoted form
+    # already used for the HOME strip in portable_source_path.
+    rel="${src#"$skel_claude"/}"
     mapped="$rel"
     case "$mapped" in
       *.template) mapped="${mapped%.template}" ;;
@@ -832,6 +848,18 @@ tags.sort()
 print(tags[-1][1])
 ') || die "no semver tags found on remote. Marker unchanged."
 
+  # Phase 110: a PRE-0.8.0 marker has no files object. Rewriting it here
+  # would emit `files: {}`, which reads back as "has a files object" —
+  # permanently defeating BACKFILL MODE, so the one-time forced review of
+  # a legacy install would never happen and orphan detection would start
+  # from an empty map. A cache refresh must never migrate the schema
+  # behind the user's back: report, and leave the marker alone.
+  if [ "$MARKER_HAS_FILES_OBJECT" = false ]; then
+    warn "marker predates per-file hashes — remote head NOT cached (that write would silently migrate the schema)."
+    warn "run a normal update first; its one-time backfill upgrades the marker with review."
+    return 0
+  fi
+
   local ts
   ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   {
@@ -868,7 +896,7 @@ maybe_announce_backfill() {
   warn "${C_BOLD}════════════════════ BACKFILL MODE ════════════════════${C_RESET}"
   warn "${C_BOLD}This marker was created before per-file hashes existed."
   warn "${C_BOLD}Cannot detect local modifications made before this migration."
-  warn "${C_BOLD}Files differing from the template are classified as TEMPLATE_UPDATED."
+  warn "${C_BOLD}Files differing from the template surface for individual review."
   warn "${C_BOLD}If you have known local modifications, REVIEW INDIVIDUALLY."
   warn "${C_BOLD}═══════════════════════════════════════════════════════${C_RESET}"
   if [ "$AUTO_APPLY" = true ]; then
@@ -938,7 +966,13 @@ apply_new() {
     reply="y"
   else
     printf 'Copy all? [Y/n] '
-    read -r reply || reply="y"
+    # Phase 110: EOF means SKIP, not apply. Every other prompt in this
+    # file defaults to the no-op choice on EOF (k / k / n); this one
+    # defaulted to "y", so a piped or non-interactive caller who never
+    # answered had files written into their project anyway. An
+    # interactive user pressing Enter still gets the documented [Y/n]
+    # default — only the no-answer case changed.
+    read -r reply || reply="n"
   fi
   case "$reply" in
     n|N|no|NO) info "skipped new files"; SKIPPED_FILES=$((SKIPPED_FILES + ${#NEW_FILES[@]})); return 0 ;;

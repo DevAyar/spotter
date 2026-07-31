@@ -2951,6 +2951,7 @@ PYEOF
   mkdir -p "$globsrc"
   cp -r "$SKELETON_DIR/template" "$globsrc/template"
   cp -r "$SKELETON_DIR/scripts" "$globsrc/scripts"
+  cp "$SKELETON_DIR/VERSION" "$globsrc/VERSION"
   local crc=0
   bash "$globsrc/scripts/update.sh" --source "$globsrc" --target "$TEST_DIR" --dry-run > "$TEST_DIR/c.out" 2>&1 || crc=$?
   [ "$crc" -eq 0 ] || { echo "ERROR (C): glob-metacharacter source path broke the run:" >&2; tail -12 "$TEST_DIR/c.out" >&2; exit 1; }
