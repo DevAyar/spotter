@@ -178,14 +178,23 @@ err()  { printf '%s%s%s\n' "${C_RED}"   "$*" "${C_RESET}" >&2; }
 die()  { err "error: $*"; exit 1; }
 
 # ---- JSON helpers ----
+# Phase 110: probe by EXECUTION, not presence, and prefer python3.
+# `command -v python` is satisfied by the Windows Store alias stub, which
+# exits nonzero on every real call — the script then died at dump_marker
+# with a misleading "failed to parse .skeleton-version". A `python` that
+# is Python 2 fails just as badly: dump_marker uses f-strings. This is
+# the house pattern already shipped in goals-surface.sh and
+# task-watchdog.sh (the Phase 63 silent-inert lesson).
 detect_json_tool() {
-  if command -v python >/dev/null 2>&1; then
-    JSON_TOOL="python"
-  elif command -v python3 >/dev/null 2>&1; then
-    JSON_TOOL="python3"
-  else
-    die "JSON parsing requires python on PATH (not found)"
-  fi
+  local cand
+  for cand in python3 python; do
+    if command -v "$cand" >/dev/null 2>&1 \
+       && "$cand" -c 'import json,sys; sys.exit(0 if sys.version_info >= (3,7) else 1)' >/dev/null 2>&1; then
+      JSON_TOOL="$cand"
+      return 0
+    fi
+  done
+  die "JSON parsing requires a runnable Python 3.7+ on PATH (checked python3, python)"
 }
 
 # gen_uuid → a UUID v4 on stdout (Python stdlib; no new dependency).
@@ -362,16 +371,25 @@ rollback() {
     return 0
   fi
   warn "update failed — restoring previous state"
+  # Phase 110: the :- guard is load-bearing, not style. Under set -u on
+  # bash < 4.4 (macOS ships 3.2 — a platform this script declares support
+  # for) expanding an EMPTY array aborts. The early return above fires
+  # only when ALL THREE arrays are empty, so a MIXED state — one bucket
+  # populated, another empty — aborted rollback part-way through, leaving
+  # overwritten files unrestored and .bak litter behind. Same guard form
+  # already used at the MARKER_HASH_ENTRIES loops in this file.
   local f entry path backup
-  for f in "${ADDED_FILES[@]}"; do
-    [ -f "$f" ] && rm -f "$f"
+  for f in "${ADDED_FILES[@]:-}"; do
+    [ -n "$f" ] && [ -f "$f" ] && rm -f "$f"
   done
-  for entry in "${MODIFIED[@]}"; do
+  for entry in "${MODIFIED[@]:-}"; do
+    [ -n "$entry" ] || continue
     path="${entry%%|*}"
     backup="${entry##*|}"
     [ -f "$backup" ] && mv -f "$backup" "$path"
   done
-  for entry in "${DELETED_BACKUPS[@]}"; do
+  for entry in "${DELETED_BACKUPS[@]:-}"; do
+    [ -n "$entry" ] || continue
     path="${entry%%|*}"
     backup="${entry##*|}"
     [ -f "$backup" ] && mv -f "$backup" "$path"
@@ -379,16 +397,30 @@ rollback() {
   ok "rollback complete"
 }
 
+# Phase 110: cleanup_backups has NO length guard of its own, so a run
+# whose only action bucket was NEW files reaches it with both arrays
+# empty — and it runs AFTER write_version_marker. An abort here therefore
+# triggered the EXIT trap's rollback, deleting just-applied files while
+# the marker already recorded their hashes: files and marker disagree,
+# which is the corrupted-install state. Ordering decision (Phase 110,
+# deliberate): the marker still writes FIRST — reversing it would risk
+# discarding backups with no marker to justify keeping them — and instead
+# nothing after the marker write is allowed to abort. Hence the guards
+# here plus a failure-tolerant call site: discarding .bak temporaries is
+# cosmetic and must never roll back a completed update.
 cleanup_backups() {
   local entry backup
-  for entry in "${MODIFIED[@]}"; do
+  for entry in "${MODIFIED[@]:-}"; do
+    [ -n "$entry" ] || continue
     backup="${entry##*|}"
     [ -f "$backup" ] && rm -f "$backup"
   done
-  for entry in "${DELETED_BACKUPS[@]}"; do
+  for entry in "${DELETED_BACKUPS[@]:-}"; do
+    [ -n "$entry" ] || continue
     backup="${entry##*|}"
     [ -f "$backup" ] && rm -f "$backup"
   done
+  return 0
 }
 
 trap cleanup EXIT INT TERM
@@ -1180,5 +1212,7 @@ apply_template_updates
 apply_local_modifications
 apply_orphans
 write_version_marker
-cleanup_backups
+# Phase 110: failure-tolerant by design — see cleanup_backups' header.
+# Nothing after a successful marker write may reach the rollback path.
+cleanup_backups || true
 summary

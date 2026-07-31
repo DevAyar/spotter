@@ -2869,6 +2869,131 @@ scenario_replace_with_yes_piped() {
   echo "PASS replace-with-yes-piped"
 }
 
+# ---- Phase 110: update.sh install-integrity scenario ----
+# The update path is the one surface where a defect can leave a project
+# WORSE than before the run. Each leg proves one Phase 105 finding.
+scenario_update_integrity() {
+  echo ">> update-integrity: empty-array cleanup, interpreter probe, glob path, marker-commit validation, EOF-skip (Phase 110)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only > /dev/null
+
+  # Leg A — the corrupting shape: a run whose ONLY action bucket is NEW
+  # files, so MODIFIED and DELETED_BACKUPS are both empty when
+  # cleanup_backups runs. Under set -u on bash < 4.4 the unguarded
+  # expansion aborts AFTER the marker was written, and the EXIT trap then
+  # rolls back applied files while the marker still records their hashes.
+  # Assert: clean exit AND marker<->disk agreement by re-hashing.
+  local newfile="$TEST_DIR/.claude/agents/05_meta/phase110-probe.md"
+  printf -- '---\nname: phase110-probe\n---\nfixture agent.\n' > "$SKELETON_DIR/template/.claude/agents/05_meta/phase110-probe.md"
+  local urc=0
+  bash "$SKELETON_DIR/scripts/update.sh" --source "$SKELETON_DIR" --target "$TEST_DIR" --auto-apply > "$TEST_DIR/u.out" 2>&1 || urc=$?
+  rm -f "$SKELETON_DIR/template/.claude/agents/05_meta/phase110-probe.md"
+  [ "$urc" -eq 0 ] || { echo "ERROR (A): NEW-files-only update exited $urc:" >&2; tail -20 "$TEST_DIR/u.out" >&2; exit 1; }
+  [ -f "$newfile" ] || { echo "ERROR (A): the NEW file was not applied (or was rolled back)" >&2; exit 1; }
+  python - "$TEST_DIR" <<'PYEOF'
+import hashlib, json, os, sys
+root = sys.argv[1]
+marker = json.load(open(os.path.join(root, ".claude", ".skeleton-version"), encoding="utf-8"))
+bad = []
+for rel, want in marker.get("files", {}).items():
+    p = os.path.join(root, rel)
+    if not os.path.exists(p):
+        bad.append(f"{rel}: recorded in marker but MISSING on disk"); continue
+    got = hashlib.sha256(open(p, "rb").read()).hexdigest()
+    if got != want:
+        bad.append(f"{rel}: marker {want[:12]} != disk {got[:12]}")
+if bad:
+    print("ERROR (A): marker and files disagree after update:"); [print("   ", b) for b in bad[:6]]
+    raise SystemExit(1)
+print(f"  leg A: NEW-files-only run clean; marker<->disk agreement verified across {len(marker.get('files', {}))} entries OK")
+PYEOF
+
+  # Leg B — interpreter probe: a NON-RUNNABLE `python` earlier on PATH
+  # than a working python3 (the Windows Store stub shape). The run must
+  # still succeed by probing runnability, not mere presence.
+  # The realistic shape: a NON-RUNNABLE `python` (the Windows Store alias
+  # stub) sitting alongside a WORKING `python3`. Pre-110 the probe took
+  # `python` on presence alone and the run died at dump_marker with a
+  # misleading parse error. The shim dir provides both, so the test does
+  # not depend on which interpreters the host happens to have.
+  local shimdir="$TEST_DIR/shim" real_py
+  mkdir -p "$shimdir"
+  real_py=$(command -v python3 2>/dev/null || command -v python)
+  python3 -c 'pass' >/dev/null 2>&1 || real_py=$(command -v python)
+  printf '#!/usr/bin/env bash\nexit 9\n' > "$shimdir/python"
+  printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "$real_py" > "$shimdir/python3"
+  chmod +x "$shimdir/python" "$shimdir/python3"
+  local brc=0
+  PATH="$shimdir:$PATH" bash "$SKELETON_DIR/scripts/update.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" --dry-run > "$TEST_DIR/b.out" 2>&1 || brc=$?
+  [ "$brc" -eq 0 ] || { echo "ERROR (B): a non-runnable python shim broke the update:" >&2; tail -12 "$TEST_DIR/b.out" >&2; exit 1; }
+  echo "  leg B: non-runnable interpreter on PATH — probe selected a working one OK"
+
+  # Leg A2 — STRUCTURAL, stated as such: the runtime abort leg A guards
+  # against only reproduces on bash < 4.4 (macOS /bin/bash 3.2), so on a
+  # bash 5 runner leg A cannot prove the guard exists. Assert the guard
+  # form directly rather than claim coverage this shell cannot give.
+  local unguarded
+  unguarded=$(grep -nE 'for [a-z]+ in "\$\{(ADDED_FILES|MODIFIED|DELETED_BACKUPS)\[@\]\}"' "$SKELETON_DIR/scripts/update.sh" || true)
+  if [ -n "$unguarded" ]; then
+    echo "ERROR (A2): unguarded empty-array expansion survives — aborts under set -u on bash < 4.4:" >&2
+    printf '%s\n' "$unguarded" >&2; exit 1
+  fi
+  grep -q 'cleanup_backups || true' "$SKELETON_DIR/scripts/update.sh" \
+    || { echo "ERROR (A2): cleanup_backups call is not failure-tolerant — a post-marker abort can still roll back" >&2; exit 1; }
+  echo "  leg A2: rollback/cleanup expansions guarded; post-marker section cannot abort (structural) OK"
+
+  # Leg C — a source path containing glob metacharacters must still
+  # classify correctly and must never record absolute paths in the marker.
+  local globsrc="$TEST_DIR/src[1]"
+  mkdir -p "$globsrc"
+  cp -r "$SKELETON_DIR/template" "$globsrc/template"
+  cp -r "$SKELETON_DIR/scripts" "$globsrc/scripts"
+  local crc=0
+  bash "$globsrc/scripts/update.sh" --source "$globsrc" --target "$TEST_DIR" --dry-run > "$TEST_DIR/c.out" 2>&1 || crc=$?
+  [ "$crc" -eq 0 ] || { echo "ERROR (C): glob-metacharacter source path broke the run:" >&2; tail -12 "$TEST_DIR/c.out" >&2; exit 1; }
+  if grep -q "src\[1\]" "$TEST_DIR/.claude/.skeleton-version"; then
+    echo "ERROR (C): an absolute source path leaked into the marker" >&2; exit 1
+  fi
+  echo "  leg C: glob-metacharacter source path classified cleanly OK"
+
+  # Leg D — a marker whose `commit` is not a sha must be REJECTED rather
+  # than handed to git fetch / worktree add, and the run must still work.
+  python - "$TEST_DIR" <<'PYEOF'
+import json, os, sys
+p = os.path.join(sys.argv[1], ".claude", ".skeleton-version")
+m = json.load(open(p, encoding="utf-8"))
+m["commit"] = "--upload-pack=touch /tmp/pwned"
+json.dump(m, open(p, "w", encoding="utf-8", newline="\n"), indent=2)
+PYEOF
+  local drc=0
+  bash "$SKELETON_DIR/scripts/update.sh" --source "$SKELETON_DIR" --target "$TEST_DIR" --dry-run > "$TEST_DIR/d.out" 2>&1 || drc=$?
+  [ "$drc" -eq 0 ] || { echo "ERROR (D): a non-sha marker commit broke the run:" >&2; tail -12 "$TEST_DIR/d.out" >&2; exit 1; }
+  [ -e /tmp/pwned ] && { echo "ERROR (D): the marker commit value reached a git argument" >&2; exit 1; }
+  echo "  leg D: non-sha marker commit rejected, run still completed OK"
+
+  # Leg E — EOF on the NEW-files prompt must SKIP, matching every other
+  # prompt in the file. Pre-110 it defaulted to YES, applying files a
+  # non-interactive caller never agreed to.
+  local root2="$TEST_DIR/proj2"
+  mkdir -p "$root2"
+  ( cd "$root2" && git init -q . && git config user.email t@t && git config user.name t && printf 'x\n' > README.md && git add -A && git commit -qm init )
+  bash "$SKELETON_DIR/scripts/install.sh" --source "$SKELETON_DIR" --target "$root2" --mode=fresh --claude-only > /dev/null
+  printf -- '---\nname: phase110-eof\n---\nfixture.\n' > "$SKELETON_DIR/template/.claude/agents/05_meta/phase110-eof.md"
+  local erc=0
+  bash "$SKELETON_DIR/scripts/update.sh" --source "$SKELETON_DIR" --target "$root2" < /dev/null > "$root2/e.out" 2>&1 || erc=$?
+  rm -f "$SKELETON_DIR/template/.claude/agents/05_meta/phase110-eof.md"
+  [ "$erc" -eq 0 ] || { echo "ERROR (E): EOF run exited $erc" >&2; tail -12 "$root2/e.out" >&2; exit 1; }
+  if [ -f "$root2/.claude/agents/05_meta/phase110-eof.md" ]; then
+    echo "ERROR (E): EOF applied a NEW file instead of skipping it" >&2; exit 1
+  fi
+  echo "  leg E: EOF on the NEW-files prompt skips, never applies OK"
+
+  echo "PASS update-integrity (5 legs)"
+}
+
 # ---- Phase 30c FP exemption scenario ----
 
 # Helpers for the FP-exemption scenario. Each helper pipes a synthetic
@@ -3119,6 +3244,7 @@ case "${1:-}" in
   replace-with-yes-piped)           scenario_replace_with_yes_piped ;;
   hook-fp-exemption-git-commit-message) scenario_hook_fp_exemption_git_commit_message ;;
   hook-destructive-canonicalization) scenario_hook_destructive_canonicalization ;;
+  update-integrity)                 scenario_update_integrity ;;
   all)
     scenario_fresh_install
     scenario_raw_baseline_install
@@ -3172,6 +3298,7 @@ case "${1:-}" in
     scenario_replace_with_yes_piped
     scenario_hook_fp_exemption_git_commit_message
     scenario_hook_destructive_canonicalization
+    scenario_update_integrity
     echo "ALL SCENARIOS PASSED"
     ;;
   ""|-h|--help)
@@ -3212,6 +3339,7 @@ Scenarios:
   raw-baseline-migrate         Pre-Phase-52 marker → inline migration; tuner edit stays LOCALLY_MODIFIED (Phase 52).
   check-remote-cached          --check-remote against mock bare repo populates cached_skeleton_head (Phase 30b H5).
   hook-fail-closed-bash-safety Missing lib → PreToolUse hook emits deny JSON (Phase 30b H5).
+  update-integrity             Empty-array cleanup, interpreter probe, glob source path, marker-commit validation, EOF-skip (Phase 110).
   hook-destructive-canonicalization  Canonicalized matching: single-char variants deny, confident stripping, cross-shell, empty lib fails closed, deny JSON valid (Phase 106).
   cruft-check-fixture          Broken markdown link → cruft-check.sh heuristic-i observation (Phase 30b H5).
   watchdog-transcript-resolution  Encoded-dir + cwd-fallback transcript resolution emits observations (Phase 57).
