@@ -192,7 +192,21 @@ REDACTED_COMMAND=$(strip_ps_herestrings "$REDACTED_COMMAND")
 # prefix of -recurse / -force to the full name; delimiters are spaced out
 # so commands stay anchored. Scanned IN ADDITION to the raw command.
 canonicalize_ps() {
+  # Phase 108 — COMMAND-WORD canonicalization for PowerShell. A cmdlet can
+  # be written fully qualified (a module or snap-in name, a backslash, then
+  # the cmdlet), and Phase 106 matched only the bare name — so a qualified
+  # spelling of a destructive cmdlet reached allow. The qualifier is
+  # dropped before matching; a path-form executable reduces to its final
+  # segment the same way the Bash side does. Quotes are spaced then
+  # dropped so a quoted or ampersand-invoked command word is not severed
+  # from its own parameters.
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E \
+    -e 's/"/ " /g' \
+    -e "s/'/ ' /g" \
+    -e 's/"//g' \
+    -e "s/'//g" \
+    -e 's@(^| )[a-z0-9_.]+\\([a-z]+-[a-z]+)( |$)@\1\2\3@g' \
+    -e 's@(^| )[^ =]*[/\\]([a-z0-9_.-]+)(\.exe)?( |$)@\1\2\4@g' \
     -e 's/([;()&|{}])/ \1 /g' \
     -e 's/"/ " /g' \
     -e "s/'/ ' /g" \

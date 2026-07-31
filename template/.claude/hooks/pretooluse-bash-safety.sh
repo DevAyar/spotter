@@ -202,13 +202,60 @@ REDACTED_COMMAND=$(strip_bash_heredocs "$REDACTED_COMMAND")
 # raw pass stays as the floor. A match in either form denies.
 canonicalize_bash() {
   local c="$1"
+  # Phase 108 — COMMAND-WORD canonicalization. This runs FIRST, before
+  # the Phase 106 escape-stripping: that step removes backslashes before
+  # letters (to reduce an escaped command word), which would destroy a
+  # Windows path separator before it could be recognised as one.
+  # Phase 106 normalized flags but never the command word, so a
+  # directory-prefixed invocation reached allow — found live by
+  # Trainer-View's 106 propagation leg (c465884). Rewrite: any token
+  # whose FINAL path segment is the real executable reduces to that
+  # segment (POSIX and Windows separators, optional .exe suffix). This
+  # also subsumes the escaped-command-word case.
+  # Looped: sed's /g resumes AFTER a match, and the trailing space is part
+  # of the match, so two adjacent path tokens cannot both reduce in one
+  # pass. Three passes cover realistic command lines (the same repeat trick
+  # the flag splitter below uses).
+  # Reduce ONLY tokens whose final segment is an executable the pattern set
+  # actually cares about. An earlier draft reduced every path-shaped token
+  # and thereby erased an argument the rules match on (a device path in an
+  # of=... operand) — the exact "canonicalization can erase what mattered"
+  # risk the 106 contract names. Tokens containing '=' are never touched.
+  local EXE='(rm|dd|mkfs[.a-z0-9]*|shred|srm|chmod|rsync|truncate|find|git|curl|wget|sh|bash|zsh|powershell|pwsh|cmd)'
+  local p
+  for p in 1 2 3; do
+    c=$(printf '%s' "$c" | sed -E \
+          -e "s@(^| )[^ =]*[/\\\\]${EXE}(\.exe)?( |\$)@\1\2\4@g" \
+          -e "s@(^| )${EXE}\.exe( |\$)@\1\2\3@g")
+  done
   c=$(printf '%s' "$c" | sed -E \
         -e 's/\\([A-Za-z])/\1/g' \
         -e 's/([;()&|{}<>])/ \1 /g' \
         -e 's/"/ " /g' \
         -e "s/'/ ' /g" \
         -e 's/--recursive/-r/g; s/--force/-f/g; s/--dir/-d/g')
+  # Phase 108: quotes are spaced out above so an adjacent command word gets
+  # anchored, then DROPPED here so a quoted command word is not severed
+  # from its own flags in the canonical view. Whitespace collapses at the
+  # end of the function.
+  c=$(printf '%s' "$c" | sed -E -e 's/"//g' -e "s/'//g")
+  # Second path-reduction pass: a QUOTED absolute path only becomes a
+  # reducible token once the quotes are gone. The first pass still has to
+  # run before the escape-strip above (which would eat a Windows
+  # separator), so the reduction runs on both sides of that step.
+  for p in 1 2 3; do
+    c=$(printf '%s' "$c" | sed -E \
+          -e "s@(^| )[^ =]*[/\\\\]${EXE}(\.exe)?( |\$)@\1\2\4@g" \
+          -e "s@(^| )${EXE}\.exe( |\$)@\1\2\3@g")
+  done
+  # Wrapper words that pass a command through to the shell are dropped so
+  # the next word becomes the command word; repeated so stacked wrappers
+  # reduce. Quoted command words fall out of the quote-spacing above.
   local i
+  for i in 1 2 3 4; do
+    c=$(printf '%s' "$c" | sed -E \
+          -e 's/(^| )(env|command|exec|nohup|time|xargs|sudo|doas)( +-[A-Za-z0-9]+)*( +[A-Za-z_][A-Za-z0-9_]*=[^ ]*)*( +)/\1/g')
+  done
   for i in 1 2 3 4; do
     c=$(printf '%s' "$c" | sed -E 's/(^| )-([A-Za-z])([A-Za-z]+)/\1-\2 -\3/g')
   done
