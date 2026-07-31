@@ -11,7 +11,7 @@ it.
 
 ## What just happened to your project
 
-The install copied the skeleton baseline in (a fresh run reports 81 files):
+The install copied the skeleton baseline in (a fresh run reports 82 files):
 
 - **`.claude/agents/`** — 19 helpers in numbered role folders: research,
   audit, monitoring, planning, and a meta tier that watches the system

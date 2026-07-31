@@ -45,10 +45,21 @@ check_cooldown() {
 # ---- main ----
 check_cooldown
 
-command -v python >/dev/null 2>&1 || exit 0
+# Phase 112: pre-112 this silently exit-0'd when no interpreter was
+# usable, so a broken probe made the auditor APPEAR to pass a clean
+# audit. It still exits 0 — this runs from the SessionStart chain and
+# must never block a session — but it now says why on stderr instead of
+# vanishing. Diagnosis-only change; the exit contract is unchanged.
+# shellcheck source=../lib/detect-python.sh
+. "$(cd "$(dirname "$0")/../lib" 2>/dev/null && pwd)/detect-python.sh"
+if [ -z "$DETECTED_PYTHON" ]; then
+  printf 'cruft-check: skipped — %s
+' "$(python_required_message)" >&2
+  exit 0
+fi
 mkdir -p "$OBS_DIR" 2>/dev/null || exit 0
 
-python - "$OBS_DIR" "$EVIDENCE_CAP" 2>/dev/null <<'PYIMPL'
+"$DETECTED_PYTHON" - "$OBS_DIR" "$EVIDENCE_CAP" 2>/dev/null <<'PYIMPL'
 import hashlib, json, os, re, subprocess, sys
 from datetime import datetime, timezone
 from glob import glob

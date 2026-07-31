@@ -20,9 +20,12 @@ SM_ROOT="$(cd "$SM_LIB_DIR/../.." 2>/dev/null && pwd)"
 SM_MARKER="$SM_ROOT/.claude/.skeleton-version"
 SM_SHARE_CONFIG="$SM_ROOT/.claude/share-config.json"
 SM_TREE="$SM_ROOT/.claude/shared-memory"
-SM_PY=""
-if   command -v python  >/dev/null 2>&1; then SM_PY="python"
-elif command -v python3 >/dev/null 2>&1; then SM_PY="python3"; fi
+# Phase 112: selection delegated to the canonical probe. SM_PY and
+# sm_have_python() keep their names and meanings, so every consumer of
+# this lib is untouched — only WHICH interpreter gets chosen changed.
+# shellcheck source=./detect-python.sh
+. "$SM_LIB_DIR/detect-python.sh"
+SM_PY="$DETECTED_PYTHON"
 
 # ---- helpers ----
 sm_have_python() { [ -n "$SM_PY" ]; }

@@ -6,6 +6,8 @@ set -uo pipefail
 
 # ---- constants ----
 ROOT="$(cd "$(dirname "$0")/../.." 2>/dev/null && pwd)"
+# shellcheck source=../lib/detect-python.sh
+. "$ROOT/.claude/lib/detect-python.sh"
 SHARE_CONFIG="$ROOT/.claude/share-config.json"
 MARKER="$ROOT/.claude/.skeleton-version"
 LAST_PUSH="$ROOT/.claude/.last-shared-push"
@@ -16,9 +18,12 @@ err() { printf '%s\n' "$*" >&2; }
 die() { err "share-status: error: $*"; exit 1; }
 
 detect_python() {
-  if command -v python  >/dev/null 2>&1; then PY="python"
-  elif command -v python3 >/dev/null 2>&1; then PY="python3"
-  else die "python (3) is required on PATH"; fi
+  # Phase 112: selection comes from the canonical probe (sourced above);
+  # this wrapper keeps THIS script's failure semantics — die with a true
+  # message. The audit's complaint was misdiagnosis, so the message names
+  # the real cause rather than a remedy that does not match it.
+  PY="$DETECTED_PYTHON"
+  [ -n "$PY" ] || die "$(python_required_message)"
 }
 
 # ---- main ----

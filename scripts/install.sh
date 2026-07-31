@@ -56,14 +56,23 @@ err()  { printf '%s%s%s\n' "${C_RED}"   "$*" "${C_RESET}" >&2; }
 die()  { err "error: $*"; exit 1; }
 
 # ---- JSON helpers ----
+# BOOTSTRAP EXCEPTION — the one sanctioned duplicate of the canonical
+# probe in .claude/lib/detect-python.sh (Phase 112). This script runs
+# BEFORE that lib exists on a target, so it cannot source it; the logic
+# is copied here on purpose. KEEP THE TWO IN SYNC: python3 first, each
+# candidate validated by EXECUTION and a >= 3.7 floor, never accepted on
+# presence alone (the Windows Store alias stub satisfies `command -v`
+# and exits nonzero; a python2 `python` dies on py3-only syntax).
 detect_json_tool() {
-  if command -v python >/dev/null 2>&1; then
-    JSON_TOOL="python"
-  elif command -v python3 >/dev/null 2>&1; then
-    JSON_TOOL="python3"
-  else
-    die "JSON parsing requires python on PATH (not found)"
-  fi
+  local cand
+  for cand in python3 python; do
+    if command -v "$cand" >/dev/null 2>&1 \
+       && "$cand" -c 'import sys; sys.exit(0 if sys.version_info >= (3,7) else 1)' >/dev/null 2>&1; then
+      JSON_TOOL="$cand"
+      return 0
+    fi
+  done
+  die "python 3.7+ required but not found on PATH (checked python3, python)"
 }
 
 # gen_uuid → a UUID v4 on stdout (Python stdlib; no new dependency).

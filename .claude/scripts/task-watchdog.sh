@@ -36,13 +36,12 @@ NOTICE_PREFIX="[task-watchdog]"
 # python/python3 execution-alias stub that passes `command -v` but exits
 # nonzero — either way a presence-only probe silently no-ops this script
 # (the Phase 57 silent-inert class).
-PYBIN=""
-for _cand in python python3; do
-  if command -v "$_cand" >/dev/null 2>&1 && "$_cand" -c 'pass' >/dev/null 2>&1; then
-    PYBIN="$_cand"
-    break
-  fi
-done
+# Phase 112: delegated to the canonical probe. This script's previous
+# inline probe validated by execution (safe) but tried python BEFORE
+# python3 and had no version floor — consistency, not a defect fix.
+# shellcheck source=../lib/detect-python.sh
+. "$(cd "$(dirname "$0")/../lib" 2>/dev/null && pwd)/detect-python.sh"
+PYBIN="$DETECTED_PYTHON"
 
 # ---- helpers ----
 emit() { printf '%s\n' "$*"; }

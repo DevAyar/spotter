@@ -31,13 +31,12 @@ done
 # python||python3 validated by EXECUTION, not presence — the Windows Store
 # alias stub passes `command -v` but exits nonzero (the Phase 57 silent-inert
 # class; probe pattern per Phase 63).
-PYBIN=""
-for _cand in python python3; do
-  if command -v "$_cand" >/dev/null 2>&1 && "$_cand" -c 'pass' >/dev/null 2>&1; then
-    PYBIN="$_cand"
-    break
-  fi
-done
+# Phase 112: delegated to the canonical probe. This script's previous
+# inline probe validated by execution (safe) but tried python BEFORE
+# python3 and had no version floor — consistency, not a defect fix.
+# shellcheck source=../lib/detect-python.sh
+. "$(cd "$(dirname "$0")/../lib" 2>/dev/null && pwd)/detect-python.sh"
+PYBIN="$DETECTED_PYTHON"
 
 # ---- main ----
 [ -n "$PYBIN" ] || exit 0
