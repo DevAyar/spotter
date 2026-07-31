@@ -13,11 +13,32 @@
 # (extended regex) shape. Anchor with (^|[[:space:]]) ... ([[:space:]]|$)
 # for portability — POSIX ERE doesn't standardize \b across implementations.
 #
-# MATCHING CONTRACT (Phase 106). Consumers apply this set TWICE: once to
-# the raw command and once to a CANONICAL form in which flag clusters are
-# split (-fr -> -f -r), long flags expanded (--recursive -> -r,
-# --force -> -f), backslash escapes removed (\rm -> rm), and delimiters
-# spaced out (;rm -> ; rm). A match in EITHER form denies. That is why
+# MATCHING CONTRACT (Phase 106; command word added Phase 108). Consumers
+# apply this set TWICE: once to the raw command and once to a CANONICAL
+# form. A match in EITHER form denies.
+#
+# The canonical form normalizes BOTH halves of an invocation:
+#   FLAGS (Phase 106) — clusters split (-fr -> -f -r), long flags
+#     expanded (--recursive -> -r, --force -> -f), backslash escapes
+#     removed (\rm -> rm), delimiters spaced out (;rm -> ; rm).
+#   COMMAND WORD (Phase 108) — a path token whose FINAL segment is a
+#     destructive executable reduces to that segment (POSIX and Windows
+#     separators, optional .exe); pass-through wrapper words (env,
+#     command, exec, nohup, time, xargs, sudo, doas) are dropped so the
+#     next word becomes the command word, repeatedly, so stacked
+#     wrappers reduce; quoted command words are unquoted. Tokens
+#     containing '=' are never reduced — an earlier draft erased a
+#     device path in an of=... operand that way.
+#
+# OUT OF SCOPE, named rather than implied — this contract exists because
+# Phase 106's did not say what it did not cover:
+#   - aliases and shell functions defined elsewhere (the hook sees a
+#     name, never a definition);
+#   - arbitrary interpreters reading a program from stdin;
+#   - obfuscated forms that assemble a command word at runtime through
+#     variable expansion or string concatenation.
+# These are boundaries of a shape heuristic, not oversights. The
+# PreToolUse hooks are a floor, not a sandbox. That is why
 # patterns below can assume one-flag-per-token shapes without dropping the
 # literal spellings — the literals stay so retrospective consumers
 # (plugin-quality-check.sh heuristic iii, which greps raw file text) keep

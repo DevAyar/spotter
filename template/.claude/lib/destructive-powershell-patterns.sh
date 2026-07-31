@@ -15,12 +15,27 @@
 # (extended regex) shape. Anchor with (^|[[:space:]]) ... ([[:space:]]|$)
 # for portability — POSIX ERE doesn't standardize \b across implementations.
 
-# MATCHING CONTRACT (Phase 106). Consumers apply this set TWICE: once to
-# the raw command and once to a CANONICAL form that is lowercased and has
-# unambiguous parameter prefixes expanded to their full names (-rec ->
-# -recurse, -for -> -force — PowerShell accepts any unambiguous prefix, so
-# literal-spelling matching was bypassable by construction). A match in
-# EITHER form denies. Literal spellings stay in the set so retrospective
+# MATCHING CONTRACT (Phase 106; command word added Phase 108). Consumers
+# apply this set TWICE: once to the raw command and once to a CANONICAL
+# form. A match in EITHER form denies.
+#
+# The canonical form normalizes BOTH halves of an invocation:
+#   PARAMETERS (Phase 106) — lowercased, and unambiguous parameter
+#     prefixes expanded to full names (-rec -> -recurse, -for ->
+#     -force). PowerShell accepts any unambiguous prefix, so
+#     literal-spelling matching was bypassable by construction.
+#   COMMAND WORD (Phase 108) — module- and snapin-qualified cmdlet names
+#     reduce to the bare cmdlet (a qualifier, a backslash, then the
+#     verb-noun); a path-form executable reduces to its final segment;
+#     quoted and ampersand-invoked command words are unquoted.
+#
+# OUT OF SCOPE, named rather than implied:
+#   - aliases and functions defined elsewhere in the session;
+#   - arbitrary interpreters reading a program from stdin;
+#   - obfuscated forms that assemble a command word at runtime through
+#     variable expansion or string concatenation.
+# These are boundaries of a shape heuristic, not oversights. The
+# PreToolUse hooks are a floor, not a sandbox. Literal spellings stay in the set so retrospective
 # consumers grepping raw file text keep matching what they matched before.
 
 readonly -a DESTRUCTIVE_POWERSHELL_PATTERNS=(
