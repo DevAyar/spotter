@@ -80,8 +80,8 @@ model self-assessment — disqualifies the line and the draft that contains it.
 ## Boundaries
 
 - Reads gate-config.json; never edits it. Human-facing gate/friction
-  adjustments land there **by the human** (the v1.2.0 optimizer will draft
-  against it, approval-gated). AI-directive changes route to
+  adjustments land there **by the human** (`manager-optimizer` drafts against
+  it — Phase 53 — and its drafts are approval-gated). AI-directive changes route to
   `CLAUDE_MANAGER.md` through the normal proposal path — this agent writes to
   neither surface.
 - Cross-model comparisons compare **measured tokens**, never text length —

@@ -31,8 +31,9 @@ Both layers draft only. Approval-gated autonomy holds across both.
 1. `.claude/telemetry/events/*.jsonl` + `.claude/telemetry/sessions/*.md`
    frontmatter, with `.claude/telemetry/model-pricing.json` and
    `.claude/telemetry/retier-proposals.json` for cost context.
-2. `.claude/observations/` — all producers (task-watchdog, cruft-checker,
-   code-quality-auditor, session-end-telemetry).
+2. `.claude/observations/` — every observation file, whatever produced it.
+   `source` is an extensible enum and some producers are dogfood-only, so
+   the input is the directory rather than a fixed producer list.
 3. `git log` over a recent window (default: last 60 days or last 100
    commits, whichever is smaller): commit cadence, reverts, amend patterns,
    and the change history of `gate-config.json` specifically.

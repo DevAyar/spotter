@@ -34,8 +34,11 @@ running from — `claude-skeleton` itself or any target project):
 - `.claude/commands/**` — slash-command definitions.
 - `.claude/hooks/**` — hook scripts and their `settings.json`
   registrations.
-- Plugin directories declared in `.claude/settings.json` (or its
-  user-level overlay).
+- Plugin directories under `~/.claude/plugins/` — marketplace clones in
+  `marketplaces/<name>/`, installed plugin paths in `installed_plugins.json`
+  (`installPath`). Enablement is recorded separately in the user-level
+  `settings.json` overlay (`enabledPlugins`) — that file names plugins,
+  not their directories.
 
 ## What it outputs
 

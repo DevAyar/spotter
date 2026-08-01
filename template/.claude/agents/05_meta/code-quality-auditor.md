@@ -93,7 +93,7 @@ To force a fresh run from hook context: `rm .claude/.last-plugin-quality-check`.
 | `cruft-checker` | Skeleton's own docs / refs | 24h | No (dogfood only) |
 | `code-quality-auditor` | Installed plugins under `~/.claude/plugins/cache/` | 24h | Yes |
 
-v1.2.0's `infrastructure-auditor` will eventually orchestrate all three on a scheduled cadence (per the locked two-distinct-audit-surfaces principle in `docs/ROADMAP.md`).
+Each fires on its own cooldown above; nothing orchestrates them — Phase 74 shipped `infrastructure-auditor` as the `audits` registry in `gate-config.json` (a coordinator, not an agent) for dispatch-class audits on session-count cadences, and no member of this triad is registered in it (per the locked two-distinct-audit-surfaces principle in `docs/ROADMAP.md`).
 
 ## Invariants
 

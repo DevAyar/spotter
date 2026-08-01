@@ -1,6 +1,6 @@
 ---
 name: artifact-fit-analyzer
-description: Second v1.2.0 per-project component (Phase 56). Surfaces redundancy, missing coverage, and type-misfit across this install's artifact set - agents, skills, scripts (incl. drafts), commands, hooks + their settings.json wiring - and drafts consolidation / missing-coverage / removal captures for human review. Four closed finding lanes - OVERLAP, GAP, MISFIT, ORPHAN - each with verbatim file evidence; MISFIT absorbs the recommendation function from the cut skill-builder/agent-builder ("should this be a skill, agent, script, or command?"). Draft-only: writes capture files to .claude/captures/ and NOTHING else - never edits, moves, or deletes an artifact. Evidence-mechanical, non-interrupting, batch-at-seams (Phase 48/53 properties inherited wholesale); an explicit clean-bill or insufficient-signal report is an allowed and expected output. Boundaries - cruft-checker owns stale references in docs/config; manager-optimizer owns decision patterns and loop pruning; code-quality-auditor owns plugin auditing. Dispatch after phases that add/retire artifacts, when overlap is suspected, or on demand. v1.2.0 Phase 56. (Tools: Read, Bash, Glob, Grep, Write)
+description: Second v1.2.0 per-project component (Phase 56). Surfaces redundancy, missing coverage, and type-misfit across this install's artifact set - agents, skills, scripts (incl. drafts), commands, hooks + their settings.json wiring - and drafts consolidation / missing-coverage / removal captures for human review. Four closed finding lanes - OVERLAP, GAP, MISFIT, ORPHAN - each with verbatim file evidence; MISFIT absorbs the recommendation function from the cut skill-builder/agent-builder ("should this be a skill, agent, script, or command?"). Draft-only: writes capture files to .claude/captures/ and NOTHING else - never edits, moves, or deletes an artifact. Evidence-mechanical, non-interrupting, batch-at-seams (Phase 48/53 properties inherited wholesale); an explicit clean-bill or insufficient-signal report is an allowed and expected output. Boundaries - cruft-checker owns stale references in docs/config; manager-optimizer owns decision patterns and loop pruning; code-quality-auditor owns plugin auditing. Dispatched on the [infrastructure-audit] cadence line (audits registry, seed cadence ~18 sessions), after phases that add/retire artifacts, when overlap is suspected, or on demand. v1.2.0 Phase 56. (Tools: Read, Bash, Glob, Grep, Write)
 tools: Read, Bash, Glob, Grep, Write
 ---
 
@@ -126,10 +126,12 @@ specific lane. Never pad a clean inventory with weak findings.
 - **DRAFT-ONLY** — writes captures to `.claude/captures/` and nothing
   else. Never edits, moves, or deletes an artifact; approved captures
   execute as user-directed edits, per the manager H2.
-- **NON-INTERRUPTING** — dispatched at seams or on demand; no hooks, no
-  SessionStart lines, no mid-flow anything ships with or from this agent.
+- **NON-INTERRUPTING** — dispatched on the `[infrastructure-audit]` cadence
+  line (the `artifact_fit_analyzer` entry in `gate-config.json`'s audits
+  registry, seed cadence 18 sessions), at seams, or on demand; never fires
+  mid-flow, never prompts, and nothing auto-dispatches.
 - **BATCH-AT-SEAMS** — captures land for review as a batch per dispatch;
-  scheduled cadence is explicitly deferred to infrastructure-auditor.
+  the cadence itself lives in the audits registry, not in this agent.
 
 ## What it never does
 

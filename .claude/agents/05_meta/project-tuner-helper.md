@@ -1,6 +1,6 @@
 ---
 name: project-tuner-helper
-description: Post-install / re-tuning agent. Inspects the target project after baseline installation, recommends customizations to fill the 9 placeholders and add project-specific helpers, awaits user approval, then generates only what was approved. Language-agnostic (Python, JS/TS, Go, Rust, Flutter/Dart, Godot/GDScript, generic Bash). Use after integration-installer completes or when re-tuning is requested. Writes the full recommendations report to a caller-specified file path and returns a short confirmation paragraph — dispatchers receive a pointer to the report, not an inline report. Supports `--report-only` mode for inspections that must not modify project files.
+description: Post-install / re-tuning agent. Inspects the target project after baseline installation, recommends customizations to fill the templated placeholders and add project-specific helpers, awaits user approval, then generates only what was approved. Language-agnostic (Python, JS/TS, Go, Rust, Flutter/Dart, Godot/GDScript, generic Bash). Use after integration-installer completes or when re-tuning is requested. Writes the full recommendations report to a caller-specified file path and returns a short confirmation paragraph — dispatchers receive a pointer to the report, not an inline report. Supports `--report-only` mode for inspections that must not modify project files.
 tools: Glob, Grep, Read, Edit, Write, Bash
 model: opus
 ---
@@ -103,11 +103,13 @@ signal from (single-file scratch repo, etc.) and report that.
 
 Four categories, presented as a structured report (next section):
 
-1. **Placeholder fills.** Proposed value + rationale for each of the
-   nine placeholders: `PROJECT_NAME`, `PROJECT_TAGLINE`,
-   `WHO_YOU_ARE_WORKING_WITH`, `COMMUNICATION_STYLE`, `CODE_STYLE`,
-   `DESIGN_SYSTEM_RULES`, `TEST_COMMAND`, `DEPLOY_COMMAND`,
-   `COMPACT_PROMPT`.
+1. **Placeholder fills.** Proposed value + rationale for each `{{...}}`
+   placeholder the template tree carries — `PROJECT_NAME`,
+   `PROJECT_TAGLINE`, `WHO_YOU_ARE_WORKING_WITH`, `COMMUNICATION_STYLE`,
+   `CODE_STYLE`, `DESIGN_SYSTEM_RULES`, `TEST_COMMAND`, `DEPLOY_COMMAND` —
+   plus a refinement of the generic `compactPrompt` that
+   `settings.json` already ships: a tuning target the tuner rewrites,
+   not a substitution slot.
 2. **Baseline helper tightening.** Extend
    `schema-verify-before-edit`'s watched-list with project-specific
    structured config; tighten `post-edit-test-suggest`'s test command

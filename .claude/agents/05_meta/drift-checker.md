@@ -14,7 +14,7 @@ drift-checker does not detect file-level drift. That's `update.sh`'s classificat
 
 - **At session start, automatically.** The SessionStart hook chain (`sessionstart-rules.sh`) invokes `.claude/scripts/drift-check.sh` and folds its output into `additionalContext` alongside the durable rule re-injection. No manual dispatch needed — the notice surfaces when relevant and stays silent otherwise.
 - **On manual dispatch.** User asks "am I up to date with skeleton?" or similar — manager dispatches `drift-checker`, which runs `bash .claude/scripts/drift-check.sh` and surfaces the output directly.
-- **From v1.2.0 `infrastructure-auditor`.** Future v1.2.0 component dispatches drift-checker alongside `cruft-checker` and `artifact-fit-analyzer` as part of a scheduled project-level audit pass. Same script invocation; the agent shell is the dispatchable surface.
+- **Not through the infrastructure-audit coordinator.** Phase 74 shipped that as the `audits` registry in `gate-config.json` — a coordinator, not an agent — and drift-checker is not a registrant. The registry puts dispatch-class audits on session-count cadences; drift-checker needs no cadence because the SessionStart chain above already runs it every session.
 
 Do **not** dispatch for: file-level drift questions ("which agents diverge from template?") — that's `update.sh --dry-run`. Or for refreshing the remote cache — that's `bash scripts/update.sh --check-remote` and never drift-checker.
 

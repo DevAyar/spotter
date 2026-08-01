@@ -17,7 +17,7 @@ The mechanic is [`.claude/scripts/cruft-check.sh`](../../scripts/cruft-check.sh)
 - **Automatically at session start.** The SessionStart hook chain (`.claude/settings.json`, second entry) runs `bash .claude/scripts/cruft-check.sh --hook`. The `--hook` flag enables the 24h cooldown — if the marker at `.claude/.last-cruft-check` is younger than 86,400 seconds, the script exits silently. Otherwise it runs the full scan and updates the marker. Hook-mode never blocks session start; failure is always silent.
 - **On manual dispatch.** "Did I just break a link?" / "Are the README counts still accurate after that template change?" / "Run cruft-check now." Manager runs `bash .claude/scripts/cruft-check.sh` (no `--hook` flag). Cooldown is ignored; the scan always runs. Useful right after a doc-heavy commit.
 
-Do **not** dispatch for: project-level cruft (that's v1.2.0's `infrastructure-auditor` in `template/`), session-transcript analysis (that's task-watchdog), or version-drift between installed projects and remote (that's drift-checker).
+Do **not** dispatch for: project-level cruft (out of scope — this agent is dogfood-only; the audits that run inside installed projects ship in `template/` and fire via the infrastructure-audit coordinator's registry, Phase 74), session-transcript analysis (that's task-watchdog), or version-drift between installed projects and remote (that's drift-checker).
 
 ## What it inspects
 
@@ -119,7 +119,7 @@ A future `doc-fix-builder` (v1.2+ candidate, not committed) could automate step 
 
 ## What it does NOT do
 
-- **No project-level cruft scanning** — `infrastructure-auditor` (v1.2.0, ships in `template/`) owns audits inside installed projects' `.claude/`.
+- **No project-level cruft scanning** — the audits that run inside installed projects' `.claude/` ship in `template/` and fire via the infrastructure-audit coordinator's registry in `gate-config.json` (Phase 74 — a coordinator, not an agent).
 - **No deprecation-pattern detection** (heuristic 6) — deferred to follow-up phase.
 - **No subagent transcript analysis** — task-watchdog's territory.
 - **No auto-promotion of doc-fix captures** — manual workflow in v1.1.x.
@@ -127,4 +127,4 @@ A future `doc-fix-builder` (v1.2+ candidate, not committed) could automate step 
 
 ## Mechanism reference
 
-[`.claude/scripts/cruft-check.sh`](../../scripts/cruft-check.sh) is the full contract. ~280 lines including the inline Python helper. Read it directly for the precise regex patterns, field-table parsing, and observation emission. No separate `.schema.md` ships for cruft-checker — `session-observer.schema.md` is the wire-format authority.
+[`.claude/scripts/cruft-check.sh`](../../scripts/cruft-check.sh) is the full contract — ~670 lines, nearly all of it the inline Python helper. Read it directly for the precise regex patterns, field-table parsing, and observation emission. No separate `.schema.md` ships for cruft-checker — `session-observer.schema.md` is the wire-format authority.

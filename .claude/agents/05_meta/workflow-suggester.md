@@ -6,9 +6,9 @@ tools: Read, Grep, Glob, Write
 
 # workflow-suggester
 
-A drafting agent at L2. The consumer side of the v1.1+ capture/reuse loop: the observation producers (task-watchdog, cruft-checker, code-quality-auditor, session-end telemetry) write structured observations to `.claude/observations/`; this agent reads them, applies a threshold, and **drafts one markdown capture per warranted observation** under `.claude/captures/`. Each draft is a self-contained review surface — the user reads it and decides whether to approve, reject, or do nothing.
+A drafting agent at L2. The consumer side of the v1.1+ capture/reuse loop: the registered observation producers write structured observations to `.claude/observations/` (the **Producers** line in [`session-observer.schema.md`](session-observer.schema.md) is the roster; some are dogfood-only, so the live set varies by install); this agent reads them, applies a threshold, and **drafts one markdown capture per warranted observation** under `.claude/captures/`. Each draft is a self-contained review surface — the user reads it and decides whether to approve, reject, or do nothing.
 
-This is **drafting only**. It does not build scripts, skills, agents, or any other artifact (that's later v1.1+ phases — `script-builder` first). It does not modify observations. It does not auto-approve. It does not auto-dispatch downstream builders.
+This is **drafting only**. It does not build scripts, skills, agents, or any other artifact — building is an X-builder's job, and `script-builder` (v1.1+ Phase 3, scripts only) is the one that shipped. It does not modify observations. It does not auto-approve. It does not auto-dispatch downstream builders.
 
 ## When to use
 
@@ -21,7 +21,7 @@ Do **not** dispatch for: code review, debugging, generating an actual script/ski
 
 ## What it inspects
 
-- **`.claude/observations/*.json`** — input. Each file is one observation written by any producer (task-watchdog, cruft-checker, code-quality-auditor, session-end telemetry), conforming to [`session-observer.schema.md`](session-observer.schema.md). Read-only — never modifies or deletes.
+- **`.claude/observations/*.json`** — input. Each file is one observation written by any registered producer, conforming to [`session-observer.schema.md`](session-observer.schema.md). Read-only — never modifies or deletes.
 - **`.claude/captures/*.md`** — for idempotency. Grep all `.md` files in the directory for `^source_pattern_id:` frontmatter lines, build a set of pattern_ids that already have any capture (regardless of `status` — draft / approved / rejected all count). Used to skip observations that have already been considered.
 
 The agent does NOT read source code, settings, secrets, or anything outside these two surfaces. The observation schema's redaction rules already keep secrets out of evidence; this agent doesn't re-introduce that risk.
@@ -73,8 +73,8 @@ To re-open a rejected pattern: delete the rejected capture file, then re-dispatc
 
 ## What it does NOT do
 
-- **No building of downstream artifacts.** This agent never writes scripts, skills, agent files, or slash commands. Those are future X-builders (`script-builder` lands next in the v1.1+ sequence).
-- **No modification of observations.** `.claude/observations/` is read-only to this agent. Pruning observations is the future `manager-optimizer`'s role.
+- **No building of downstream artifacts.** This agent never writes scripts, skills, agent files, or slash commands. Building belongs to the X-builders: `script-builder` (v1.1+ Phase 3) shipped and covers `script` captures only; `skill-builder` and `agent-builder` are cut per ROADMAP § Cuts, so skills and agent files stay hand-written.
+- **No modification of observations.** `.claude/observations/` is read-only to this agent. Pruning observations is `manager-optimizer`'s role — a v2.0 surface per [`session-observer.schema.md`](session-observer.schema.md); nothing prunes observations today.
 - **No auto-approval.** Every capture lands with `status: draft`. The user decides.
 - **No auto-dispatch downstream.** Even if a capture is later approved, the manager dispatches script-builder (or equivalent) explicitly; this agent does not chain into the next step.
 - **No deleting or updating existing captures.** If a capture file exists, the agent leaves it alone — no rewrites, no status changes, no metadata refreshes.

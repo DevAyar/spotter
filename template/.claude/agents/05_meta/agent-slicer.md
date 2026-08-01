@@ -35,7 +35,9 @@ with explicit confirmation each time).
    - `name` — string, must match the filename stem.
    - `description` — non-empty string, action-oriented.
    - `tools` — comma-separated list of tool names.
-   - `model` — `sonnet` | `opus` | `haiku`.
+   - `model` — optional. When present: `sonnet` | `opus` | `haiku`. When
+     absent the agent runs under the configured default; an absent `model`
+     is valid and is not a schema error.
 
 ## What it does
 

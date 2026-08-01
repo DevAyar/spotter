@@ -14,11 +14,19 @@ A read-only session grader. The manager dispatches this when reflecting on recen
 - End-of-day or weekly retro.
 - "Grade the last N sessions on dispatch discipline / commit hygiene / hook usage."
 - Investigating a suspected pattern ("are we re-reading the same file across sessions?").
-- Before bumping a VERSION — confirm the session log shows the expected work.
+- Before bumping a VERSION — confirm the session log shows the expected work
+  (nothing appends to it automatically — see the note below).
 
 Do **not** dispatch for: future planning, drift detection (that's audit-helper), or anything requiring writes.
 
 ## What it does
+
+> **Check the log is live before grading it.** Nothing appends to
+> `docs/SESSION_LOG.md` automatically — the writer it was designed around
+> (`session-observer`) was retired in Phase 58 — so in any given project it
+> may be frozen, partial, or absent. Read its header first; if it is frozen,
+> say so and name the project's live operating record rather than grading
+> stale entries. (In the skeleton itself that record is `docs/CHANGELOG.md`.)
 
 Reads the **forward-chronological tail** of `docs/SESSION_LOG.md` and grades.
 

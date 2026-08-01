@@ -62,7 +62,7 @@ Each draft conforms to [`script-builder.schema.md`](script-builder.schema.md):
 - `bash-safety` conventions baked in for any recursive ops in the generated body (noise-path excludes, `timeout`, `-maxdepth`, no naked `&`).
 - A draft-header comment block linking back to the source capture and pattern_id, with promote instructions.
 
-Length target: 30–80 lines per draft, comparable to `commit.sh` (58 lines) or `deploy.sh`. Compact, scannable, designed for the user to review and tune.
+Length target: 30–80 lines per draft, comparable to `commit.sh` (57 lines) or `deploy.sh`. Compact, scannable, designed for the user to review and tune.
 
 ## User-promote workflow
 
