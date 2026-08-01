@@ -176,7 +176,19 @@ PYEOF
     echo "ERROR: welcome fired twice" >&2; exit 1
   fi
   # Existing-install leg: an update run never recreates the flag.
-  bash "$SKELETON_DIR/scripts/update.sh" --source "$SKELETON_DIR" --target "$TEST_DIR" < /dev/null > /dev/null 2>&1 || true
+  # Phase 115: the run's exit and output are asserted, not discarded. The
+  # two checks below are absence-only ("flag not there", "welcome not
+  # printed") and hold trivially for an update.sh that dies before doing
+  # anything — the dry-run leg above catches a startup crash, but not an
+  # update.sh that handles --dry-run and then crashes on a real run.
+  local uout urc=0
+  uout=$(bash "$SKELETON_DIR/scripts/update.sh" --source "$SKELETON_DIR" --target "$TEST_DIR" < /dev/null 2>&1) || urc=$?
+  if [ "$urc" -ne 0 ]; then
+    echo "ERROR: update.sh exited $urc on an up-to-date install" >&2
+    printf '%s\n' "$uout" >&2
+    exit 1
+  fi
+  assert_contains "$uout" "everything up to date"
   [ ! -f "$TEST_DIR/.claude/.first-run" ] || { echo "ERROR: update.sh recreated the first-run flag" >&2; exit 1; }
   hout3=$(cd "$TEST_DIR" && CLAUDE_PROJECT_DIR="$TEST_DIR" bash .claude/hooks/sessionstart-rules.sh 2>/dev/null || true)
   if printf '%s' "$hout3" | grep -q "First session in this project"; then
@@ -1172,9 +1184,23 @@ scenario_local_mod_preserve() {
   local hash_before hash_after
   hash_before=$(sha256_of "$target_file")
   # Answer 'k' to the LOCALLY_MODIFIED prompt (keep local).
+  local urc=0
   printf 'k\n' | bash "$SKELETON_DIR/scripts/update.sh" \
                     --source "$SKELETON_DIR" --target "$TEST_DIR" \
-                    > "$TEST_DIR/update.out" 2>&1 || true
+                    > "$TEST_DIR/update.out" 2>&1 || urc=$?
+  # Phase 115: the exit and the output are asserted, not masked. The hash
+  # check below is absence-of-change only, which an update.sh that dies at
+  # startup also satisfies — these two lines prove the run actually reached
+  # the per-file keep decision, which is the behaviour under test.
+  local uout
+  uout=$(cat "$TEST_DIR/update.out")
+  if [ "$urc" -ne 0 ]; then
+    echo "ERROR: update.sh exited $urc" >&2
+    printf '%s\n' "$uout" >&2
+    exit 1
+  fi
+  assert_contains "$uout" "[K]eep your version"
+  assert_contains "$uout" "skipped: 1"
   hash_after=$(sha256_of "$target_file")
   if [ "$hash_after" != "$hash_before" ]; then
     echo "ERROR: file changed when user chose [K]eep" >&2
@@ -1377,6 +1403,7 @@ scenario_watchdog_transcript_resolution() {
   # inside the sandbox and assertions read where the script writes.
   TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-wd)
   git clone -q --depth 1 "file://$SKELETON_DIR" "$TEST_DIR/skel"
+  local wd_rc=0
   (
     cd "$TEST_DIR/skel"
     clone_dir="$PWD"
@@ -1406,7 +1433,7 @@ scenario_watchdog_transcript_resolution() {
         pybin="$cand"; break
       fi
     done
-    [ -n "$pybin" ] || { echo "SKIP watchdog-transcript-resolution (no working python)"; exit 0; }
+    [ -n "$pybin" ] || { echo "SKIP watchdog-transcript-resolution (no working python)"; exit 77; }
     cwd_as_python_sees=$("$pybin" -c 'import sys; print(sys.argv[1])' "$clone_dir")
 
     write_transcripts() {
@@ -1461,7 +1488,12 @@ JSONL
       exit 1
     fi
     echo "  fallback (cwd match) OK"
-  )
+  ) || wd_rc=$?
+  # Phase 115: 77 = the subshell skipped (no working python). Report SKIP
+  # and nothing else — the old `exit 0` left the subshell cleanly and this
+  # function then printed PASS for a test that never ran.
+  [ "$wd_rc" -ne 77 ] || return 0
+  [ "$wd_rc" -eq 0 ] || exit "$wd_rc"
   echo "PASS watchdog-transcript-resolution"
 }
 
@@ -1474,6 +1506,7 @@ scenario_watchdog_dedup_reobserve() {
   echo ">> watchdog-dedup-reobserve: replayed lineage merges without duplication; heterogeneous one-offs stay sub-threshold (Phase 67)"
   TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-wdd)
   git clone -q --depth 1 "file://$SKELETON_DIR" "$TEST_DIR/skel"
+  local wd_rc=0
   (
     cd "$TEST_DIR/skel"
     clone_dir="$PWD"
@@ -1495,7 +1528,7 @@ scenario_watchdog_dedup_reobserve() {
         pybin="$cand"; break
       fi
     done
-    [ -n "$pybin" ] || { echo "SKIP watchdog-dedup-reobserve (no working python)"; exit 0; }
+    [ -n "$pybin" ] || { echo "SKIP watchdog-dedup-reobserve (no working python)"; exit 77; }
     cwd_as_python_sees=$("$pybin" -c 'import sys; print(sys.argv[1])' "$clone_dir")
     enc=$(wd_encode "$clone_dir")
     dir="$fx/$enc"; mkdir -p "$dir"
@@ -1575,7 +1608,11 @@ print('  replayed lineage: occ stays 3, evidence unique OK')
       exit 1
     fi
     echo "  heterogeneous one-offs: separate sub-threshold buckets, no observation OK"
-  )
+  ) || wd_rc=$?
+  # Phase 115: see watchdog-transcript-resolution — 77 means skipped, and a
+  # skipped scenario must never print PASS.
+  [ "$wd_rc" -ne 77 ] || return 0
+  [ "$wd_rc" -eq 0 ] || exit "$wd_rc"
   echo "PASS watchdog-dedup-reobserve"
 }
 
