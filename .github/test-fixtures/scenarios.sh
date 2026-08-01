@@ -3461,6 +3461,144 @@ scenario_hook_destructive_canonicalization() {
   echo "PASS hook-destructive-canonicalization (34 + $f_count cases)"
 }
 
+# Phase 116: every converted script must target the PROJECT ROOT, not the
+# caller's cwd. The failures these legs catch all look like success from
+# the outside -- a scan that inspects nothing reports clean, an mkdir
+# succeeds in the wrong directory -- which is why each leg asserts a
+# positive (the real target was written / the work actually happened) and
+# not merely the absence of a stray tree.
+scenario_path_anchoring() {
+  echo ">> path-anchoring: converted scripts resolve against the project root, not cwd (Phase 116)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only >/dev/null
+
+  local nested="$TEST_DIR/deep/nested"
+  mkdir -p "$nested"
+  mkdir -p "$TEST_DIR/docs"
+  printf '# status\n' > "$TEST_DIR/docs/STATUS.md"
+  find "$TEST_DIR/.claude/observations" -name '*.json' -delete 2>/dev/null || true
+  rm -f "$TEST_DIR/.claude/.last-plugin-quality-check" 2>/dev/null || true
+
+  # --- leg 1: precompact-backup writes under the root, not under cwd ---
+  ( cd "$nested" && CLAUDE_PROJECT_DIR="$TEST_DIR" \
+      bash "$TEST_DIR/.claude/hooks/precompact-backup.sh" >/dev/null 2>&1 )
+  local n_backups
+  # The braces matter: when the backup dir does not exist find exits 1, and
+  # under `set -e -o pipefail` that would kill the scenario HERE, before the
+  # diagnostic below ever prints — a red for the wrong reason, with no
+  # message. Swallow find's status and let the assertion do the failing.
+  n_backups=$( { find "$TEST_DIR/.claude/agent-memory/precompact-backups" -type f 2>/dev/null || true; } | wc -l )
+  if [ "$n_backups" -lt 1 ]; then
+    echo "ERROR: precompact-backup from a nested cwd backed up nothing at the root" >&2
+    exit 1
+  fi
+  if [ -d "$nested/.claude" ]; then
+    echo "ERROR: precompact-backup planted a stray .claude/ tree at the caller's cwd" >&2
+    exit 1
+  fi
+  echo "  leg 1: precompact-backup targets the root, no stray tree OK"
+
+  # --- leg 2: sessionstart-rules still re-injects the durable rules ---
+  local rules_out
+  rules_out=$( cd "$nested" && CLAUDE_PROJECT_DIR="$TEST_DIR" \
+      bash "$TEST_DIR/.claude/hooks/sessionstart-rules.sh" 2>&1 )
+  assert_contains "$rules_out" "Durable rules"
+  if [ -d "$nested/.claude" ]; then
+    echo "ERROR: sessionstart-rules wrote a marker under the caller's cwd" >&2
+    exit 1
+  fi
+  echo "  leg 2: sessionstart-rules re-injects from a nested cwd OK"
+
+  # --- leg 3: drift-check stops misdiagnosing a present marker as absent ---
+  local drift_out
+  drift_out=$( cd "$nested" && CLAUDE_PROJECT_DIR="$TEST_DIR" \
+      bash "$TEST_DIR/.claude/scripts/drift-check.sh" 2>&1 )
+  if printf '%s' "$drift_out" | grep -q "install may need rerun"; then
+    echo "ERROR: drift-check reported the marker missing while it exists at the root" >&2
+    printf '%s\n' "$drift_out" >&2
+    exit 1
+  fi
+  echo "  leg 3: drift-check finds the real marker from a nested cwd OK"
+
+  # --- leg 4: plugin-quality-check's cooldown marker lands at the root ---
+  ( cd "$nested" && CLAUDE_PROJECT_DIR="$TEST_DIR" \
+      bash "$TEST_DIR/.claude/scripts/plugin-quality-check.sh" --hook >/dev/null 2>&1 )
+  if [ ! -f "$TEST_DIR/.claude/.last-plugin-quality-check" ]; then
+    echo "ERROR: plugin-quality-check wrote its cooldown marker outside the project root" >&2
+    exit 1
+  fi
+  if [ -d "$nested/.claude" ]; then
+    echo "ERROR: plugin-quality-check planted a stray .claude/ tree at the caller's cwd" >&2
+    exit 1
+  fi
+  echo "  leg 4: plugin-quality-check cooldown marker at the root, no stray tree OK"
+
+  # --- leg 5: heuristic iii actually RUNS from a nested cwd ---
+  # The candidate carries an rm-shape against an unguarded absolute path.
+  # Assembled from parts so the destructive spelling is never a command
+  # word on this harness's own command line (the Phase 108 convention).
+  local cand="$TEST_DIR/candidate"
+  mkdir -p "$cand"
+  local _c1="rm" _c2="-rf" _c3="/opt/service-data"
+  printf '#!/bin/sh\n%s %s %s\n' "$_c1" "$_c2" "$_c3" > "$cand/install.sh"
+  local qc_out
+  qc_out=$( cd "$nested" && CLAUDE_PROJECT_DIR="$TEST_DIR" \
+      bash "$TEST_DIR/.claude/scripts/plugin-quality-check.sh" \
+        --candidate-plugin "$cand" 2>/dev/null )
+  if ! printf '%s' "$qc_out" | grep -q "CANDIDATE-FINDING"; then
+    echo "ERROR: heuristic iii found nothing from a nested cwd — the patterns did not load," >&2
+    echo "       so a candidate audit would have reported this plugin clean" >&2
+    printf '%s\n' "$qc_out" >&2
+    exit 1
+  fi
+  echo "  leg 5: heuristic iii loads its patterns and fires from a nested cwd OK"
+
+  # --- leg 6: missing libs are STATED, and never read as clean ---
+  local broken="$TEST_DIR/broken"
+  mkdir -p "$broken/.claude/lib" "$broken/.claude/scripts"
+  cp "$TEST_DIR/.claude/scripts/plugin-quality-check.sh" "$broken/.claude/scripts/"
+  local deg_out deg_err
+  deg_out=$( cd "$nested" && CLAUDE_PROJECT_DIR="$broken" \
+      bash "$broken/.claude/scripts/plugin-quality-check.sh" \
+        --candidate-plugin "$cand" 2>"$TEST_DIR/deg.err" )
+  deg_err=$(cat "$TEST_DIR/deg.err")
+  assert_contains "$deg_out" "CANDIDATE-DEGRADED"
+  assert_contains "$deg_err" "heuristic iii"
+  echo "  leg 6: absent pattern libs are stated, not swallowed OK"
+
+  # --- leg 7: the matcher records 'incomplete', never 'clean', when degraded ---
+  if ! grep -q "CANDIDATE-DEGRADED" "$SKELETON_DIR/.claude/scripts/plugin-context-matcher.sh"; then
+    echo "ERROR: the matcher does not consume CANDIDATE-DEGRADED, so a degraded audit" >&2
+    echo "       would still be recorded as 'clean (i/ii/iii pass)'" >&2
+    exit 1
+  fi
+  if ! grep -q "cwd=os.path.abspath(project_root)" "$SKELETON_DIR/.claude/scripts/plugin-context-matcher.sh"; then
+    echo "ERROR: the matcher passes no explicit cwd to the candidate-audit child" >&2
+    exit 1
+  fi
+  echo "  leg 7: matcher passes an explicit cwd and downgrades a degraded audit OK"
+
+  # --- leg 8: the blessed anchor is present in every converted script ---
+  local missing=""
+  for rel in .claude/scripts/drift-check.sh \
+             .claude/scripts/plugin-quality-check.sh \
+             .claude/hooks/precompact-backup.sh \
+             .claude/hooks/sessionstart-rules.sh; do
+    grep -q 'CLAUDE_PROJECT_DIR:-\$PWD' "$TEST_DIR/$rel" || missing="$missing $rel"
+  done
+  grep -q 'CLAUDE_PROJECT_DIR:-\$PWD' "$SKELETON_DIR/.claude/scripts/cruft-check.sh" \
+    || missing="$missing .claude/scripts/cruft-check.sh"
+  if [ -n "$missing" ]; then
+    echo "ERROR: unanchored after the sweep:$missing" >&2
+    exit 1
+  fi
+  echo "  leg 8: every converted script carries the blessed anchor OK"
+
+  echo "PASS path-anchoring (8 legs)"
+}
+
 # ---- dispatch ----
 case "${1:-}" in
   fresh-install)                scenario_fresh_install ;;
@@ -3492,6 +3630,7 @@ case "${1:-}" in
   merge-add)                    scenario_merge_add ;;
   local-mod-detect)             scenario_local_mod_detect ;;
   local-mod-preserve)           scenario_local_mod_preserve ;;
+  path-anchoring)               scenario_path_anchoring ;;
   backfill-migrate)             scenario_backfill_migrate ;;
   raw-baseline-migrate)         scenario_raw_baseline_migrate ;;
   check-remote-cached)              scenario_check_remote_cached ;;
@@ -3548,6 +3687,7 @@ case "${1:-}" in
     scenario_merge_add
     scenario_local_mod_detect
     scenario_local_mod_preserve
+    scenario_path_anchoring
     scenario_backfill_migrate
     scenario_raw_baseline_migrate
     scenario_check_remote_cached
@@ -3610,6 +3750,7 @@ Scenarios:
   merge-add                    First --mode=merge into marker-less target: collision skipped, custom preserved, missing added.
   local-mod-detect             Modify a file → update.sh --dry-run reports LOCALLY_MODIFIED.
   local-mod-preserve           Modify a file → update.sh with [K]eep leaves it intact.
+  path-anchoring               Converted scripts target the project root from a nested cwd; degraded audits never read clean (Phase 116).
   backfill-migrate             Legacy shell marker → update.sh migrates to JSON.
   raw-baseline-migrate         Pre-Phase-52 marker → inline migration; tuner edit stays LOCALLY_MODIFIED (Phase 52).
   check-remote-cached          --check-remote against mock bare repo populates cached_skeleton_head (Phase 30b H5).

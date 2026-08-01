@@ -281,6 +281,10 @@ jobs:
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh update-working-tree-safety
 
+      - name: Scenario - path-anchoring
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh path-anchoring
+
       - name: Scenario - watchdog-transcript-resolution
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh watchdog-transcript-resolution
