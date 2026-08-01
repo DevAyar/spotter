@@ -936,6 +936,28 @@ ensure_exec_if_script() {
   case "$1" in *.sh) chmod +x "$1" ;; esac
 }
 
+# differs_only_in_line_endings <relpath> — Phase 113, REPORT ONLY.
+# A file whose sole difference from the template is CR/LF sits in the
+# LOCALLY_MODIFIED keep bucket forever, silently blocking every future
+# update while looking like a real customization (TV carried two).
+# Comparison normalizes line endings IN MEMORY only: nothing is
+# rewritten, nothing is reclassified, the marker is untouched. The file
+# stays LOCALLY_MODIFIED — the user simply learns WHY it keeps
+# appearing. Normalizing would be a marker-semantics change and is out
+# of scope here by constraint.
+differs_only_in_line_endings() {
+  local rel="$1" src tgt
+  tgt="$TARGET_PATH/$rel"
+  src=$(src_for_rel "$rel") || return 1
+  [ -f "$src" ] && [ -f "$tgt" ] || return 1
+  # Not byte-identical (they are LOCALLY_MODIFIED by definition), so ask
+  # whether they match once CR characters are removed from both sides.
+  if tr -d '\r' < "$src" 2>/dev/null | cmp -s - <(tr -d '\r' < "$tgt" 2>/dev/null); then
+    return 0
+  fi
+  return 1
+}
+
 # ---- Phase 113: marker/git divergence guard (never-eats-work class) ----
 # THE MECHANISM, verified empirically rather than assumed: classify()
 # hashes the file ON DISK, so an ordinary uncommitted edit changes the
@@ -1165,7 +1187,12 @@ apply_local_modifications() {
   warn "${C_BOLD}LOCALLY MODIFIED files (changed since install) — review required:${C_RESET}"
   local rel
   for rel in "${LOCALLY_MODIFIED_FILES[@]}"; do
-    printf '  ! %s\n' "$rel"
+    if differs_only_in_line_endings "$rel"; then
+      printf '  ! %s\n' "$rel"
+      printf '      differs only in line endings — likely a checkout artifact, not a customization\n'
+    else
+      printf '  ! %s\n' "$rel"
+    fi
   done
   echo
   warn "These will NOT be auto-overwritten. Per-file decision:"

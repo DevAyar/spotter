@@ -2977,7 +2977,28 @@ PYEOF
     || { echo "ERROR (5): non-git target did not disclose that the check was skipped" >&2; exit 1; }
   echo "  leg 5: non-git target applies as before and discloses the skip OK"
 
-  echo "PASS update-working-tree-safety (5 legs)"
+  # Leg 6 (Phase 113) — PHANTOM DIVERGENCE, report only. A file whose only
+  # difference from the template is CR/LF sits in the keep bucket forever,
+  # looking like a customization. It must be NAMED as such — and a genuine
+  # edit must NOT get the note.
+  local crlf_rel=".claude/commands/audit.md"
+  local real_rel=".claude/commands/commit.md"
+  python - "$TEST_DIR" "$crlf_rel" <<'PYEOF'
+import os, sys
+p = os.path.join(sys.argv[1], sys.argv[2])
+data = open(p, "rb").read().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+open(p, "wb").write(data)
+PYEOF
+  printf '\nA GENUINE LOCAL EDIT %s\n' "$$" >> "$TEST_DIR/$real_rel"
+  local pout
+  pout=$(bash "$SKELETON_DIR/scripts/update.sh" --source "$SKELETON_DIR" --target "$TEST_DIR" --dry-run </dev/null 2>&1)
+  printf '%s' "$pout" | grep -A1 -- "$crlf_rel" | grep -qi "differs only in line endings" \
+    || { echo "ERROR (6): CRLF-only difference was not reported as a checkout artifact" >&2; printf '%s\n' "$pout" | grep -A1 "$crlf_rel" >&2; exit 1; }
+  printf '%s' "$pout" | grep -A1 -- "$real_rel" | grep -qi "differs only in line endings" \
+    && { echo "ERROR (6): a GENUINE edit was mislabelled a line-ending artifact" >&2; exit 1; }
+  echo "  leg 6: CRLF-only named as a checkout artifact; genuine edit untouched OK"
+
+  echo "PASS update-working-tree-safety (6 legs)"
 }
 
 # ---- Phase 112: interpreter-probe class sweep ----
