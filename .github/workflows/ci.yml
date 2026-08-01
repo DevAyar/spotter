@@ -10,9 +10,16 @@ on:
   schedule:
     - cron: '0 6 * * 1'   # weekly full-matrix drift net (Mondays 06:00 UTC)
 
-# A superseded push cancels its own stale run.
+# A superseded push cancels its own stale run — but only its own kind.
+# Phase 115: the group used to be ci-<ref>, so the weekly scheduled
+# full-matrix drift net shared a lane with ordinary pushes to main and a
+# Monday-morning push silently cancelled it (and vice versa) with no
+# failure signal — the one run that exists to catch what the per-push
+# linux-only runs miss was the one most likely to be killed. Keying on
+# event_name as well gives schedule, workflow_dispatch and pull_request
+# their own lanes, while pushes still cancel superseded pushes.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -77,6 +84,17 @@ jobs:
     name: Test (${{ matrix.os }})
     needs: detect
     runs-on: ${{ matrix.os }}
+    # Phase 115: without this the job inherits GitHub's 360-minute default,
+    # so a wedged interactive prompt (update.sh reads stdin in several
+    # scenarios) burns six hours of runner time before anything is
+    # surfaced. Measured across the last eight runs: ubuntu ~70s, macOS
+    # ~102s, windows 678-881s. 45 is 3x the worst observed, which leaves
+    # room for the suite to keep gaining a scenario per phase without
+    # re-tuning, and still surfaces a hang 8x sooner than the default.
+    # Deliberately not 20-30: that sits close enough to the 30% windows
+    # spread to risk spurious red, and a flaky suite is the failure mode
+    # this phase exists to prevent.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:

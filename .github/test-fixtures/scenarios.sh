@@ -51,7 +51,11 @@ init_target() {
 # verify_marker: assert JSON marker exists with expected keys and a
 # files object whose entries each have a 64-char lowercase hex hash.
 verify_marker() {
-  local expected_count="${1:-25}"
+  # Phase 115: the count is required, not defaulted. The old ${1:-25} was
+  # dead — every call site passes an explicit count — and a stale default
+  # in an assertion helper is a trap: a future call that forgets the
+  # argument would assert against a number nobody chose.
+  local expected_count="${1:?verify_marker: expected file count required}"
   local marker="$TEST_DIR/.claude/.skeleton-version"
   [ -f "$marker" ] || { echo "ERROR: marker not at $marker" >&2; return 1; }
   python -c "
@@ -699,8 +703,13 @@ CAP
   local ref
   ref=$(git -C "$bare" for-each-ref --format='%(refname)' refs/heads | head -1)
   [ -n "$ref" ] || { echo "ERROR: remote has no branch after push" >&2; exit 1; }
-  git -C "$bare" ls-tree -r --name-only "$ref" | grep -q "captures/$uuid/.*/capQ.json" \
-    || { echo "ERROR: capture event not in remote" >&2; git -C "$bare" ls-tree -r --name-only "$ref" >&2; exit 1; }
+  # Phase 115: capture first, then match against the value. An
+  # `ls-tree | grep -q` pipeline lets grep's early close SIGPIPE the
+  # producer under pipefail — the exact hazard have_glob was written
+  # to avoid.
+  remote_tree=$(git -C "$bare" ls-tree -r --name-only "$ref")
+  grep -q "captures/$uuid/.*/capQ.json" <<<"$remote_tree" \
+    || { echo "ERROR: capture event not in remote" >&2; printf '%s\n' "$remote_tree" >&2; exit 1; }
   git -C "$bare" cat-file -e "$ref:version/$uuid/version.json" 2>/dev/null \
     || { echo "ERROR: version event not in remote" >&2; exit 1; }
   local out
@@ -745,7 +754,13 @@ CAP
     || { echo "ERROR: catch-up run failed" >&2; exit 1; }
   local ref
   ref=$(git -C "$bare" for-each-ref --format='%(refname)' refs/heads | head -1)
-  [ -n "$ref" ] && git -C "$bare" ls-tree -r --name-only "$ref" | grep -q "capF.json" \
+  # Phase 115: capture first, then match against the value. An
+  # `ls-tree | grep -q` pipeline lets grep's early close SIGPIPE the
+  # producer under pipefail — the exact hazard have_glob was written
+  # to avoid.
+  remote_tree=""
+  if [ -n "$ref" ]; then remote_tree=$(git -C "$bare" ls-tree -r --name-only "$ref"); fi
+  grep -q "capF.json" <<<"$remote_tree" \
     || { echo "ERROR: catch-up did not land capF" >&2; exit 1; }
   echo "PASS share-push-failsoft"
 }
@@ -834,9 +849,15 @@ CAP
   # Remote must carry NO capture data — preview commits/pushes nothing.
   local ref
   ref=$(git -C "$bare" for-each-ref --format='%(refname)' refs/heads | head -1)
-  if [ -n "$ref" ] && git -C "$bare" ls-tree -r --name-only "$ref" | grep -q '^captures/'; then
+  # Phase 115: capture first, then match against the value. An
+  # `ls-tree | grep -q` pipeline lets grep's early close SIGPIPE the
+  # producer under pipefail — the exact hazard have_glob was written
+  # to avoid.
+  remote_tree=""
+  if [ -n "$ref" ]; then remote_tree=$(git -C "$bare" ls-tree -r --name-only "$ref"); fi
+  if grep -q '^captures/' <<<"$remote_tree"; then
     echo "ERROR: preview pushed capture data to the remote" >&2
-    git -C "$bare" ls-tree -r --name-only "$ref" >&2
+    printf '%s\n' "$remote_tree" >&2
     exit 1
   fi
   echo "PASS share-preview-enabled"
@@ -3617,7 +3638,7 @@ Scenarios:
   hook-fp-exemption-git-commit-message  Parser exempts -m bodies + heredoc/here-string payloads; counter-tests verify outside-region patterns still deny (Phase 30c).
   all                          Run every scenario in sequence.
 EOF
-    [ -z "${1:-}" ] && exit 0 || exit 0
+    exit 0
     ;;
   *)
     echo "unknown scenario: $1" >&2
