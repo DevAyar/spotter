@@ -47,6 +47,22 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+# ---- project-root anchor (Phase 116) ----
+# Placed AFTER arg parsing on purpose: --plugin-dir / --candidate-plugin
+# may be relative to the caller's cwd, so they are resolved to absolute
+# paths first and only then do we chdir. Without the anchor the pattern
+# libs at $BASH_LIB / $PS_LIB were looked up under the caller's directory,
+# came back empty, and heuristic iii "passed" having tested nothing.
+for _v in PLUGIN_DIR_OVERRIDE CANDIDATE_PLUGIN; do
+  eval "_p=\${$_v}"
+  case "$_p" in
+    ''|/*|[A-Za-z]:[/\\]*) ;;                      # empty or already absolute
+    *) eval "$_v=\"\$PWD/\$_p\"" ;;
+  esac
+done
+ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
+cd "$ROOT" || exit 0
+
 # ---- helpers ----
 now_epoch() { date -u +%s; }
 
@@ -82,6 +98,17 @@ for _cand in python python3; do
   fi
 done
 [ -n "$PYBIN" ] || exit 0
+
+# Phase 116: heuristic iii reads its patterns from the shared libs. If they
+# are missing the python side scans with zero patterns, finds nothing by
+# construction, and the plugin reads as clean. The child's stderr goes to
+# /dev/null, so the human-facing warning has to be printed from here. Exit
+# stays 0 either way — this runs on the SessionStart chain.
+for _lib in "$BASH_LIB" "$PS_LIB"; do
+  if [ ! -r "$_lib" ]; then
+    printf 'plugin-quality-check: %s unreadable — heuristic iii (destructive shell patterns) will NOT run; this audit cannot report the plugin clean on that dimension\n' "$_lib" >&2
+  fi
+done
 
 "$PYBIN" - "$PLUGIN_DIR" "$OBS_DIR" "$EVIDENCE_CAP" "$BASH_LIB" "$PS_LIB" "$CANDIDATE_PLUGIN" 2>/dev/null <<'PYIMPL'
 import hashlib, json, os, re, sys
@@ -227,6 +254,29 @@ def read_patterns_from_lib(lib_path):
 
 BASH_PATTERNS = read_patterns_from_lib(bash_lib)
 PS_PATTERNS = read_patterns_from_lib(ps_lib)
+
+# Phase 116: state the degradation, never swallow it. read_patterns_from_lib
+# returns [] for a missing or unreadable lib, so heuristic iii used to scan
+# with zero patterns, find nothing by construction, and report the plugin
+# clean -- a claim about safety made by a check that never ran. This is the
+# same asserted-non-empty rule Phase 106 gave the PreToolUse hooks, which
+# this script never got. In candidate mode the matcher consumes
+# CANDIDATE-DEGRADED and must not record 'clean' on the strength of it.
+HEURISTIC_III_OK = bool(BASH_PATTERNS) and bool(PS_PATTERNS)
+if not HEURISTIC_III_OK:
+    _missing = []
+    if not BASH_PATTERNS:
+        _missing.append(bash_lib)
+    if not PS_PATTERNS:
+        _missing.append(ps_lib)
+    _why = ('destructive-pattern lib missing or empty: ' + ', '.join(_missing)
+            + ' -- heuristic iii (destructive shell patterns) did NOT run')
+    # stdout, not stderr: this child is invoked with 2>/dev/null, so a
+    # warning on stderr would be swallowed by the very silence it exists to
+    # break. The bash side prints the human-facing copy (see the preflight
+    # check above the invocation).
+    if CANDIDATE_MODE:
+        print(f'CANDIDATE-DEGRADED {_why}')
 
 def compile_posix_ere(p, case_insensitive=False):
     """Convert POSIX ERE pattern (as used by [[ =~ ]] in bash) to a

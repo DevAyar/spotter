@@ -360,11 +360,25 @@ for block in blocks:
             # from plugin-quality-check --candidate-plugin (zero new
             # heuristics; findings quoted).
             try:
+                # Phase 116: cwd is passed explicitly. The child resolves its
+                # pattern libs project-relatively, and without this it
+                # inherited OUR caller's cwd — so from any non-root directory
+                # heuristic iii ran with zero patterns and the manifest still
+                # recorded 'clean (i/ii/iii pass)'. A claim about safety made
+                # by a check that never ran.
                 proc = subprocess.run(
                     ['bash', quality_check, '--candidate-plugin', plugin_dir],
-                    capture_output=True, text=True, timeout=120)
+                    capture_output=True, text=True, timeout=120,
+                    cwd=os.path.abspath(project_root))
                 findings = [ln for ln in (proc.stdout or '').splitlines()
                             if ln.startswith('CANDIDATE-FINDING')]
+                degraded = [ln for ln in (proc.stdout or '').splitlines()
+                            if ln.startswith('CANDIDATE-DEGRADED')]
+                if degraded:
+                    # The audit ran but could not cover every heuristic. Say
+                    # so; do not let a partial audit read as a clean one.
+                    audit_line = ('incomplete — '
+                                  + degraded[0][len('CANDIDATE-DEGRADED '):])
             except (OSError, subprocess.SubprocessError):
                 findings = []
                 audit_line = 'error (audit did not run)'

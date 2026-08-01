@@ -18,6 +18,19 @@ OBS_DIR=".claude/observations"
 EVIDENCE_CAP=20
 HOOK_FLAG=false
 
+# ---- project-root anchor (Phase 116) ----
+# Every path below is project-relative. settings.json invokes this by an
+# absolute $CLAUDE_PROJECT_DIR path but sets no cwd, so from any other
+# directory the scan found nothing and reported clean while `mkdir -p`
+# planted a stray .claude/ tree where the caller happened to be standing.
+# Anchoring as a chdir rather than a path prefix is deliberate and load
+# bearing: each observation's pattern_id hashes a signature containing the
+# file path, and the exemption sets match by relative prefix, so prefixing
+# would change every id -- writing a duplicate corpus and mass-resolving
+# the existing one -- and would un-exempt .git/ and the history-heavy docs.
+ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
+cd "$ROOT" || exit 0
+
 # ---- args ----
 for arg in "$@"; do
   case "$arg" in
