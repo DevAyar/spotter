@@ -936,6 +936,82 @@ ensure_exec_if_script() {
   case "$1" in *.sh) chmod +x "$1" ;; esac
 }
 
+# ---- Phase 113: marker/git divergence guard (never-eats-work class) ----
+# THE MECHANISM, verified empirically rather than assumed: classify()
+# hashes the file ON DISK, so an ordinary uncommitted edit changes the
+# hash and classifies LOCALLY_MODIFIED — already protected, already
+# asked about. Work is destroyed only in the NARROW case where the
+# MARKER believes the content is pristine while GIT knows the file is
+# dirty: the file lands in TEMPLATE_UPDATED ("you haven't modified
+# these") and is overwritten. That state is reachable when Phase 59
+# match-rebaseline adopts a local edit that coincided with the template,
+# or when an edit predates the baseline backfill on an older install.
+# Found live by Echoes-Of-Gill's Phase 112 propagation.
+#
+# The check therefore fires ONLY on the conjunction (marker says clean
+# AND git says dirty). It deliberately does NOT apply to
+# LOCALLY_MODIFIED: there the marker is already telling the truth and
+# already collecting consent, and a dirty check would fire on every
+# ordinary in-progress edit — the fastest way to train someone to
+# ignore it.
+DIRTY_PATHS=""
+DIRTY_CHECK_ACTIVE=false
+DIRTY_CHECK_SKIP_REASON=""
+HELD_FILES=()
+
+# dirty_paths_init: one `git status --porcelain` for the WHOLE candidate
+# set, not one per file. A non-git target has no working-tree concept,
+# so the check cannot run — the run proceeds exactly as before and the
+# summary discloses the skip, because silence would imply a protection
+# that is not actually running.
+dirty_paths_init() {
+  if ! command -v git >/dev/null 2>&1; then
+    DIRTY_CHECK_SKIP_REASON="git not on PATH"
+    return 0
+  fi
+  if ! git -C "$TARGET_PATH" rev-parse --git-dir >/dev/null 2>&1; then
+    DIRTY_CHECK_SKIP_REASON="target is not a git repository"
+    return 0
+  fi
+  # git reports paths relative to the REPO ROOT, but our keys are relative
+  # to TARGET_PATH — which is not the same thing when the install lives in
+  # a subdirectory of a larger repo. Strip the target's prefix so the two
+  # are comparable; without this the check would silently never match and
+  # look like it was passing.
+  local prefix
+  prefix=$(git -C "$TARGET_PATH" rev-parse --show-prefix 2>/dev/null || true)
+  DIRTY_PATHS=$(git -C "$TARGET_PATH" status --porcelain -- .claude 2>/dev/null \
+    | sed 's/^...//' \
+    | sed 's/^"//; s/"$//' \
+    | { if [ -n "$prefix" ]; then sed "s|^${prefix}||"; else cat; fi; })
+  DIRTY_CHECK_ACTIVE=true
+}
+
+# path_is_dirty <relpath> — true when git reports uncommitted changes.
+path_is_dirty() {
+  [ "$DIRTY_CHECK_ACTIVE" = true ] || return 1
+  printf '%s\n' "$DIRTY_PATHS" | grep -Fxq "$1"
+}
+
+# hold_divergent <relpath> — refuse the apply, record it for the report.
+# The held file is NOT marker-updated, so the next run re-offers it.
+hold_divergent() {
+  HELD_FILES+=("$1")
+  SKIPPED_FILES=$((SKIPPED_FILES + 1))
+}
+
+report_held_files() {
+  [ ${#HELD_FILES[@]} -eq 0 ] && return 0
+  echo
+  warn "HELD — uncommitted changes in your working tree (nothing was overwritten):"
+  local rel
+  for rel in "${HELD_FILES[@]}"; do
+    printf '  ! %s\n' "$rel"
+  done
+  warn "  the marker recorded these as unmodified, but git shows uncommitted changes."
+  warn "  commit or stash, then re-run to take the template update."
+}
+
 backup_then_overwrite() {
   local src="$1" tgt="$2"
   local backup="$tgt.bak.$$"
@@ -1021,8 +1097,13 @@ apply_template_updates() {
 }
 
 apply_all_template_updates() {
-  local rel src tgt h
+  local rel src tgt h applied=0
   for rel in "${TEMPLATE_UPDATED_FILES[@]}"; do
+    # Phase 113: the marker/git divergence hold. See dirty_paths_init.
+    if path_is_dirty "$rel"; then
+      hold_divergent "$rel"
+      continue
+    fi
     src=$(src_for_rel "$rel")
     tgt="$TARGET_PATH/$rel"
     if [ "$DRY_RUN" = false ]; then
@@ -1032,13 +1113,21 @@ apply_all_template_updates() {
       raw_baseline_set "$rel" "$h"
     fi
     APPLIED=$((APPLIED+1))
+    applied=$((applied+1))
   done
-  ok "applied ${#TEMPLATE_UPDATED_FILES[@]} template update(s)"
+  ok "applied ${applied} template update(s)"
 }
 
 review_template_updates() {
   local rel src tgt reply h
   for rel in "${TEMPLATE_UPDATED_FILES[@]}"; do
+    # Phase 113: same divergence hold as the apply-all path — a file the
+    # marker calls unmodified while git shows uncommitted changes is not
+    # offered for overwrite at all.
+    if path_is_dirty "$rel"; then
+      hold_divergent "$rel"
+      continue
+    fi
     src=$(src_for_rel "$rel")
     tgt="$TARGET_PATH/$rel"
     echo
@@ -1137,15 +1226,22 @@ apply_orphans() {
   case "$reply" in
     y|Y|yes|YES)
       [ "$DRY_RUN" = true ] && return 0
-      local tgt
+      local tgt deleted=0
       for rel in "${ORPHAN_FILES[@]}"; do
+        # Phase 113: deleting a file that carries uncommitted work is
+        # strictly worse than overwriting it, so the same hold applies.
+        if path_is_dirty "$rel"; then
+          hold_divergent "$rel"
+          continue
+        fi
         tgt="$TARGET_PATH/$rel"
         [ -f "$tgt" ] && backup_then_delete "$tgt"
         marker_hash_unset "$rel"
         raw_baseline_unset "$rel"
         APPLIED=$((APPLIED+1))
+        deleted=$((deleted+1))
       done
-      ok "deleted ${#ORPHAN_FILES[@]} orphan(s)"
+      ok "deleted ${deleted} orphan(s)"
       ;;
     *)
       info "kept orphan files (marker entries retained)"
@@ -1183,6 +1279,13 @@ write_version_marker() {
 }
 
 summary() {
+  report_held_files
+  # Phase 113: disclose a check that did NOT run — silence would imply a
+  # protection that is not actually running.
+  if [ "$DIRTY_CHECK_ACTIVE" != true ] && [ -n "$DIRTY_CHECK_SKIP_REASON" ]; then
+    echo
+    warn "working-tree check skipped (${DIRTY_CHECK_SKIP_REASON}) — uncommitted-work protection was not available this run."
+  fi
   echo
   if [ "$DRY_RUN" = true ]; then
     info "DRY RUN — no files written."
@@ -1221,6 +1324,8 @@ migrate_raw_baselines
 migrate_install_identity
 maybe_announce_backfill
 classify
+# Phase 113: one git query for the whole candidate set, before any apply.
+dirty_paths_init
 print_findings
 if [ ${#NEW_FILES[@]} -eq 0 ] \
    && [ ${#TEMPLATE_UPDATED_FILES[@]} -eq 0 ] \

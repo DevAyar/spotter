@@ -2869,6 +2869,117 @@ scenario_replace_with_yes_piped() {
   echo "PASS replace-with-yes-piped"
 }
 
+# ---- Phase 113: marker/git divergence guard (never-eats-work class) ----
+# THE VERIFIED MECHANISM, not the originally reported one. classify()
+# hashes the file ON DISK, so an ordinary uncommitted edit classifies
+# LOCALLY_MODIFIED and is already protected (leg 3 pins that). Work is
+# destroyed only when the MARKER believes the content is pristine while
+# GIT knows the file is dirty — reachable via Phase 59 match-rebaseline
+# adopting a local edit, or an edit predating the baseline backfill.
+# Surfaced by Echoes-Of-Gill's Phase 112 propagation.
+scenario_update_working_tree_safety() {
+  echo ">> update-working-tree-safety: marker/git divergence held, not overwritten; no collateral, no new friction (Phase 113)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only > /dev/null
+  ( cd "$TEST_DIR" && git add -A >/dev/null 2>&1 && git commit -q -m "install skeleton" >/dev/null 2>&1 )
+
+  local div_rel=".claude/agents/05_meta/drift-checker.md"
+  local clean_rel=".claude/agents/01_research/research-helper.md"
+  local plain_rel=".claude/agents/02_audit/audit-helper.md"
+  local div_mark="UNIQUE-USER-WORK-$$" plain_mark="ORDINARY-EDIT-$$"
+
+  # Divergence state: the user's content is on disk AND the marker has
+  # adopted it as the pristine baseline (what match-rebaseline does).
+  printf '\n%s\n' "$div_mark" >> "$TEST_DIR/$div_rel"
+  python - "$TEST_DIR" "$div_rel" <<'PYEOF'
+import hashlib, json, os, sys
+root, rel = sys.argv[1], sys.argv[2]
+p = os.path.join(root, ".claude", ".skeleton-version")
+m = json.load(open(p, encoding="utf-8"))
+h = hashlib.sha256(open(os.path.join(root, rel), "rb").read()).hexdigest()
+m.setdefault("raw_template_baselines", {})[rel] = h
+m.setdefault("files", {})[rel] = h
+json.dump(m, open(p, "w", encoding="utf-8", newline="\n"), indent=2)
+PYEOF
+  # An ORDINARY uncommitted edit (leg 3): marker untouched, so this must
+  # keep classifying LOCALLY_MODIFIED exactly as before this phase.
+  printf '\n%s\n' "$plain_mark" >> "$TEST_DIR/$plain_rel"
+  # Template-side changes to all three.
+  local f
+  for f in "$div_rel" "$clean_rel" "$plain_rel"; do
+    printf '\n<!-- template change %s -->\n' "$$" >> "$SKELETON_DIR/template/$f"
+  done
+
+  local out rc=0
+  out=$(bash "$SKELETON_DIR/scripts/update.sh" --source "$SKELETON_DIR" --target "$TEST_DIR" --auto-apply </dev/null 2>&1) || rc=$?
+  git -C "$SKELETON_DIR" checkout -- "template/$div_rel" "template/$clean_rel" "template/$plain_rel" 2>/dev/null || true
+  [ "$rc" -eq 0 ] || { echo "ERROR: update exited $rc" >&2; printf '%s\n' "$out" | tail -15 >&2; exit 1; }
+
+  # Leg 1 — the divergent file is HELD and its content survives.
+  grep -q "$div_mark" "$TEST_DIR/$div_rel" \
+    || { echo "ERROR (1): unique user content was destroyed — the divergence hold did not fire" >&2; exit 1; }
+  printf '%s' "$out" | grep -qi "uncommitted changes" \
+    || { echo "ERROR (1): the hold was not reported" >&2; printf '%s\n' "$out" | tail -20 >&2; exit 1; }
+  printf '%s' "$out" | grep -qi "commit or stash" \
+    || { echo "ERROR (1): the report does not say what to do" >&2; exit 1; }
+  printf '%s' "$out" | grep -q "$div_rel" \
+    || { echo "ERROR (1): the report does not name the held file" >&2; exit 1; }
+  echo "  leg 1: marker/git divergence held, content intact, named and explained OK"
+
+  # Leg 2 — no collateral: a clean file in the same batch still applied.
+  grep -q "template change" "$TEST_DIR/$clean_rel" \
+    || { echo "ERROR (2): a clean file was blocked by an unrelated held file" >&2; exit 1; }
+  echo "  leg 2: clean file in the same batch still applied OK"
+
+  # Leg 3 — no new friction: an ORDINARY uncommitted edit still goes the
+  # LOCALLY_MODIFIED route (protected, and NOT reported as a divergence).
+  grep -q "$plain_mark" "$TEST_DIR/$plain_rel" \
+    || { echo "ERROR (3): an ordinary uncommitted edit was overwritten" >&2; exit 1; }
+  printf '%s' "$out" | grep -qi "locally modified" \
+    || { echo "ERROR (3): the ordinary edit no longer reports as locally modified" >&2; exit 1; }
+  echo "  leg 3: ordinary uncommitted edit still LOCALLY_MODIFIED — no new friction OK"
+
+  # Leg 4 — the marker keeps the OLD hash for the held file, so the next
+  # run re-offers it instead of believing it was applied.
+  python - "$TEST_DIR" "$div_rel" <<'PYEOF'
+import hashlib, json, os, sys
+root, rel = sys.argv[1], sys.argv[2]
+m = json.load(open(os.path.join(root, ".claude", ".skeleton-version"), encoding="utf-8"))
+disk = hashlib.sha256(open(os.path.join(root, rel), "rb").read()).hexdigest()
+tmpl_recorded = m.get("raw_template_baselines", {}).get(rel)
+if tmpl_recorded is not None and tmpl_recorded != disk:
+    print("ERROR (4): marker was advanced for a HELD file — next run would not re-offer it")
+    raise SystemExit(1)
+print("  leg 4: marker unchanged for the held file; next run re-offers it OK")
+PYEOF
+
+  # Leg 5 — a target with no working tree applies as before and DISCLOSES
+  # the skipped check. Reachability note: install.sh refuses a non-git
+  # target outright, so this state is only reachable AFTER install (a
+  # copied tree, a re-init, a removed .git) — which is why the leg builds
+  # it that way instead of installing into a bare directory.
+  local ng
+  ng=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-nongit)
+  ( cd "$ng" && git init -q . && git config user.email t@t && git config user.name t \
+    && echo x > README.md && git add -A && git commit -qm init ) >/dev/null 2>&1
+  bash "$SKELETON_DIR/scripts/install.sh" --source "$SKELETON_DIR" --target "$ng" --mode=fresh --claude-only > /dev/null 2>&1
+  rm -rf "$ng/.git"
+  printf '\n<!-- template change %s -->\n' "$$" >> "$SKELETON_DIR/template/$clean_rel"
+  local ngout ngrc=0
+  ngout=$(bash "$SKELETON_DIR/scripts/update.sh" --source "$SKELETON_DIR" --target "$ng" --auto-apply </dev/null 2>&1) || ngrc=$?
+  git -C "$SKELETON_DIR" checkout -- "template/$clean_rel" 2>/dev/null || true
+  [ "$ngrc" -eq 0 ] || { echo "ERROR (5): non-git target update exited $ngrc" >&2; printf '%s\n' "$ngout" | tail -10 >&2; exit 1; }
+  grep -q "template change" "$ng/$clean_rel" \
+    || { echo "ERROR (5): non-git target did not apply a clean update" >&2; exit 1; }
+  printf '%s' "$ngout" | grep -qi "working-tree check skipped" \
+    || { echo "ERROR (5): non-git target did not disclose that the check was skipped" >&2; exit 1; }
+  echo "  leg 5: non-git target applies as before and discloses the skip OK"
+
+  echo "PASS update-working-tree-safety (5 legs)"
+}
+
 # ---- Phase 112: interpreter-probe class sweep ----
 # One canonical detector, every consumer. Each leg runs a consumer with a
 # PATH where a NON-RUNNABLE `python` shadows a working `python3` (the
@@ -3327,6 +3438,7 @@ case "${1:-}" in
   hook-destructive-canonicalization) scenario_hook_destructive_canonicalization ;;
   update-integrity)                 scenario_update_integrity ;;
   interpreter-probe-class)          scenario_interpreter_probe_class ;;
+  update-working-tree-safety)       scenario_update_working_tree_safety ;;
   all)
     scenario_fresh_install
     scenario_raw_baseline_install
@@ -3382,6 +3494,7 @@ case "${1:-}" in
     scenario_hook_destructive_canonicalization
     scenario_update_integrity
     scenario_interpreter_probe_class
+    scenario_update_working_tree_safety
     echo "ALL SCENARIOS PASSED"
     ;;
   ""|-h|--help)
@@ -3422,6 +3535,7 @@ Scenarios:
   raw-baseline-migrate         Pre-Phase-52 marker → inline migration; tuner edit stays LOCALLY_MODIFIED (Phase 52).
   check-remote-cached          --check-remote against mock bare repo populates cached_skeleton_head (Phase 30b H5).
   hook-fail-closed-bash-safety Missing lib → PreToolUse hook emits deny JSON (Phase 30b H5).
+  update-working-tree-safety   Marker/git divergence held, not overwritten; no collateral, no new friction (Phase 113).
   interpreter-probe-class      One canonical python detector across every consumer; honest failure message (Phase 112).
   update-integrity             Empty-array cleanup, interpreter probe, glob source path, marker-commit validation, EOF-skip (Phase 110).
   hook-destructive-canonicalization  Canonicalized matching: single-char variants deny, confident stripping, cross-shell, empty lib fails closed, deny JSON valid (Phase 106).
