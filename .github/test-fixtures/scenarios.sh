@@ -3599,6 +3599,162 @@ scenario_path_anchoring() {
   echo "PASS path-anchoring (8 legs)"
 }
 
+# Phase 117: commit.sh and deploy.sh must target the PROJECT repo even when
+# the caller's cwd sits inside a nested one (.claude/shared-memory/ is a
+# real nested clone once share mode is on), deploy's dirty-tree gate must
+# fail CLOSED with the true cause named, and a share URL must earn its way
+# past an allowlist before any git process sees it.
+scenario_git_context_safety() {
+  echo ">> git-context-safety: nested-cwd repo targeting + fail-closed deploy + URL allowlist (Phase 117)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only >/dev/null
+  ( cd "$TEST_DIR" && git add -A >/dev/null 2>&1 && git commit -qm "install" >/dev/null 2>&1 )
+
+  # A nested repo inside the project, with its own clean history.
+  local inner="$TEST_DIR/nested-repo"
+  mkdir -p "$inner"
+  ( cd "$inner" && git init -q . && git config user.email t@t && git config user.name t \
+      && echo n > N.md && git add -A && git commit -qm inner ) >/dev/null 2>&1
+
+  # deploy.sh ships with a literal {{DEPLOY_COMMAND}} placeholder (tuner
+  # resolves it per project); resolve it to a harmless echo so the legs
+  # exercise the guard logic, not the placeholder.
+  sed 's/{{DEPLOY_COMMAND}}/echo DEPLOY-MARKER/g' \
+    "$TEST_DIR/.claude/scripts/deploy.sh" > "$TEST_DIR/.claude/scripts/deploy-fixture.sh"
+
+  # --- leg 1: commit from the nested cwd lands in the OUTER repo ---
+  printf 'outer change\n' >> "$TEST_DIR/README.md" 2>/dev/null || printf 'outer change\n' > "$TEST_DIR/OUTER.md"
+  ( cd "$TEST_DIR" && git add -A >/dev/null 2>&1 )
+  local outer_before inner_before outer_after inner_after
+  outer_before=$(git -C "$TEST_DIR" rev-parse HEAD)
+  inner_before=$(git -C "$inner" rev-parse HEAD)
+  # `|| true`: the HEAD assertions below do the failing. Without it, the
+  # PRE-FIX commit.sh exits 1 here (nothing staged in the inner repo) and
+  # set -e kills the scenario before any diagnostic prints — the exact
+  # assertions-do-the-failing lesson this phase codifies in the manager.
+  ( cd "$inner" && CLAUDE_PROJECT_DIR="$TEST_DIR" \
+      bash "$TEST_DIR/.claude/scripts/commit.sh" "phase-117 outer commit" >/dev/null 2>&1 ) || true
+  outer_after=$(git -C "$TEST_DIR" rev-parse HEAD)
+  inner_after=$(git -C "$inner" rev-parse HEAD)
+  if [ "$outer_after" = "$outer_before" ]; then
+    echo "ERROR: commit.sh from a nested cwd did not commit the project repo" >&2
+    exit 1
+  fi
+  if [ "$inner_after" != "$inner_before" ]; then
+    echo "ERROR: commit.sh from a nested cwd committed the NESTED repo — the wrong-repo bug" >&2
+    exit 1
+  fi
+  echo "  leg 1: commit from a nested cwd lands in the project repo, inner untouched OK"
+
+  # --- leg 2: deploy from the nested clean repo refuses while outer is dirty ---
+  # The dirt must be a modification to a TRACKED file: diff-index compares
+  # tracked content against HEAD and has never considered untracked files
+  # dirt — that is the gate's longstanding semantics, unchanged here.
+  printf 'dirty\n' >> "$TEST_DIR/.claude/settings.json"
+  local dep_rc=0 dep_out
+  dep_out=$( cd "$inner" && CLAUDE_PROJECT_DIR="$TEST_DIR" \
+      bash "$TEST_DIR/.claude/scripts/deploy-fixture.sh" 2>&1 ) || dep_rc=$?
+  if [ "$dep_rc" -eq 0 ]; then
+    echo "ERROR: deploy from a nested clean repo PROCEEDED while the project tree was dirty — the fail-open bug" >&2
+    printf '%s\n' "$dep_out" >&2
+    exit 1
+  fi
+  assert_contains "$dep_out" "uncommitted changes"
+  if printf '%s' "$dep_out" | grep -q "DEPLOY-MARKER"; then
+    echo "ERROR: the deploy command ran despite the refusal" >&2
+    exit 1
+  fi
+  echo "  leg 2: dirty-tree gate evaluates the PROJECT repo from a nested cwd OK"
+
+  # --- leg 3: cannot-determine refuses with the true cause, not the dirty message ---
+  # The notrepo must live OUTSIDE any git repo: rev-parse walks up from a
+  # nested dir and finds the parent (the Phase 113 fixture lesson) — and
+  # that walk-up is correct behaviour for monorepo installs whose project
+  # root is a repo subdirectory, so the fixture moves, not the code.
+  local notrepo
+  notrepo=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-nr)
+  cp "$TEST_DIR/.claude/scripts/deploy-fixture.sh" "$notrepo/deploy-fixture.sh"
+  local nd_rc=0 nd_out
+  nd_out=$( cd "$notrepo" && CLAUDE_PROJECT_DIR="$notrepo" \
+      bash "$notrepo/deploy-fixture.sh" 2>&1 ) || nd_rc=$?
+  rm -rf "$notrepo" 2>/dev/null || true
+  if [ "$nd_rc" -eq 0 ]; then
+    echo "ERROR: deploy proceeded where cleanliness could not be determined — fail-open" >&2
+    exit 1
+  fi
+  assert_contains "$nd_out" "not a git repository"
+  if printf '%s' "$nd_out" | grep -q "uncommitted changes"; then
+    echo "ERROR: cannot-determine was misreported as a dirty tree" >&2
+    exit 1
+  fi
+  echo "  leg 3: cannot-verify refuses with the true cause named OK"
+
+  # --- leg 4: positive control — root cwd, clean tree: deploy deploys ---
+  ( cd "$TEST_DIR" && git add -A >/dev/null 2>&1 && git commit -qm "clean" >/dev/null 2>&1 )
+  local pc_rc=0 pc_out
+  pc_out=$( cd "$TEST_DIR" && CLAUDE_PROJECT_DIR="$TEST_DIR" \
+      bash "$TEST_DIR/.claude/scripts/deploy-fixture.sh" 2>&1 ) || pc_rc=$?
+  if [ "$pc_rc" -ne 0 ]; then
+    echo "ERROR: a legitimate clean-tree deploy from the root now blocks (rc=$pc_rc)" >&2
+    printf '%s\n' "$pc_out" >&2
+    exit 1
+  fi
+  assert_contains "$pc_out" "DEPLOY-MARKER"
+  assert_contains "$pc_out" "POST-DEPLOY SMOKE TEST REQUIRED"
+  echo "  leg 4: clean root-cwd deploy unchanged OK"
+
+  # --- leg 5: hostile URLs die at share-enable's front door ---
+  # Assembled from parts (Phase 108 convention): the transport-helper shape
+  # never appears whole on this harness's command line.
+  local h1="ext" h2="sh -c true" hostile dash_url
+  hostile="${h1}::${h2}"
+  dash_url="--upload-pack=/bin/true"
+  local he_rc=0 he_out
+  he_out=$( printf 'enable\n' | bash "$TEST_DIR/.claude/scripts/share-enable.sh" "$hostile" 2>&1 ) || he_rc=$?
+  if [ "$he_rc" -eq 0 ]; then
+    echo "ERROR: share-enable accepted a transport-helper URL" >&2
+    exit 1
+  fi
+  assert_contains "$he_out" "remote url rejected"
+  local hd_rc=0 hd_out
+  hd_out=$( printf 'enable\n' | bash "$TEST_DIR/.claude/scripts/share-enable.sh" "$dash_url" 2>&1 ) || hd_rc=$?
+  if [ "$hd_rc" -eq 0 ]; then
+    echo "ERROR: share-enable accepted a leading-dash URL" >&2
+    exit 1
+  fi
+  assert_contains "$hd_out" "remote url rejected"
+  echo "  leg 5: transport-helper and leading-dash URLs rejected at the door OK"
+
+  # --- leg 6: smg_url_ok unit — accepts the legitimate shapes, incl. the suite's own ---
+  local unit_out
+  unit_out=$(bash -c '
+    . "'"$TEST_DIR"'/.claude/lib/shared-memory-git.sh"
+    p=0; f=0
+    try() { if smg_url_ok "$2"; then r=accept; else r=reject; fi
+            if [ "$r" = "$1" ]; then p=$((p+1)); else f=$((f+1)); echo "WRONG: $2 -> $r (want $1)"; fi; }
+    try accept "https://github.com/x/y.git"
+    try accept "ssh://git@host/x.git"
+    try accept "git@github.com:x/y.git"
+    try accept "file:///tmp/share.git"
+    try accept "'"$TEST_DIR"'/skeleton-shared-test.git"
+    try reject "http://host/x.git"
+    try reject "relative/path.git"
+    d1="ext"; d2="sh -c true"; try reject "${d1}::${d2}"
+    try reject "--upload-pack=/bin/true"
+    echo "verdicts: $p ok, $f wrong"
+    [ "$f" -eq 0 ]')
+  if ! printf '%s' "$unit_out" | grep -q "verdicts: 9 ok, 0 wrong"; then
+    echo "ERROR: smg_url_ok verdict table wrong:" >&2
+    printf '%s\n' "$unit_out" >&2
+    exit 1
+  fi
+  echo "  leg 6: smg_url_ok verdict table (9 shapes) OK"
+
+  echo "PASS git-context-safety (6 legs)"
+}
+
 # ---- dispatch ----
 case "${1:-}" in
   fresh-install)                scenario_fresh_install ;;
@@ -3631,6 +3787,7 @@ case "${1:-}" in
   local-mod-detect)             scenario_local_mod_detect ;;
   local-mod-preserve)           scenario_local_mod_preserve ;;
   path-anchoring)               scenario_path_anchoring ;;
+  git-context-safety)           scenario_git_context_safety ;;
   backfill-migrate)             scenario_backfill_migrate ;;
   raw-baseline-migrate)         scenario_raw_baseline_migrate ;;
   check-remote-cached)              scenario_check_remote_cached ;;
@@ -3688,6 +3845,7 @@ case "${1:-}" in
     scenario_local_mod_detect
     scenario_local_mod_preserve
     scenario_path_anchoring
+    scenario_git_context_safety
     scenario_backfill_migrate
     scenario_raw_baseline_migrate
     scenario_check_remote_cached
@@ -3751,6 +3909,7 @@ Scenarios:
   local-mod-detect             Modify a file → update.sh --dry-run reports LOCALLY_MODIFIED.
   local-mod-preserve           Modify a file → update.sh with [K]eep leaves it intact.
   path-anchoring               Converted scripts target the project root from a nested cwd; degraded audits never read clean (Phase 116).
+  git-context-safety           commit/deploy target the project repo from a nested cwd; deploy fails closed; share URL allowlist (Phase 117).
   backfill-migrate             Legacy shell marker → update.sh migrates to JSON.
   raw-baseline-migrate         Pre-Phase-52 marker → inline migration; tuner edit stays LOCALLY_MODIFIED (Phase 52).
   check-remote-cached          --check-remote against mock bare repo populates cached_skeleton_head (Phase 30b H5).
