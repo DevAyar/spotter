@@ -10,6 +10,17 @@
 # relax the guard per project.
 set -uo pipefail
 
+# ---- project-repo anchor (Phase 117) ----
+# git discovers its repository by walking up from the CALLER'S cwd, so a
+# run from inside a nested repo — .claude/shared-memory/ is a real working
+# clone once share mode is on — committed to the WRONG repository, printed
+# a real hash under NEW COMMIT HASH, and exited 0. Indistinguishable from
+# a correct commit. Anchor to the project root and refuse rather than
+# fall through: a commit is mutating, so a wrong guess is worse than no
+# commit at all.
+ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
+cd "$ROOT" || { echo "ERROR: cannot cd to project root '$ROOT' — refusing to commit." >&2; exit 2; }
+
 usage() {
   echo "Usage: $0 \"<commit message>\""
   echo "  First arg must be the commit message, not a file path."

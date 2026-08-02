@@ -11,6 +11,16 @@
 #   - POST-DEPLOY SMOKE TEST REQUIRED banner on success
 set -uo pipefail
 
+# ---- project-repo anchor (Phase 117) ----
+# git discovers its repository from the CALLER'S cwd, so run from inside a
+# nested clean repo (.claude/shared-memory/ is one once share mode is on)
+# the dirty-tree guard below evaluated the WRONG repository and passed
+# while the project tree was dirty — a safety gate failing open. The chdir
+# also puts {{DEPLOY_COMMAND}} itself at the project root, which is where
+# a deploy command expects to run. Refusal, not fallthrough, on failure.
+ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
+cd "$ROOT" || { echo "ERROR: cannot cd to project root '$ROOT' — refusing to deploy." >&2; exit 3; }
+
 # Path-shape guard on first arg, if any.
 if [ "$#" -ge 1 ]; then
   FIRST="$1"
@@ -24,10 +34,28 @@ if [ "$#" -ge 1 ]; then
   fi
 fi
 
-# Uncommitted-changes check.
-if ! git diff-index --quiet HEAD --; then
+# Uncommitted-changes check — fails CLOSED with the true cause named
+# (Phase 117). The old `if ! git diff-index ...` treated every nonzero the
+# same, so "genuinely dirty" (rc=1) and "cannot even determine" (rc=128:
+# no HEAD, not a repo) produced one misleading message. A gate that cannot
+# verify cleanliness refuses; it does not guess.
+if ! git rev-parse --git-dir >/dev/null 2>&1; then
+  echo "ERROR: '$ROOT' is not a git repository — cannot verify a clean tree; refusing to deploy." >&2
+  exit 3
+fi
+# Refresh cached stat info first: diff-index compares against the index's
+# cached stats, which can be stale after clock/checkout churn and report
+# phantom dirt (or miss real dirt). Exit ignored — refresh's own nonzero
+# just means "something needed refreshing".
+git update-index -q --refresh 2>/dev/null || true
+git diff-index --quiet HEAD --
+DIRTY_RC=$?
+if [ "$DIRTY_RC" -eq 1 ]; then
   echo "ERROR: working tree has uncommitted changes. Commit or stash before deploying." >&2
   git status --short >&2
+  exit 3
+elif [ "$DIRTY_RC" -ne 0 ]; then
+  echo "ERROR: cannot verify a clean tree (git diff-index exited $DIRTY_RC — no commits yet, or a broken repo). Refusing to deploy." >&2
   exit 3
 fi
 

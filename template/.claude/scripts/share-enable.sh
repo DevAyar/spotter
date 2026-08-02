@@ -55,6 +55,12 @@ trap cleanup EXIT INT TERM
 command -v git >/dev/null 2>&1 || die "git is required on PATH"
 detect_python
 [ -n "$REMOTE_URL" ] || die "usage: share-enable.sh <remote-url>"
+# Phase 117: this URL is stored in share-config and handed back to git on
+# every later push, and git treats some URL shapes as code (ext:: executes
+# a command; a leading dash parses as an option). Validate at the door —
+# smg_url_ok is the one allowlist every consumer shares.
+smg_url_ok "$REMOTE_URL" \
+  || die "remote url rejected — allowed shapes: https://, ssh://, user@host:path, file://, or an absolute path. Got: $REMOTE_URL"
 [ -f "$MARKER" ] || die "no .claude/.skeleton-version found — run install.sh first"
 
 INSTALL_UUID="$(marker_field install_uuid)"
@@ -73,7 +79,7 @@ TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
 # Clone the remote (empty-bare and populated both handled).
 TMP_CLONE="$(mktemp -d 2>/dev/null || mktemp -d -t skeleton-share)"
-git clone --quiet "$REMOTE_URL" "$TMP_CLONE" 2>/dev/null \
+git clone --quiet -- "$REMOTE_URL" "$TMP_CLONE" 2>/dev/null \
   || die "could not clone remote '$REMOTE_URL' — nothing was pushed"
 
 cd "$TMP_CLONE" || die "could not enter clone dir — nothing was pushed"

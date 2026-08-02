@@ -23,6 +23,35 @@ SMG_NOTICE="[shared-memory-git]"
 # ---- helpers ----
 smg_log() { printf '%s %s\n' "$SMG_NOTICE" "$*" >&2; }
 
+# smg_url_ok <url> → 0 if the remote URL is a shape this layer will hand to
+# git. (Phase 117.) The url is CONFIG-SUPPLIED — it comes back out of
+# share-config.json on every later push — and git's transport layer treats
+# some shapes as code: an `ext::` URL EXECUTES an arbitrary command, every
+# other `scheme::` form invokes a transport helper, and a leading dash
+# parses as an option. Allowlist, not blocklist:
+#   https://…            (hosted remotes)
+#   ssh://…              (explicit ssh)
+#   user@host:path       (SCP form)
+#   file://… , /abs/path , C:/drive/path  (local + network-drive remotes;
+#                         no command execution — and the share test suite's
+#                         own remotes are bare absolute paths)
+# Everything else is rejected, including plain http:// (credentials and
+# capture payloads in the clear). Callers print the reason; this returns.
+smg_url_ok() {
+  local u="$1"
+  case "$u" in
+    -*)                       return 1 ;;  # option injection
+    *::*)                     return 1 ;;  # ext:: and every transport helper
+    https://*|ssh://*)        return 0 ;;
+    file://*)                 return 0 ;;
+    /*)                       return 0 ;;  # absolute path (POSIX)
+    [A-Za-z]:/*|[A-Za-z]:\\*) return 0 ;;  # absolute path (Windows drive)
+    *://*)                    return 1 ;;  # any other scheme (http, git, ftp…)
+    *@*:*)                    return 0 ;;  # SCP form user@host:path
+    *)                        return 1 ;;
+  esac
+}
+
 # smg_is_clone <dir> → 0 if <dir> is itself a clone root (owns a .git dir).
 # Deliberately checks <dir>/.git rather than `rev-parse --is-inside-work-tree`:
 # the latter returns true for a plain/empty <dir> nested inside a PARENT repo
@@ -42,14 +71,15 @@ smg_ensure_clone() {
   local url="$1" dir="$2" tmp
   command -v git >/dev/null 2>&1 || { smg_log "git not on PATH"; return 1; }
   [ -n "$url" ] || { smg_log "no remote url"; return 1; }
+  smg_url_ok "$url" || { smg_log "remote url rejected (allowed: https://, ssh://, user@host:path, file://, absolute path): $url"; return 1; }
   smg_is_clone "$dir" && return 0
   if [ ! -e "$dir" ] || [ -z "$(ls -A "$dir" 2>/dev/null)" ]; then
     mkdir -p "$dir" 2>/dev/null || return 1
-    git clone --quiet "$url" "$dir" 2>/dev/null && return 0
+    git clone --quiet -- "$url" "$dir" 2>/dev/null && return 0
     smg_log "clone into empty dir failed: $url"; return 1
   fi
   tmp="$(mktemp -d 2>/dev/null)" || return 1
-  if ! git clone --quiet "$url" "$tmp" 2>/dev/null; then
+  if ! git clone --quiet -- "$url" "$tmp" 2>/dev/null; then
     smg_log "clone to temp failed: $url"; rm -rf "$tmp"; return 1
   fi
   mv "$tmp/.git" "$dir/.git" 2>/dev/null || { rm -rf "$tmp"; return 1; }
