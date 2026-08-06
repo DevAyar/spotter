@@ -3755,6 +3755,156 @@ scenario_git_context_safety() {
   echo "PASS git-context-safety (6 legs)"
 }
 
+# Phase 119: the canonical text redactor must strip every Windows identity
+# shape from every share-class writer's output, leave POSIX behaviour
+# unchanged, keep in-project relative paths intact, and a real pushed
+# share tree must carry ZERO occurrences of the runtime username --
+# including git commit authorship.
+scenario_redaction_windows_identity() {
+  echo ">> redaction-windows-identity: Windows shapes redacted in every writer; export carries no username (Phase 119)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only >/dev/null
+
+  local pybin=""
+  for cand in python3 python; do
+    if command -v "$cand" >/dev/null 2>&1 && "$cand" -c 'pass' >/dev/null 2>&1; then
+      pybin="$cand"; break
+    fi
+  done
+  [ -n "$pybin" ] || { echo "SKIP redaction-windows-identity (no working python)"; return 0; }
+
+  # The fixture inputs: built at runtime with a synthetic username so the
+  # assertions do not depend on this machine's real one, plus the REAL
+  # runtime username for the export leg.
+  "$pybin" - "$TEST_DIR" <<'PYFIX'
+import json, os, sys
+td = sys.argv[1]
+BS = chr(92)
+U = "ciuserx"  # synthetic username the redactor must learn via env
+shapes = {
+    "backslash": "C:" + BS + "Users" + BS + U + BS + "run.sh",
+    "fwdslash":  "C:/Users/" + U + "/run.sh",
+    "msys":      "/c/Users/" + U + "/run.sh",
+    "unc":       BS*2 + "?" + BS + "C:" + BS + "Users" + BS + U + BS + "x",
+    "envlit":    "%USERPROFILE%" + BS + "x",
+    "encoded":   "C--Users-" + U + "-Dev-Proj",
+    "bare":      "run by " + U + " today",
+    "posix":     "/Users/" + U + "/y.sh",
+    "relative":  "docs/CHANGELOG.md",
+}
+body = "  ".join(f"{k}: {v}" for k, v in shapes.items())
+os.makedirs(os.path.join(td, "fixtures"), exist_ok=True)
+with open(os.path.join(td, "fixtures", "cap.md"), "w", encoding="utf-8", newline=chr(10)) as f:
+    f.write("---" + chr(10))
+    for k, v in [("capture_id", "p119"), ("status", "shipped"), ("confidence", "high"),
+                 ("suggested_artifact_type", "script"), ("created_at", "2026-08-06T00:00:00Z")]:
+        f.write(f"{k}: {v}" + chr(10))
+    f.write("---" + chr(10) + body + chr(10))
+obs = {
+    "pattern_id": "b" * 64, "source": "session-end-telemetry",
+    "pattern_type": "token_telemetry", "occurrences": 1,
+    "first_seen": "2026-08-06T00:00:00Z", "last_seen": "2026-08-06T00:00:00Z",
+    "resolved_at": None,
+    "evidence": [{"timestamp": "2026-08-06T00:00:00Z", "kind": "telemetry", "summary": body}],
+    "confidence": "high", "privacy_class": "safe-to-share",
+    "notes": "guard fixture", "target_resource": "session:p119",
+}
+with open(os.path.join(td, "fixtures", "obs.json"), "w", encoding="utf-8", newline=chr(10)) as f:
+    json.dump(obs, f, indent=1)
+print("fixtures written")
+PYFIX
+
+  # --- leg 1: redact-capture strips every shape, keeps the relative path ---
+  local cap_out
+  cap_out=$(USERNAME=ciuserx USER=ciuserx bash "$TEST_DIR/.claude/lib/redact-capture.sh" \
+      "$TEST_DIR/fixtures/cap.md" 2>/dev/null)
+  if printf '%s' "$cap_out" | grep -qi "ciuserx"; then
+    echo "ERROR: redact-capture let the username through:" >&2
+    printf '%s\n' "$cap_out" >&2
+    exit 1
+  fi
+  printf '%s' "$cap_out" | grep -q "docs/CHANGELOG.md" \
+    || { echo "ERROR: redact-capture destroyed an in-project relative path" >&2; exit 1; }
+  printf '%s' "$cap_out" | grep -q '"body_redacted"' \
+    || { echo "ERROR: redact-capture emitted no payload (a redactor that eats the body proves nothing)" >&2; exit 1; }
+  echo "  leg 1: capture export clean of all 8 shapes, relative path intact OK"
+
+  # --- leg 2: the safe-to-share belt strips shapes from observation JSON ---
+  local obs_out
+  obs_out=$(USERNAME=ciuserx USER=ciuserx bash "$TEST_DIR/.claude/lib/redact-observation.sh" \
+      "$TEST_DIR/fixtures/obs.json" 2>/dev/null)
+  if printf '%s' "$obs_out" | grep -qi "ciuserx"; then
+    echo "ERROR: safe-to-share belt let the username through" >&2
+    exit 1
+  fi
+  printf '%s' "$obs_out" | "$pybin" -c 'import json,sys; json.loads(sys.stdin.read())' \
+    || { echo "ERROR: redacted observation is no longer valid JSON (or is empty)" >&2; exit 1; }
+  echo "  leg 2: safe-to-share belt redacts and emits valid JSON OK"
+
+  # --- leg 3: the lib itself, shape table with POSIX + relative controls ---
+  USERNAME=ciuserx USER=ciuserx "$pybin" - "$TEST_DIR" <<'PYTAB'
+import sys
+sys.path.insert(0, sys.argv[1] + "/.claude/lib")
+from redact_text import redact_text as R
+BS = chr(92)
+U = "ciuserx"
+cases = [
+    ("C:" + BS + "Users" + BS + U + BS + "x", False),
+    ("C:/Users/" + U + "/x", False),
+    ("/c/Users/" + U + "/x", False),
+    (BS*2 + "?" + BS + "C:" + BS + "Users" + BS + U, False),
+    ("C:" + BS + "Users" + BS + U, False),          # no trailing separator
+    ("C--Users-" + U + "-Dev", False),
+    ("run by " + U, False),
+    ("/Users/" + U + "/x", False),                  # POSIX control
+    ("docs/CHANGELOG.md", True),                    # relative MUST survive
+]
+bad = 0
+for s, must_survive in cases:
+    r = R(s)
+    if must_survive and r != s:
+        print(f"ERROR: over-redacted a relative path: {s!r} -> {r!r}"); bad += 1
+    if not must_survive and U.lower() in r.lower():
+        print(f"ERROR: leak: {s!r} -> {r!r}"); bad += 1
+sys.exit(1 if bad else 0)
+PYTAB
+  [ $? -eq 0 ] || { echo "ERROR: shape table failed" >&2; exit 1; }
+  echo "  leg 3: 9-shape table (7 redacted, POSIX control redacted, relative intact) OK"
+
+  # --- leg 4: a real enable->produce->push cycle; the pushed tree carries
+  #     ZERO occurrences of the RUNTIME username, incl. commit authorship ---
+  local bare="$TEST_DIR/share-remote.git"
+  git init -q --bare "$bare"
+  printf 'enable\n' | bash "$TEST_DIR/.claude/scripts/share-enable.sh" "$bare" >/dev/null 2>&1 \
+    || { echo "ERROR: share-enable failed in fixture" >&2; exit 1; }
+  cp "$TEST_DIR/fixtures/obs.json" "$TEST_DIR/.claude/observations/" 2>/dev/null || true
+  bash "$TEST_DIR/.claude/scripts/shared-memory-push.sh" >/dev/null 2>&1 || true
+  local verify="$TEST_DIR/verify-clone"
+  git clone -q "$bare" "$verify" 2>/dev/null \
+    || { echo "ERROR: could not clone the share remote back" >&2; exit 1; }
+  local runtime_user=""
+  runtime_user="${USERNAME:-${USER:-}}"
+  if [ -n "$runtime_user" ] && [ "${#runtime_user}" -ge 3 ]; then
+    if grep -ri --exclude-dir=.git -- "$runtime_user" "$verify" >/dev/null 2>&1; then
+      echo "ERROR: the pushed share tree contains the runtime username '$runtime_user':" >&2
+      grep -ril --exclude-dir=.git -- "$runtime_user" "$verify" >&2
+      exit 1
+    fi
+    if git -C "$verify" log --format='%an %ae' 2>/dev/null | grep -qi -- "$runtime_user"; then
+      echo "ERROR: share commit authorship carries the runtime username" >&2
+      git -C "$verify" log --format='%an %ae' >&2
+      exit 1
+    fi
+  fi
+  git -C "$verify" log --format='%ae' 2>/dev/null | grep -q "share@claude-skeleton.local" \
+    || { echo "ERROR: expected the neutral share author on pushed commits" >&2; git -C "$verify" log --format='%an %ae' >&2; exit 1; }
+  echo "  leg 4: pushed share tree carries zero runtime-username occurrences; neutral author OK"
+
+  echo "PASS redaction-windows-identity (4 legs)"
+}
+
 # ---- dispatch ----
 case "${1:-}" in
   fresh-install)                scenario_fresh_install ;;
@@ -3788,6 +3938,7 @@ case "${1:-}" in
   local-mod-preserve)           scenario_local_mod_preserve ;;
   path-anchoring)               scenario_path_anchoring ;;
   git-context-safety)           scenario_git_context_safety ;;
+  redaction-windows-identity)   scenario_redaction_windows_identity ;;
   backfill-migrate)             scenario_backfill_migrate ;;
   raw-baseline-migrate)         scenario_raw_baseline_migrate ;;
   check-remote-cached)              scenario_check_remote_cached ;;
@@ -3846,6 +3997,7 @@ case "${1:-}" in
     scenario_local_mod_preserve
     scenario_path_anchoring
     scenario_git_context_safety
+    scenario_redaction_windows_identity
     scenario_backfill_migrate
     scenario_raw_baseline_migrate
     scenario_check_remote_cached
@@ -3910,6 +4062,7 @@ Scenarios:
   local-mod-preserve           Modify a file → update.sh with [K]eep leaves it intact.
   path-anchoring               Converted scripts target the project root from a nested cwd; degraded audits never read clean (Phase 116).
   git-context-safety           commit/deploy target the project repo from a nested cwd; deploy fails closed; share URL allowlist (Phase 117).
+  redaction-windows-identity   Windows identity shapes redacted in every share-class writer; pushed tree carries no username (Phase 119).
   backfill-migrate             Legacy shell marker → update.sh migrates to JSON.
   raw-baseline-migrate         Pre-Phase-52 marker → inline migration; tuner edit stays LOCALLY_MODIFIED (Phase 52).
   check-remote-cached          --check-remote against mock bare repo populates cached_skeleton_head (Phase 30b H5).

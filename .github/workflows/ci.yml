@@ -289,6 +289,10 @@ jobs:
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh git-context-safety
 
+      - name: Scenario - redaction-windows-identity
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh redaction-windows-identity
+
       - name: Scenario - watchdog-transcript-resolution
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh watchdog-transcript-resolution
