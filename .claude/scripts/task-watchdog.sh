@@ -196,7 +196,7 @@ if [ "$(read_last_session_id)" = "$PRIOR_SESSION_ID" ]; then
 fi
 
 # Process the JSONL. Python helper writes observation files in place.
-"$PYBIN" - "$JSONL_PATH" "$OBS_DIR" "$DURATION_THRESHOLD_MS" "$FAILURE_OCCURRENCE_THRESHOLD" "$EVIDENCE_CAP" "$AGENT_DURATION_THRESHOLD_MS" 2>/dev/null <<'PYIMPL'
+"$PYBIN" - "$JSONL_PATH" "$OBS_DIR" "$DURATION_THRESHOLD_MS" "$FAILURE_OCCURRENCE_THRESHOLD" "$EVIDENCE_CAP" "$AGENT_DURATION_THRESHOLD_MS" "$(cd "$(dirname "$0")/../lib" && pwd)" 2>/dev/null <<'PYIMPL'
 import hashlib, json, os, re, sys
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -207,20 +207,19 @@ failure_threshold = int(sys.argv[4])
 evidence_cap = int(sys.argv[5])
 agent_duration_threshold_ms = int(sys.argv[6])
 
-# ---- redaction (mirrors session-observer.schema.md rules) ----
-SECRET_PATTERNS = [
-    re.compile(r'[A-Z_]*KEY=\S+'),
-    re.compile(r'[A-Z_]*TOKEN=\S+'),
-    re.compile(r'Bearer\s+\S+', re.IGNORECASE),
-    re.compile(r'Authorization:\s*\S+', re.IGNORECASE),
-    re.compile(r'~?/(?:Users|home)/[^/\s]+'),
-    re.compile(r'[A-Za-z0-9+/]{33,}={0,2}'),
-]
+# ---- redaction: the canonical lib (Phase 119) ----
+# The inline SECRET_PATTERNS set had drifted from redact-capture's copy
+# (b64 threshold, Windows shapes, query rule) and matched only forward-
+# slash home paths, so C:\Users\<name> survived verbatim into evidence
+# on the platform this runs on. redact_text carries the union set. The
+# lib dir arrives as argv[7]; import failure dies nonzero = fail-closed
+# (no observation is written unredacted; the bash side warns).
+sys.path.insert(0, sys.argv[7])
+from redact_text import redact_text
 
 def redact(s):
     if not isinstance(s, str): s = str(s)
-    for p in SECRET_PATTERNS:
-        s = p.sub('<redacted>', s)
+    s = redact_text(s)
     if len(s) > 120:
         s = s[:119] + '…'
     return s
@@ -408,8 +407,16 @@ def write_observation(pid, ptype, signature, events, notes=None):
         # twice (the exact x2 shape the first triage circuit surfaced). Merge
         # by event identity: only genuinely new evidence counts.
         def _ident(e):
+            # Phase 119: summary is normalized through redact() on BOTH
+            # sides of the comparison. redact() is idempotent on already-
+            # redacted text, so stored entries written under the OLD
+            # pattern set (whose summaries may carry newly-redacted
+            # shapes) compare equal to their post-fix forms — without
+            # this, a lineage replay across the transition re-introduces
+            # the Phase 67 double-count.
+            _s = e.get('summary')
             return (e.get('timestamp'), e.get('kind'),
-                    e.get('tool_name'), e.get('summary'))
+                    e.get('tool_name'), redact(_s) if _s else _s)
         seen = {_ident(e) for e in prior_evidence if isinstance(e, dict)}
         kept = [e for e in new_evidence if _ident(e) not in seen]
         if not kept:

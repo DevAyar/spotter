@@ -112,7 +112,7 @@ scenario_fresh_install() {
   out=$(bash "$SKELETON_DIR/scripts/install.sh" \
     --source "$SKELETON_DIR" --target "$TEST_DIR" \
     --mode=fresh --claude-only)
-  verify_marker 82
+  verify_marker 83
   # Phase 72: the post-install message points somewhere real, and the
   # greeting surface carries no literal placeholder.
   assert_contains "$out" "GETTING-STARTED"
@@ -1260,7 +1260,7 @@ LEGACY
     cat "$TEST_DIR/.claude/.skeleton-version" >&2
     exit 1
   fi
-  verify_marker 82
+  verify_marker 83
   echo "PASS backfill-migrate"
 }
 
@@ -1315,7 +1315,7 @@ with open(sys.argv[1]) as f:
     d = json.load(f)
 raw = d.get('raw_template_baselines')
 n = len(raw) if isinstance(raw, dict) else None
-if n != 82:
+if n != 83:
     sys.exit(f'ERROR: expected 82 raw_template_baselines after migration, got {n}')
 print(f'  raw_template_baselines present after migration: {n} entries')
 " "$marker"

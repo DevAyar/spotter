@@ -78,6 +78,35 @@ emit_redacted() {
   jq -aS --indent 2 "$1" "$2" 2>/dev/null | tr -d '\r'
 }
 
+# redact_json_text: Phase 119 belt for the safe-to-share branch. That
+# branch was a verbatim pass-through on the honor system — any free text
+# a producer put in a safe-to-share observation shipped ungated. This
+# runs the canonical text redactor (.claude/lib/redact_text.py) over the
+# emitted JSON; replacement tokens carry no quotes or escapes, so the
+# JSON stays valid. Fail-CLOSED: python or the lib missing → refuse
+# rather than emit raw (the export pipeline already requires python
+# upstream for envelope building, so the practical delta is nil).
+redact_json_text() {
+  local libdir pybin="" _cand
+  libdir="$(cd "$(dirname "$0")" && pwd)"
+  for _cand in python3 python; do
+    if command -v "$_cand" >/dev/null 2>&1 && "$_cand" -c 'pass' >/dev/null 2>&1; then
+      pybin="$_cand"; break
+    fi
+  done
+  [ -n "$pybin" ] || return 1
+  # -c, NOT `python - <<heredoc`: the heredoc form replaces stdin with the
+  # script text, so the piped JSON this function exists to read would hit
+  # EOF and the "redacted" output would be silently EMPTY (found live: the
+  # first draft passed its own username-absence check by emitting nothing).
+  "$pybin" -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+from redact_text import redact_text
+sys.stdout.write(redact_text(sys.stdin.read()))
+' "$libdir"
+}
+
 # ---- main ----
 main() {
   local obs="${1:-}"
@@ -106,7 +135,11 @@ main() {
       return 2
       ;;
     safe-to-share)
-      emit_redacted '.' "$obs"
+      # Phase 119: text-redaction belt over the honor-system class.
+      emit_redacted '.' "$obs" | redact_json_text || {
+        emit_refuse "text redaction unavailable (python or redact_text.py missing) — refusing rather than emitting raw"
+        return 6
+      }
       ;;
     share-with-redaction)
       emit_redacted "$SAFE_FILTER" "$obs"

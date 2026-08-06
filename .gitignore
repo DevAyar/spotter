@@ -77,3 +77,6 @@ docs/SESSION_LOG.md
 # Phase 93: rendered receipt cards. Per-install runtime output of
 # receipt-render.sh; the receipt TEXT in the ship report is the record.
 .claude/receipts/
+
+# Phase 119: python bytecode cache from the redact_text lib import
+__pycache__/

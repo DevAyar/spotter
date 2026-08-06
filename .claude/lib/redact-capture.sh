@@ -38,8 +38,14 @@ emit_refuse() { printf '%s %s\n' "$NOTICE_PREFIX" "$1" >&2; }
 # parse_and_redact <file>: stdout line 1 = created_at, line 2 = compact
 # payload JSON. Exit 0 = emit, 2 = skip (not terminal), 3 = malformed.
 parse_and_redact() {
-  "$SM_PY" - "$1" <<'PY'
+  "$SM_PY" - "$1" "$(cd "$(dirname "$0")" && pwd)" <<'PY'
 import json, re, sys
+
+# Phase 119: the one canonical text-redactor (.claude/lib/redact_text.py).
+# Import failure dies nonzero = fail-closed: a capture that cannot be
+# redacted is skipped by the fail-soft walker, never exported raw.
+sys.path.insert(0, sys.argv[2])
+from redact_text import redact_text
 
 sys.stdout.reconfigure(newline="\n")
 try:
@@ -67,16 +73,11 @@ if fm["status"] not in ("shipped", "rejected"):
     sys.exit(2)
 
 def redact(s):
-    s = re.sub(r"[A-Za-z_]*KEY=\S+", "KEY=<redacted>", s)
-    s = re.sub(r"[A-Za-z_]*TOKEN=\S+", "TOKEN=<redacted>", s)
-    s = re.sub(r"(?i)\bbearer\s+\S+", "Bearer <redacted>", s)
-    s = re.sub(r"(?i)\bauthorization:\s*\S+", "Authorization: <redacted>", s)
-    s = re.sub(r"/Users/[^/\s]+/", "~/", s)
-    s = re.sub(r"/home/[^/\s]+/", "~/", s)
-    s = re.sub(r"[A-Za-z]:\\Users\\[^\\\s]+\\", lambda _: "~\\", s)
-    s = re.sub(r"[A-Za-z0-9+/]{32,}={0,2}", "<redacted-b64>", s)
-    s = re.sub(r"\?[^\s)]+", "?…", s)
-    return s
+    # Phase 119: the inline pattern set (which had drifted from task-
+    # watchdog's copy and required a trailing separator on home paths —
+    # itself a leak) is retired; redact_text carries the union set plus
+    # the Windows shapes and the runtime username.
+    return redact_text(s)
 
 payload = {
     "status": fm["status"],

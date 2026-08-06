@@ -106,9 +106,17 @@ smg_pull_rebase() {
 smg_push() {
   local d="$1" msg="$2" attempt=1
   smg_is_clone "$d" || { smg_log "not a clone: $d"; return 1; }
-  # Ensure a commit identity exists in the clone (CI runners have none global).
-  git -C "$d" config user.email >/dev/null 2>&1 || git -C "$d" config user.email "share@claude-skeleton.local"
-  git -C "$d" config user.name  >/dev/null 2>&1 || git -C "$d" config user.name  "claude-skeleton share"
+  # Neutral commit identity, UNCONDITIONALLY (Phase 119). The old form set
+  # it only when `git config user.email` resolved nothing — but that
+  # resolves the user's GLOBAL config, so on any normally configured
+  # machine the fallback never fired and every pushed share commit carried
+  # the user's real name and personal email in its metadata, invisible to
+  # any content grep of the event files. `git config` here writes the
+  # CLONE's local scope; the user's global identity is untouched.
+  # (share-enable.sh already did this unconditionally in its own clone —
+  # this applies the same rule at the shared site.)
+  git -C "$d" config user.email "share@claude-skeleton.local"
+  git -C "$d" config user.name  "claude-skeleton share"
   git -C "$d" add -A 2>/dev/null || return 1
   if ! git -C "$d" diff --cached --quiet 2>/dev/null; then
     git -C "$d" commit --quiet -m "$msg" 2>/dev/null || { smg_log "commit failed"; return 1; }

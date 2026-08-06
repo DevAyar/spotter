@@ -46,10 +46,8 @@ Each entry in the `evidence` array has these fields:
 
 **Evidence redaction rules** (load-bearing — producers MUST follow):
 
-- Strip anything matching `[A-Z_]*KEY=...`, `[A-Z_]*TOKEN=...`, `Bearer *`, `Authorization: *`.
-- Strip filesystem paths under `~/.ssh/`, `~/.aws/`, `~/.config/*/credentials*`, or anything beginning with `/Users/<u>/...` (replace with `~`).
-- Strip any base64-encoded string longer than 32 characters.
-- Strip query strings on URLs (replace `?...` with `?…`).
+- **The normative pattern set lives in [`.claude/lib/redact_text.py`](../../lib/redact_text.py) (Phase 119)** — this prose used to restate the patterns and had drifted (POSIX-only home paths, while Windows shapes leaked verbatim on the platform this runs on). The lib is the single source of truth: secrets (`*KEY=`/`*TOKEN=`/`Bearer`/`Authorization:`), home paths in every shape this system meets (POSIX, drive-letter both slash forms, MSYS `/c/Users`, UNC, with or without trailing separator), `%USERPROFILE%`-class env literals, the literal runtime username (environment-derived, boundary-matched — this also catches the encoded `C--Users-<name>-…` session-dir form), base64 runs ≥ 32, URL query strings.
+- Strip filesystem paths under `~/.ssh/`, `~/.aws/`, `~/.config/*/credentials*` regardless of the above — credential locations are sensitive independent of identity.
 - When in doubt, redact. The schema cap of 120 chars per `summary` and `args_redacted` is also a guardrail — if the field would exceed 120 chars after redaction, truncate to 120 with a trailing `…`.
 
 ## Resolution lifecycle
