@@ -28,7 +28,7 @@
   "42crunch-api-security-testing@claude-plugins-official": [
     {
       "scope": "user",
-      "installPath": "C:\\Users\\darre\\.claude\\plugins\\cache\\claude-plugins-official\\42crunch-api-security-testing\\1.0.1",
+      "installPath": "~\\.claude\\plugins\\cache\\claude-plugins-official\\42crunch-api-security-testing\\1.0.1",
       "version": "1.0.1",
       "installedAt": "2026-05-03T12:08:14.856Z",
       "gitCommitSha": "56273e0e20762d76640838300a7431c4260cad32"
@@ -561,7 +561,7 @@ Gained one entry:
 ```json
 "claude-mem@thedotmack": [{
   "scope": "user",
-  "installPath": "C:\\Users\\darre\\.claude\\plugins\\cache\\thedotmack\\claude-mem\\13.2.0",
+  "installPath": "~\\.claude\\plugins\\cache\\thedotmack\\claude-mem\\13.2.0",
   "version": "13.2.0",
   "installedAt": "2026-05-18T02:51:23.782Z",
   "lastUpdated": "2026-05-18T02:51:23.782Z",
