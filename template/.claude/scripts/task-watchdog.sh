@@ -72,7 +72,14 @@ read_last_session_id() {
 }
 
 write_last_session_id() {
-  printf '%s\n' "$1" > "$LAST_SESSION_MARKER"
+  # Phase 121: temp beside the target, then rename. `>` truncates first, so
+  # a kill mid-write left a ZERO-BYTE marker — and an empty marker means the
+  # prior transcript is treated as unseen, re-processed, and its observations
+  # re-emitted. The observation JSON in this same script was already atomic;
+  # this marker was the gap the per-file verdict missed.
+  local tmp="${LAST_SESSION_MARKER}.tmp.$$"
+  printf '%s\n' "$1" > "$tmp" 2>/dev/null || { rm -f "$tmp" 2>/dev/null; return 0; }
+  mv -f "$tmp" "$LAST_SESSION_MARKER" 2>/dev/null || rm -f "$tmp" 2>/dev/null
 }
 
 # find_prior_jsonl: emit the path of the second-newest JSONL whose

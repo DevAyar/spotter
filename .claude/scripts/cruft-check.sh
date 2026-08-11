@@ -677,5 +677,14 @@ if [ "$PYIMPL_RC" -ne 0 ]; then
 fi
 
 # ---- cleanup: update cooldown marker ----
-now_epoch > "$COOLDOWN_FILE" 2>/dev/null || true
+# Phase 121: temp beside the target, then rename. `>` truncates first, so an
+# interrupt left a zero-byte marker; check_cooldown reads that as epoch 0 and
+# rescans. Fails open exactly as before — this script must never block the
+# SessionStart chain — but it no longer leaves a torn marker behind.
+_cd_tmp="${COOLDOWN_FILE}.tmp.$$"
+if now_epoch > "$_cd_tmp" 2>/dev/null; then
+  mv -f "$_cd_tmp" "$COOLDOWN_FILE" 2>/dev/null || rm -f "$_cd_tmp" 2>/dev/null
+else
+  rm -f "$_cd_tmp" 2>/dev/null
+fi
 exit 0

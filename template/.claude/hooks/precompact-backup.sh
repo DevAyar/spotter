@@ -29,9 +29,20 @@ TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
 backup_if_exists() {
   local src="$1"
   if [ -f "$src" ]; then
-    local base
+    local base dest tmp
     base=$(basename "$src")
-    cp "$src" "$BACKUP_DIR/${base}.${TIMESTAMP}"
+    dest="$BACKUP_DIR/${base}.${TIMESTAMP}"
+    # Phase 121: copy to a temp beside the destination, then rename. A bare
+    # `cp` writes the destination incrementally, so an interrupt leaves a
+    # TRUNCATED backup — of the file you were backing up precisely because
+    # you were about to lose context. A half-backup is worse than none: it
+    # looks like a backup. Either the full copy lands or nothing does.
+    tmp="${dest}.tmp.$$"
+    if cp "$src" "$tmp" 2>/dev/null; then
+      mv -f "$tmp" "$dest" 2>/dev/null || rm -f "$tmp" 2>/dev/null
+    else
+      rm -f "$tmp" 2>/dev/null
+    fi
   fi
 }
 

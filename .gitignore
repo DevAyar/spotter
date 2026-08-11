@@ -80,3 +80,9 @@ docs/SESSION_LOG.md
 
 # Phase 119: python bytecode cache from the redact_text lib import
 __pycache__/
+
+# Phase 121: atomic-write temp files. Every durable-state writer in this
+# system writes <target>.tmp.<pid> beside its target and renames over it; an
+# interrupted write can strand one. The suffix is always TRAILING so readers
+# (which all gate on a terminal extension) ignore it -- keep it that way.
+*.tmp.[0-9]*

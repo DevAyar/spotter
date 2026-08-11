@@ -534,6 +534,13 @@ fi
 
 # ---- cleanup: update cooldown marker (installed mode only) ----
 if [ -z "$CANDIDATE_PLUGIN" ]; then
-  now_epoch > "$COOLDOWN_FILE" 2>/dev/null || true
+  # Phase 121: temp beside the target, then rename (see cruft-check.sh for the
+  # same conversion and reasoning). Fails open as before.
+  _cd_tmp="${COOLDOWN_FILE}.tmp.$$"
+  if now_epoch > "$_cd_tmp" 2>/dev/null; then
+    mv -f "$_cd_tmp" "$COOLDOWN_FILE" 2>/dev/null || rm -f "$_cd_tmp" 2>/dev/null
+  else
+    rm -f "$_cd_tmp" 2>/dev/null
+  fi
 fi
 exit 0

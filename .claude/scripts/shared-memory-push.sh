@@ -53,12 +53,24 @@ PY
 record_last_push() {
   local count
   count="$(git -C "$SM_TREE" ls-files 2>/dev/null | wc -l | tr -d ' ')"
+  # Phase 121: temp beside the target, then rename. mode 'w' truncated the
+  # receipt first, so an interrupt left a torn or zero-byte .last-shared-push
+  # — the record of what was pushed, lost precisely when a push was cut short.
   "$SM_PY" - "$LAST_PUSH" "$(sm_now_iso)" "${count:-0}" <<'PY'
-import json, sys
-with open(sys.argv[1], "w", newline="\n") as f:
-    json.dump({"last_push_at": sys.argv[2], "files_pushed": int(sys.argv[3])},
-              f, indent=2, sort_keys=True)
-    f.write("\n")
+import json, os, sys
+dest = sys.argv[1]
+tmp = dest + f".tmp.{os.getpid()}"
+try:
+    with open(tmp, "w", newline="\n") as f:
+        json.dump({"last_push_at": sys.argv[2], "files_pushed": int(sys.argv[3])},
+                  f, indent=2, sort_keys=True)
+        f.write("\n")
+    os.replace(tmp, dest)
+except OSError:
+    try:
+        os.unlink(tmp)
+    except OSError:
+        pass
 PY
   printf '%s' "${count:-0}"
 }

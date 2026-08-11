@@ -330,7 +330,16 @@ top_turns = []  # (total_tokens, timestamp, tool_names)
 subagent_dispatches = []  # (timestamp, agent_type, tokens)
 
 try:
-    with open(events_path, 'w', encoding='utf-8', newline='\n') as ef:
+    # Phase 121: temp beside the target, then rename. mode 'w' truncated the
+    # target FIRST, so a kill mid-write left a zero-byte or short .jsonl —
+    # and the readers count rows with grep/wc, so a short file reads as
+    # "that session made fewer tool calls" and silently skews an optimizer
+    # proposal a human then approves. Not append-only: this is a single-pass
+    # projection of the transcript (every row derives from `turns`, already
+    # built in memory), so a rewrite is correct and mode 'a' would be wrong
+    # — it would duplicate every row on a resumed-session re-run.
+    _ev_tmp = events_path + f'.tmp.{os.getpid()}'
+    with open(_ev_tmp, 'w', encoding='utf-8', newline='\n') as ef:
         for turn in turns:
             ts = turn['timestamp']
             usage = turn['usage'] or {}
@@ -367,8 +376,12 @@ try:
                 if tr:
                     entry['target_resource'] = tr
                 ef.write(json.dumps(entry, sort_keys=True) + '\n')
+    os.replace(_ev_tmp, events_path)
 except OSError:
-    pass
+    try:
+        os.unlink(_ev_tmp)
+    except OSError:
+        pass
 
 # ---- useful unit metrics ----
 def count_commits_in_window(start_iso, end_iso):
@@ -427,7 +440,18 @@ top_turns.sort(reverse=True)
 subagent_dispatches.sort(reverse=True)
 
 try:
-    with open(rollup_path, 'w', encoding='utf-8', newline='\n') as rf:
+    # Phase 121: temp beside the target, then rename. The damage window
+    # here was exactly the YAML frontmatter: mode 'w' truncated first and
+    # the closing '---' is written partway through, so a kill left an
+    # UNTERMINATED frontmatter block. sessionstart-cost-summary's
+    # frontmatter() returns None at EOF-without-closer and its caller
+    # `continue`s inside a try/except -- the rollup is dropped in total
+    # silence. Rollups are not independent samples: the per-sitting figure
+    # is lineage_usd minus the second-newest rollup, so a dropped
+    # checkpoint makes the reader reach back to an OLDER one and report an
+    # INFLATED sitting cost. A wrong dollar figure, not just a torn file.
+    _rp_tmp = rollup_path + f'.tmp.{os.getpid()}'
+    with open(_rp_tmp, 'w', encoding='utf-8', newline='\n') as rf:
         rf.write('---\n')
         rf.write(f'session_id: {session_id}\n')
         rf.write(f'started: {session_start}\n')
@@ -466,8 +490,12 @@ try:
                 rf.write('\n## Top 5 subagent dispatches\n\n')
                 for tt, ts, agent in subagent_dispatches[:5]:
                     rf.write(f'- `{ts}` — {fmt_int(tt)} tokens — `{agent}`\n')
+    os.replace(_rp_tmp, rollup_path)
 except OSError:
-    pass
+    try:
+        os.unlink(_rp_tmp)
+    except OSError:
+        pass
 
 # ---- write token-telemetry observation ----
 obs_pid = hashlib.sha256(('token_telemetry\n' + session_id).encode('utf-8')).hexdigest()
