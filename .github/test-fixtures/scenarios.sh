@@ -3905,6 +3905,220 @@ PYTAB
   echo "PASS redaction-windows-identity (4 legs)"
 }
 
+# Phase 121: a durable-state writer must leave EITHER the old intact file OR
+# the new intact file, never a truncated one. Failure is injected
+# deterministically (the writer is interrupted partway through its own write
+# path) rather than raced, so the legs are reproducible on every platform.
+scenario_write_atomicity() {
+  echo ">> write-atomicity: interrupted writers leave old-or-new, never truncated (Phase 121)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only >/dev/null
+
+  local pybin=""
+  for cand in python3 python; do
+    if command -v "$cand" >/dev/null 2>&1 && "$cand" -c 'pass' >/dev/null 2>&1; then
+      pybin="$cand"; break
+    fi
+  done
+  [ -n "$pybin" ] || { echo "SKIP write-atomicity (no working python)"; return 0; }
+
+  local sess="$TEST_DIR/.claude/telemetry/sessions"
+  local ev="$TEST_DIR/.claude/telemetry/events"
+  mkdir -p "$sess" "$ev"
+
+  # --- leg 1: THE HEADLINE. A rollup whose frontmatter is unterminated is
+  #     dropped in SILENCE by the cost reader, which then reaches back a
+  #     checkpoint and reports an INFLATED sitting cost. Assert the reader
+  #     never sees such a file: a torn write must not land on the target.
+  # Two COMPLETE prior rollups: the cost line is derived from the newest
+  # minus the second-newest, which is exactly why a silently-dropped
+  # checkpoint inflates the reported sitting cost. The frontmatter carries
+  # every field the reader actually requires (ended + the four token
+  # counters) -- a fixture that omits them is skipped for the WRONG reason
+  # and proves nothing.
+  "$pybin" - "$sess" <<'PYROLL'
+import os, sys
+sess = sys.argv[1]
+def rollup(name, started, ended, tin, tout):
+    with open(os.path.join(sess, name), "w", encoding="utf-8", newline="\n") as f:
+        f.write("---\n")
+        f.write(f"session_id: {name[:-3]}\n")
+        f.write(f"started: {started}\n")
+        f.write(f"ended: {ended}\n")
+        f.write(f"total_tokens_in: {tin}\n")
+        f.write(f"total_tokens_out: {tout}\n")
+        f.write("total_cache_creation: 0\n")
+        f.write("total_cache_read: 0\n")
+        f.write("data_available: true\n")
+        f.write("---\n\nbody\n")
+rollup("sess-a.md", "2026-08-11T00:00:00Z", "2026-08-11T00:10:00Z", 1000, 2000)
+rollup("sess-b.md", "2026-08-11T00:00:00Z", "2026-08-11T00:20:00Z", 3000, 4000)
+PYROLL
+  local cost_before cost_after before_hash after_hash
+  cost_before=$( cd "$TEST_DIR" && CLAUDE_PROJECT_DIR="$TEST_DIR" COST_LINE_ONLY=1 \
+      bash "$TEST_DIR/.claude/hooks/sessionstart-cost-summary.sh" 2>/dev/null | head -1 )
+  if [ -z "$cost_before" ]; then
+    echo "ERROR: fixture produced no cost line at all — the rollups do not satisfy the reader's contract" >&2
+    exit 1
+  fi
+  before_hash=$(sha256_of "$sess/sess-b.md")
+
+  # Interrupt the ATOMIC write path: temp written, process dies before rename.
+  "$pybin" - "$sess" <<'PYINT'
+import os, sys
+target = os.path.join(sys.argv[1], "sess-b.md")
+tmp = target + f".tmp.{os.getpid()}"
+with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+    f.write("---\n")
+    f.write("session_id: sess-b\n")   # frontmatter deliberately UNTERMINATED
+sys.exit(0)                             # die before os.replace
+PYINT
+
+  after_hash=$(sha256_of "$sess/sess-b.md")
+  if [ "$before_hash" != "$after_hash" ]; then
+    echo "ERROR: an interrupted rollup write modified the target — a torn file is now readable" >&2
+    exit 1
+  fi
+  cost_after=$( cd "$TEST_DIR" && CLAUDE_PROJECT_DIR="$TEST_DIR" COST_LINE_ONLY=1 \
+      bash "$TEST_DIR/.claude/hooks/sessionstart-cost-summary.sh" 2>/dev/null | head -1 )
+  if [ "$cost_before" != "$cost_after" ]; then
+    echo "ERROR: the reported cost CHANGED after an interrupted write — the dropped-checkpoint" >&2
+    echo "       inflation bug. before: $cost_before" >&2
+    echo "                     after:  $cost_after" >&2
+    exit 1
+  fi
+  rm -f "$sess"/*.tmp.* 2>/dev/null || true
+  echo "  leg 1: interrupted rollup write leaves target intact AND the reported cost unchanged OK"
+
+  # --- leg 2: the same, for the events JSONL: prior file untouched ---
+  "$pybin" - "$ev" <<'PYEV'
+import os, sys
+ev = sys.argv[1]
+target = os.path.join(ev, "sess-a.jsonl")
+with open(target, "w", encoding="utf-8", newline="\n") as f:
+    f.write('{"tool_name": "Bash"}\n')
+    f.write('{"tool_name": "Read"}\n')
+tmp = target + f".tmp.{os.getpid()}"
+with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+    f.write('{"tool_name": "Bas')   # torn mid-object
+sys.exit(0)
+PYEV
+  local rows
+  rows=$(grep -c . "$ev/sess-a.jsonl" 2>/dev/null || echo 0)
+  if [ "$rows" -ne 2 ]; then
+    echo "ERROR: interrupted events write changed the prior file (rows=$rows, want 2)" >&2
+    exit 1
+  fi
+  # Clear the deliberately-stranded temp: leg 5 must measure litter left by
+  # the WRITERS, not litter this scenario planted on purpose.
+  rm -f "$ev"/*.tmp.* 2>/dev/null || true
+  echo "  leg 2: interrupted events write leaves the prior JSONL row-count intact OK"
+
+  # --- leg 3: reader tolerance. A stranded temp must be IGNORED by every
+  #     glob over observations/, not ingested as data. ---
+  local obs="$TEST_DIR/.claude/observations"
+  mkdir -p "$obs"
+  printf '{"not":"an observation"}\n' > "$obs/decoy.json.tmp.99999"
+  local ingest
+  ingest=$("$pybin" - "$obs" <<'PYGLOB'
+import os, sys
+from glob import glob
+obs = sys.argv[1]
+# the exact glob shape every reader in the repo uses
+hits = [os.path.basename(p) for p in glob(os.path.join(obs, "*.json"))]
+bad = [h for h in hits if ".tmp." in h]
+print("INGESTED" if bad else "IGNORED")
+PYGLOB
+)
+  if [ "$ingest" != "IGNORED" ]; then
+    echo "ERROR: a stranded temp file is ingested by the observations glob — the trailing-suffix invariant is broken" >&2
+    exit 1
+  fi
+  rm -f "$obs/decoy.json.tmp.99999"
+  echo "  leg 3: stranded temp ignored by the observations glob (trailing-suffix invariant) OK"
+
+  # --- leg 4: the gitignore rule actually covers the shapes writers produce ---
+  local leaked=""
+  for p in .claude/telemetry/optimizer-state.json.tmp.123 \
+           .claude/observations/abc.json.tmp.123 \
+           .claude/recommendations/manifest.md.tmp.123 \
+           .claude/.skeleton-version.tmp.99 \
+           docs/STATUS.md.tmp.123; do
+    git -C "$SKELETON_DIR" check-ignore -q "$p" 2>/dev/null || leaked="$leaked $p"
+  done
+  if [ -n "$leaked" ]; then
+    echo "ERROR: stranded temp files would show up as tracked:$leaked" >&2
+    exit 1
+  fi
+  # and the rule must not swallow legitimate files
+  for p in docs/foo.tmp.bak notes.tmpfile; do
+    if git -C "$SKELETON_DIR" check-ignore -q "$p" 2>/dev/null; then
+      echo "ERROR: the temp ignore rule swallows a legitimate file: $p" >&2
+      exit 1
+    fi
+  done
+  echo "  leg 4: temp shapes ignored, legitimate files untouched OK"
+
+  # --- leg 5: no writer leaves litter on a clean run ---
+  local marker="$TEST_DIR/.claude/.last-plugin-quality-check"
+  rm -f "$marker" 2>/dev/null || true
+  ( cd "$TEST_DIR" && CLAUDE_PROJECT_DIR="$TEST_DIR" \
+      bash "$TEST_DIR/.claude/scripts/plugin-quality-check.sh" --hook ) >/dev/null 2>&1
+  ( cd "$TEST_DIR" && CLAUDE_PROJECT_DIR="$TEST_DIR" \
+      bash "$TEST_DIR/.claude/hooks/precompact-backup.sh" ) >/dev/null 2>&1
+  local litter
+  litter=$( { find "$TEST_DIR" -name '*.tmp.*' 2>/dev/null || true; } | wc -l )
+  if [ "$litter" -ne 0 ]; then
+    echo "ERROR: $litter temp file(s) left behind after clean runs:" >&2
+    find "$TEST_DIR" -name '*.tmp.*' >&2
+    exit 1
+  fi
+  # and the marker landed, well-formed
+  if [ -f "$marker" ]; then
+    local v; v=$(cat "$marker")
+    case "$v" in ''|*[!0-9]*) echo "ERROR: cooldown marker is malformed: [$v]" >&2; exit 1 ;; esac
+  fi
+  echo "  leg 5: clean runs leave no temp litter; marker well-formed OK"
+
+  # --- leg 6: STRUCTURAL, and labelled as such. Legs 1-2 prove the atomic
+  #     PROPERTY holds when a write is interrupted, but they inject the
+  #     interrupt by hand -- they do not prove any particular writer USES
+  #     the idiom, so reverting a conversion left them green (verified: a
+  #     reverted plugin-quality-check and precompact-backup both passed
+  #     legs 1-5). Interrupting each real writer deterministically is not
+  #     portable, so this leg asserts the idiom is present instead, and
+  #     says plainly that it is a structural check rather than pretending
+  #     to behavioural coverage it does not have.
+  local unconverted=""
+  # each entry: <path-relative-to-target>|<string that must be present>
+  while IFS='|' read -r rel needle; do
+    [ -n "$rel" ] || continue
+    local f="$TEST_DIR/$rel"
+    [ -f "$f" ] || { unconverted="$unconverted $rel(missing)"; continue; }
+    grep -q -- "$needle" "$f" || unconverted="$unconverted $rel"
+  done <<'SITES'
+.claude/lib/generate-session-telemetry.sh|os.replace(_ev_tmp, events_path)
+.claude/lib/generate-session-telemetry.sh|os.replace(_rp_tmp, rollup_path)
+.claude/scripts/task-watchdog.sh|mv -f "$tmp" "$LAST_SESSION_MARKER"
+.claude/scripts/plugin-quality-check.sh|mv -f "$_cd_tmp" "$COOLDOWN_FILE"
+.claude/scripts/shared-memory-push.sh|os.replace(tmp, dest)
+.claude/hooks/precompact-backup.sh|mv -f "$tmp" "$dest"
+SITES
+  # cruft-check.sh is dogfood-only (never installed), so it is checked in
+  # the skeleton rather than the target.
+  grep -q -- 'mv -f "$_cd_tmp" "$COOLDOWN_FILE"' "$SKELETON_DIR/.claude/scripts/cruft-check.sh" \
+    || unconverted="$unconverted .claude/scripts/cruft-check.sh"
+  if [ -n "$unconverted" ]; then
+    echo "ERROR: writer(s) missing the atomic temp+rename idiom:$unconverted" >&2
+    exit 1
+  fi
+  echo "  leg 6: all 7 converted write sites carry the idiom (structural) OK"
+
+  echo "PASS write-atomicity (6 legs)"
+}
+
 # ---- dispatch ----
 case "${1:-}" in
   fresh-install)                scenario_fresh_install ;;
@@ -3939,6 +4153,7 @@ case "${1:-}" in
   path-anchoring)               scenario_path_anchoring ;;
   git-context-safety)           scenario_git_context_safety ;;
   redaction-windows-identity)   scenario_redaction_windows_identity ;;
+  write-atomicity)              scenario_write_atomicity ;;
   backfill-migrate)             scenario_backfill_migrate ;;
   raw-baseline-migrate)         scenario_raw_baseline_migrate ;;
   check-remote-cached)              scenario_check_remote_cached ;;
@@ -3998,6 +4213,7 @@ case "${1:-}" in
     scenario_path_anchoring
     scenario_git_context_safety
     scenario_redaction_windows_identity
+    scenario_write_atomicity
     scenario_backfill_migrate
     scenario_raw_baseline_migrate
     scenario_check_remote_cached
@@ -4063,6 +4279,7 @@ Scenarios:
   path-anchoring               Converted scripts target the project root from a nested cwd; degraded audits never read clean (Phase 116).
   git-context-safety           commit/deploy target the project repo from a nested cwd; deploy fails closed; share URL allowlist (Phase 117).
   redaction-windows-identity   Windows identity shapes redacted in every share-class writer; pushed tree carries no username (Phase 119).
+  write-atomicity              Interrupted writers leave old-or-new, never truncated; stranded temps ignored + gitignored (Phase 121).
   backfill-migrate             Legacy shell marker → update.sh migrates to JSON.
   raw-baseline-migrate         Pre-Phase-52 marker → inline migration; tuner edit stays LOCALLY_MODIFIED (Phase 52).
   check-remote-cached          --check-remote against mock bare repo populates cached_skeleton_head (Phase 30b H5).
