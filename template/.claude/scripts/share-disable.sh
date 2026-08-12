@@ -2,10 +2,18 @@
 # share-disable: turn OFF cross-project git memory for THIS install (Phase 47a).
 # Flips .claude/share-config.json to enabled=false and stamps disabled_at,
 # preserving remote_url + enabled_at as an audit trail. Plain disable leaves
-# remote data untouched. With --purge-remote (Phase 47c-2): first delete THIS
+# remote data untouched. With --purge-remote (Phase 47c-2): delete THIS
 # install's own files from the remote (its <producer>/<uuid>/ subtrees +
-# installs/<uuid>/), push the deletion, THEN disable — typed-confirmation gated,
-# fail-soft (a failed deletion-push leaves the feature enabled for retry).
+# installs/<uuid>/) and push the deletion — typed-confirmation gated.
+# ORDER (Phase 122): confirm, then DISABLE, then purge. The two writes are
+# individually atomic but the pair used to tear — with the purge first, an
+# interrupt between them left the remote purged and share still enabled, so
+# the next SessionEnd re-pushed exactly what was purged. Disable is the
+# cheap, locally reversible half; the purge is a deletion on a shared
+# remote. Committing the cheap half first means every interrupt point leaves
+# share OFF and nothing re-shares. A failed purge therefore leaves the
+# feature DISABLED with the purge outstanding and independently retryable —
+# deliberately different from the pre-122 whole-operation retry.
 set -uo pipefail
 
 # ---- constants ----
@@ -18,6 +26,7 @@ PY=""
 PURGE=0
 [ "${1:-}" = "--purge-remote" ] && PURGE=1
 TMP_CLONE=""
+DISABLE_RESULT=""   # set by disable_share(); pre-set so `set -u` cannot bite
 export GIT_TERMINAL_PROMPT=0
 
 # ---- helpers ----
@@ -48,6 +57,31 @@ sys.stdout.write('' if v is None else str(v))
 
 cleanup() { [ -n "$TMP_CLONE" ] && [ -d "$TMP_CLONE" ] && rm -rf "$TMP_CLONE"; }
 trap cleanup EXIT INT TERM
+
+# disable_share -> prints DISABLED or ALREADY_DISABLED; dies on write failure.
+# Phase 122: factored out of main so the ordering can put it BEFORE the purge.
+# The write itself is unchanged -- same fields, same JSON shape -- only when
+# it runs moved.
+disable_share() {
+  local ts result
+  ts="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  result="$("$PY" -c "
+import json, sys
+path, ts = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    c = json.load(f)
+if c.get('enabled') is not True:
+    sys.stdout.write('ALREADY_DISABLED')
+    sys.exit(0)
+c['enabled'] = False
+c['disabled_at'] = ts
+with open(path, 'w', newline='\n') as f:
+    json.dump(c, f, indent=2, sort_keys=True)
+    f.write('\n')
+sys.stdout.write('DISABLED')
+" "$SHARE_CONFIG" "$ts")" || die "failed to update $SHARE_CONFIG"
+  printf '%s' "${result%$'\r'}"
+}
 
 # ---- main ----
 detect_python
@@ -84,9 +118,23 @@ if [ "$PURGE" -eq 1 ]; then
   fi
   CONFIRM="${CONFIRM%$'\r'}"
   [ "$CONFIRM" = "purge" ] || die "cancelled — nothing removed, share mode unchanged"
+
+  # ---- Phase 122: DISABLE COMMITS FIRST, then purge. ----
+  # These two writes are individually atomic but the PAIR used to tear: with
+  # the purge first, an interrupt between them left the remote purged and
+  # this config still enabled=true, so the next SessionEnd re-produced from
+  # untouched LOCAL sources and re-pushed exactly what the user typed 'purge'
+  # to delete. The halves are not equally reversible -- disabling is cheap
+  # and locally undoable (/share-enable again), purging is a deletion on a
+  # shared remote -- so the commit order is cheap-and-safe first, irreversible
+  # second. Every interrupt point then leaves share off (sm_share_enabled
+  # gates the push at shared-memory-push.sh:80), nothing re-shares, and the
+  # only outstanding work is a purge that can simply be re-run.
+  DISABLE_RESULT="$(disable_share)"
+
   TMP_CLONE="$(mktemp -d 2>/dev/null || mktemp -d -t skeleton-purge)"
   smg_ensure_clone "$REMOTE" "$TMP_CLONE" \
-    || die "could not clone remote '$REMOTE' — nothing removed, share mode left ENABLED; retry when reachable"
+    || die "share mode is now DISABLED (nothing will be pushed), but the remote '$REMOTE' could not be reached — nothing was removed from it. Re-run /share-disable --purge-remote when it is reachable."
   FOUND=0
   for p in "$TMP_CLONE"/*/"$UUID"; do
     [ -d "$p" ] || continue
@@ -94,7 +142,7 @@ if [ "$PURGE" -eq 1 ]; then
   done
   if [ "$FOUND" -eq 1 ]; then
     smg_push "$TMP_CLONE" "purge install $UUID" \
-      || die "push of the deletion FAILED — share mode left ENABLED; retry when the remote is reachable"
+      || die "share mode is now DISABLED (nothing will be pushed), but the push of the deletion FAILED — this install's files are still on the remote. Re-run /share-disable --purge-remote when it is reachable."
     printf "Removed this install's files (uuid %s) from the remote.\n" "${UUID:0:8}"
     PURGED=1
   else
@@ -102,32 +150,26 @@ if [ "$PURGE" -eq 1 ]; then
   fi
 fi
 
-TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-RESULT="$("$PY" -c "
-import json, sys
-path, ts = sys.argv[1], sys.argv[2]
-with open(path) as f:
-    c = json.load(f)
-if c.get('enabled') is not True:
-    sys.stdout.write('ALREADY_DISABLED')
-    sys.exit(0)
-c['enabled'] = False
-c['disabled_at'] = ts
-with open(path, 'w', newline='\n') as f:
-    json.dump(c, f, indent=2, sort_keys=True)
-    f.write('\n')
-sys.stdout.write('DISABLED')
-" "$SHARE_CONFIG" "$TS")" || die "failed to update $SHARE_CONFIG"
-RESULT="${RESULT%$'\r'}"
-
-if [ "$RESULT" = "ALREADY_DISABLED" ]; then
-  printf 'Share mode is already disabled for this install — no change.\n'
-  exit 0
+# In the purge path the disable already ran (above, deliberately first). In
+# the plain path it runs here, exactly as it always did.
+if [ "$PURGE" -eq 0 ]; then
+  DISABLE_RESULT="$(disable_share)"
 fi
 
-printf 'Disabled share mode for this install. No future pushes will occur.\n'
+# Phase 122: the report is driven by WHAT HAPPENED, not by an early exit.
+# Previously an ALREADY_DISABLED result printed "no change" and returned
+# before saying anything about the purge -- harmless when the purge ran
+# second and rarely, but the reorder makes the resume path (share already
+# off, purge still outstanding) the normal way to finish an interrupted
+# run, and that path must report the purge it just completed.
+if [ "$DISABLE_RESULT" = "DISABLED" ]; then
+  printf 'Disabled share mode for this install. No future pushes will occur.\n'
+else
+  printf 'Share mode was already disabled for this install.\n'
+fi
+
 if [ "$PURGED" -eq 1 ]; then
   printf "This install's files were removed from the remote (see above).\n"
-else
+elif [ "$PURGE" -eq 0 ]; then
   printf 'Data already on the remote is untouched (use --purge-remote to also remove it).\n'
 fi

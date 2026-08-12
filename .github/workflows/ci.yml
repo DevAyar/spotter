@@ -297,6 +297,10 @@ jobs:
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh write-atomicity
 
+      - name: Scenario - share-disable-tear
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh share-disable-tear
+
       - name: Scenario - watchdog-transcript-resolution
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh watchdog-transcript-resolution

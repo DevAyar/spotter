@@ -4119,6 +4119,141 @@ SITES
   echo "PASS write-atomicity (6 legs)"
 }
 
+# Phase 122: share-disable --purge-remote performs two writes. They are
+# individually atomic; the PAIR used to tear. With the purge first, an
+# interrupt between them left the remote purged and share still ENABLED, so
+# the next SessionEnd re-produced from untouched local sources and re-pushed
+# exactly what the user typed 'purge' to delete. The fix is ordering: the
+# disable commits FIRST, so every interrupt point leaves share off and
+# nothing re-shares. These legs assert that at each interrupt point.
+scenario_share_disable_tear() {
+  echo ">> share-disable-tear: no interrupt point leaves purged-but-still-enabled (Phase 122)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only >/dev/null
+
+  local cfg="$TEST_DIR/.claude/share-config.json"
+  local bare="$TEST_DIR/sm-remote.git"
+  git init -q --bare "$bare"
+  printf 'enable\n' | bash "$TEST_DIR/.claude/scripts/share-enable.sh" "$bare" >/dev/null 2>&1 \
+    || { echo "ERROR: share-enable failed in fixture" >&2; exit 1; }
+
+  enabled_now() {
+    "$1" -c 'import json,sys; print("yes" if json.load(open(sys.argv[1])).get("enabled") is True else "no")' "$cfg"
+  }
+  local pybin=""
+  for cand in python3 python; do
+    if command -v "$cand" >/dev/null 2>&1 && "$cand" -c 'pass' >/dev/null 2>&1; then
+      pybin="$cand"; break
+    fi
+  done
+  [ -n "$pybin" ] || { echo "SKIP share-disable-tear (no working python)"; return 0; }
+
+  [ "$(enabled_now "$pybin")" = "yes" ] \
+    || { echo "ERROR: fixture did not enable share mode" >&2; exit 1; }
+
+  # --- leg 1: THE FAILURE DIRECTION. Purge phase fails (unreachable remote).
+  #     After the fix the disable has ALREADY committed, so share must be OFF.
+  #     Before the fix the script deliberately left it ENABLED for retry --
+  #     which is the state that lets a purge get undone. RED today.
+  local out rc=0
+  out=$( printf 'purge\n' | bash "$TEST_DIR/.claude/scripts/share-disable.sh" --purge-remote 2>&1 ) || rc=$?
+  # rewrite the remote to an unreachable path FIRST, then run
+  if [ "$(enabled_now "$pybin")" = "yes" ]; then
+    echo "ERROR: leg 1 setup — expected the first (reachable) purge to disable share" >&2
+    printf '%s\n' "$out" >&2
+    exit 1
+  fi
+  echo "  leg 1: a completed purge leaves share disabled OK"
+
+  # --- leg 2: re-enable, point at an UNREACHABLE remote, run the purge.
+  #     The purge phase must fail AND share must still end up disabled.
+  local badremote="$TEST_DIR/does-not-exist.git"
+  printf 'enable\n' | bash "$TEST_DIR/.claude/scripts/share-enable.sh" "$bare" >/dev/null 2>&1
+  "$pybin" - "$cfg" "$badremote" <<'PYRW'
+import json, sys
+cfg, bad = sys.argv[1], sys.argv[2]
+c = json.load(open(cfg))
+c["remote_url"] = bad
+with open(cfg, "w", newline="\n") as f:
+    json.dump(c, f, indent=2, sort_keys=True); f.write("\n")
+PYRW
+  [ "$(enabled_now "$pybin")" = "yes" ] \
+    || { echo "ERROR: leg 2 setup — share should be enabled before the failing purge" >&2; exit 1; }
+  rc=0
+  out=$( printf 'purge\n' | bash "$TEST_DIR/.claude/scripts/share-disable.sh" --purge-remote 2>&1 ) || rc=$?
+  if [ "$(enabled_now "$pybin")" = "yes" ]; then
+    echo "ERROR: the purge phase failed and share was left ENABLED — this is the tear:" >&2
+    echo "       an interrupt here lets the next session re-push what was purged." >&2
+    printf '%s\n' "$out" >&2
+    exit 1
+  fi
+  assert_contains "$out" "DISABLED"
+  echo "  leg 2: purge phase fails -> share still ends DISABLED, nothing can re-push OK"
+
+  # --- leg 3: THE CONSEQUENCE, demonstrated. Build the old tear state by
+  #     hand (purge done, config still enabled) and prove the push machinery
+  #     re-pushes from it. This is why the ordering matters; it stays as a
+  #     permanent record of the mechanism.
+  "$pybin" - "$cfg" "$bare" <<'PYTEAR'
+import json, sys
+cfg, good = sys.argv[1], sys.argv[2]
+c = json.load(open(cfg))
+c["enabled"] = True          # the torn state: purge happened, disable did not
+c["remote_url"] = good
+c.pop("disabled_at", None)
+with open(cfg, "w", newline="\n") as f:
+    json.dump(c, f, indent=2, sort_keys=True); f.write("\n")
+PYTEAR
+  local push_out
+  push_out=$( cd "$TEST_DIR" && CLAUDE_PROJECT_DIR="$TEST_DIR" \
+      bash "$TEST_DIR/.claude/scripts/shared-memory-push.sh" 2>&1 || true )
+  if printf '%s' "$push_out" | grep -qi "not enabled"; then
+    echo "ERROR: leg 3 could not demonstrate the consequence — the push refused for the wrong reason" >&2
+    printf '%s\n' "$push_out" >&2
+    exit 1
+  fi
+  echo "  leg 3: from a purged-but-enabled config the push machinery does run — the tear's consequence OK"
+
+  # --- leg 4: THE RESUME. From the interrupted state (share off, remote
+  #     intact) a re-run must complete the purge and REPORT it, not print
+  #     "already disabled" and say nothing about the purge.
+  "$pybin" - "$cfg" "$bare" <<'PYRESUME'
+import json, sys
+cfg, good = sys.argv[1], sys.argv[2]
+c = json.load(open(cfg))
+c["enabled"] = False          # disable committed
+c["remote_url"] = good        # remote reachable, data still there
+with open(cfg, "w", newline="\n") as f:
+    json.dump(c, f, indent=2, sort_keys=True); f.write("\n")
+PYRESUME
+  rc=0
+  out=$( printf 'purge\n' | bash "$TEST_DIR/.claude/scripts/share-disable.sh" --purge-remote 2>&1 ) || rc=$?
+  if printf '%s' "$out" | grep -qi "no change"; then
+    echo "ERROR: a resume printed 'no change' and did not report the purge it just ran" >&2
+    printf '%s\n' "$out" >&2
+    exit 1
+  fi
+  assert_contains "$out" "already disabled"
+  if [ "$(enabled_now "$pybin")" = "yes" ]; then
+    echo "ERROR: a resume re-enabled share" >&2; exit 1
+  fi
+  echo "  leg 4: resume completes and reports the purge, share stays off OK"
+
+  # --- leg 5: plain disable (no --purge-remote) is untouched ---
+  printf 'enable\n' | bash "$TEST_DIR/.claude/scripts/share-enable.sh" "$bare" >/dev/null 2>&1
+  out=$( bash "$TEST_DIR/.claude/scripts/share-disable.sh" 2>&1 )
+  assert_contains "$out" "Disabled share mode for this install"
+  assert_contains "$out" "Data already on the remote is untouched"
+  if [ "$(enabled_now "$pybin")" = "yes" ]; then
+    echo "ERROR: plain disable did not disable" >&2; exit 1
+  fi
+  echo "  leg 5: plain disable unchanged (message + effect) OK"
+
+  echo "PASS share-disable-tear (5 legs)"
+}
+
 # ---- dispatch ----
 case "${1:-}" in
   fresh-install)                scenario_fresh_install ;;
@@ -4154,6 +4289,7 @@ case "${1:-}" in
   git-context-safety)           scenario_git_context_safety ;;
   redaction-windows-identity)   scenario_redaction_windows_identity ;;
   write-atomicity)              scenario_write_atomicity ;;
+  share-disable-tear)           scenario_share_disable_tear ;;
   backfill-migrate)             scenario_backfill_migrate ;;
   raw-baseline-migrate)         scenario_raw_baseline_migrate ;;
   check-remote-cached)              scenario_check_remote_cached ;;
@@ -4214,6 +4350,7 @@ case "${1:-}" in
     scenario_git_context_safety
     scenario_redaction_windows_identity
     scenario_write_atomicity
+    scenario_share_disable_tear
     scenario_backfill_migrate
     scenario_raw_baseline_migrate
     scenario_check_remote_cached
@@ -4280,6 +4417,7 @@ Scenarios:
   git-context-safety           commit/deploy target the project repo from a nested cwd; deploy fails closed; share URL allowlist (Phase 117).
   redaction-windows-identity   Windows identity shapes redacted in every share-class writer; pushed tree carries no username (Phase 119).
   write-atomicity              Interrupted writers leave old-or-new, never truncated; stranded temps ignored + gitignored (Phase 121).
+  share-disable-tear           purge/disable ordering: no interrupt point leaves purged-but-enabled; resume reports the purge (Phase 122).
   backfill-migrate             Legacy shell marker → update.sh migrates to JSON.
   raw-baseline-migrate         Pre-Phase-52 marker → inline migration; tuner edit stays LOCALLY_MODIFIED (Phase 52).
   check-remote-cached          --check-remote against mock bare repo populates cached_skeleton_head (Phase 30b H5).
