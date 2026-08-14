@@ -230,6 +230,24 @@ env_session_id = sys.argv[7] if len(sys.argv) > 7 else ''
 def now_iso():
     return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
+def norm_iso(s):
+    """Phase 123: re-emit a transcript timestamp at the schema's stated second
+    precision. Claude Code writes transcript timestamps via JS
+    Date.toISOString(), which is MILLISECOND precision, and copying that value
+    verbatim is exactly how the corpus accumulated 99 values violating the
+    schema's YYYY-MM-DDTHH:MM:SSZ. Unparseable input is returned UNCHANGED
+    rather than dropped or replaced -- an odd timestamp is worth more than a
+    fabricated one, and the validator will surface it."""
+    if not s:
+        return s
+    try:
+        d = datetime.fromisoformat(str(s).replace('Z', '+00:00'))
+    except Exception:
+        return s
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=timezone.utc)
+    return d.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
 def parse_iso(s):
     if not s:
         return None
@@ -261,7 +279,12 @@ if jsonl_path and os.path.isfile(jsonl_path):
                 if session_id is None and ev.get('sessionId'):
                     session_id = ev['sessionId']
                 if session_start is None and ev.get('timestamp'):
-                    session_start = ev['timestamp']
+                    # Phase 123: normalise on ingest. This raw transcript value
+                    # flowed straight into the observation's first_seen, and the
+                    # failure was total on the live path -- every telemetry
+                    # record that read a real transcript was non-conforming;
+                    # the only conforming ones were no-transcript stubs.
+                    session_start = norm_iso(ev['timestamp'])
                 if ev.get('type') != 'assistant':
                     continue
                 if ev.get('isSidechain') is True:

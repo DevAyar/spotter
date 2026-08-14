@@ -370,6 +370,24 @@ with fh:
 def now_iso():
     return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
+def norm_iso(s):
+    """Phase 123: re-emit a transcript timestamp at the schema's stated second
+    precision. Claude Code writes transcript timestamps via JS
+    Date.toISOString(), which is MILLISECOND precision, and copying that value
+    verbatim is exactly how the corpus accumulated 99 values violating the
+    schema's YYYY-MM-DDTHH:MM:SSZ. Unparseable input is returned UNCHANGED
+    rather than dropped or replaced -- an odd timestamp is worth more than a
+    fabricated one, and the validator will surface it."""
+    if not s:
+        return s
+    try:
+        d = datetime.fromisoformat(str(s).replace('Z', '+00:00'))
+    except Exception:
+        return s
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=timezone.utc)
+    return d.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
 def write_observation(pid, ptype, signature, events, notes=None):
     path = os.path.join(obs_dir, f'{pid}.json')
     existing = None
@@ -382,7 +400,12 @@ def write_observation(pid, ptype, signature, events, notes=None):
 
     new_evidence = []
     for ev in events:
-        ts = ev.get('timestamp') or now_iso()
+        # Phase 123: normalise on ingest. One raw transcript timestamp
+        # here contaminated three schema fields at once -- evidence[].timestamp
+        # directly, and first_seen/last_seen because both are DERIVED from
+        # these entries below. Normalising at this single line repairs all
+        # three.
+        ts = norm_iso(ev.get('timestamp')) or now_iso()
         if ptype == 'recurring_failure':
             summary = redact(ev.get('content', '').splitlines()[0] if ev.get('content') else 'tool error')
             entry = {
