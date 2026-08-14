@@ -4254,6 +4254,240 @@ PYRESUME
   echo "PASS share-disable-tear (5 legs)"
 }
 
+# Phase 123: the FIRST validator in this repo that looks at the real
+# observation corpus. Until now the only shape check was an inline block in
+# telemetry-generator-fixture that tested a hardcoded field list against ONE
+# freshly generated file in a throwaway install -- nothing had ever read the
+# records on disk. These legs validate the live corpus against the amended
+# schema, and pin the distinction the amendment turns on: the legacy
+# millisecond timestamp form is accepted on READ (history is not falsified)
+# but rejected on NEW emission (producers are held to the current format).
+scenario_observation_schema_conformance() {
+  echo ">> observation-schema-conformance: live corpus valid; legacy accepted on read, rejected on emit (Phase 123)"
+  local pybin=""
+  for cand in python3 python; do
+    if command -v "$cand" >/dev/null 2>&1 && "$cand" -c 'pass' >/dev/null 2>&1; then
+      pybin="$cand"; break
+    fi
+  done
+  [ -n "$pybin" ] || { echo "SKIP observation-schema-conformance (no working python)"; return 0; }
+
+  # The validator lives in the scenario rather than in a shipped script: it
+  # asserts a CONTRACT, and a shipped validator would need its own tests.
+  "$pybin" - "$SKELETON_DIR" <<'PYVAL'
+import json, os, re, sys
+
+root = sys.argv[1]
+obs_dir = os.path.join(root, ".claude", "observations")
+
+CURRENT = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$')
+LEGACY  = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$')
+
+REQUIRED = ["pattern_id", "source", "pattern_type", "occurrences",
+            "first_seen", "last_seen", "resolved_at", "evidence",
+            "confidence", "privacy_class"]
+OPTIONAL = ["notes", "target_resource"]
+TELEMETRY = ["data_available", "total_tokens_in", "total_tokens_out",
+             "total_cache_creation", "total_cache_read", "turns_with_usage",
+             "useful_units_shipped", "useful_units_drafted",
+             "tokens_per_useful_unit"]
+EV_FIELDS = ["timestamp", "kind", "summary", "tool_name", "args_redacted"]
+PRIVACY = {"local-only", "safe-to-share", "share-with-redaction"}
+CONFIDENCE = {"low", "med", "high"}
+
+def ts_ok(v):
+    return bool(CURRENT.match(v) or LEGACY.match(v))
+
+errs, n = [], 0
+for fn in sorted(os.listdir(obs_dir)):
+    if not fn.endswith(".json"):
+        continue
+    path = os.path.join(obs_dir, fn)
+    try:
+        d = json.load(open(path, encoding="utf-8"))
+    except Exception as e:
+        errs.append(f"{fn}: unparseable ({e})"); continue
+    n += 1
+    tag = d.get("pattern_id", fn)[:12]
+
+    for k in REQUIRED:
+        if k not in d:
+            errs.append(f"{tag}: missing required field {k}")
+    # filename must equal <pattern_id>.json (the Phase 65 rule)
+    if d.get("pattern_id") and fn != d["pattern_id"] + ".json":
+        errs.append(f"{tag}: filename {fn} != <pattern_id>.json")
+    # types
+    if not isinstance(d.get("occurrences"), int):
+        errs.append(f"{tag}: occurrences not an integer")
+    if not isinstance(d.get("evidence"), list):
+        errs.append(f"{tag}: evidence not a list")
+    # enums
+    if d.get("privacy_class") not in PRIVACY:
+        errs.append(f"{tag}: privacy_class {d.get('privacy_class')!r} not in enum")
+    if d.get("confidence") not in CONFIDENCE:
+        errs.append(f"{tag}: confidence {d.get('confidence')!r} not in enum")
+    # timestamps -- legacy ACCEPTED here on purpose
+    for k in ("first_seen", "last_seen"):
+        v = d.get(k)
+        if not isinstance(v, str) or not ts_ok(v):
+            errs.append(f"{tag}: {k}={v!r} matches neither current nor legacy form")
+    ra = d.get("resolved_at")
+    if ra is not None and (not isinstance(ra, str) or not ts_ok(ra)):
+        errs.append(f"{tag}: resolved_at={ra!r} not null and not a valid timestamp")
+    for i, e in enumerate(d.get("evidence") or []):
+        if not isinstance(e, dict):
+            errs.append(f"{tag}: evidence[{i}] not an object"); continue
+        v = e.get("timestamp")
+        if not isinstance(v, str) or not ts_ok(v):
+            errs.append(f"{tag}: evidence[{i}].timestamp={v!r} invalid")
+        for k in e:
+            if k not in EV_FIELDS:
+                errs.append(f"{tag}: evidence[{i}] undocumented field {k!r}")
+    # every top-level key must be documented somewhere
+    allowed = set(REQUIRED) | set(OPTIONAL)
+    if d.get("pattern_type") == "token_telemetry":
+        allowed |= set(TELEMETRY)
+    for k in d:
+        if k not in allowed:
+            errs.append(f"{tag}: undocumented top-level field {k!r}")
+    # conditional requirements
+    if d.get("pattern_type") == "token_telemetry":
+        for k in TELEMETRY:
+            if k not in d:
+                errs.append(f"{tag}: token_telemetry missing {k}")
+        if not d.get("target_resource"):
+            errs.append(f"{tag}: token_telemetry missing target_resource")
+
+print(f"  validated {n} records")
+if errs:
+    print(f"  {len(errs)} violation(s):")
+    for e in errs[:25]:
+        print("    " + e)
+    if len(errs) > 25:
+        print(f"    ... and {len(errs)-25} more")
+    sys.exit(1)
+PYVAL
+  [ $? -eq 0 ] || { echo "ERROR: the live observation corpus violates its own schema" >&2; exit 1; }
+  echo "  leg 1: live corpus conforms to the amended schema OK"
+
+  # --- leg 2: legacy accepted on READ, rejected on NEW emission ---
+  "$pybin" - <<'PYLEG'
+import re, sys
+CURRENT = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$')
+LEGACY  = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$')
+legacy_value = "2026-07-07T17:59:04.133Z"
+current_value = "2026-07-07T17:59:04Z"
+# read-acceptance: the corpus validator must tolerate it
+if not (CURRENT.match(legacy_value) or LEGACY.match(legacy_value)):
+    print("  legacy form is not accepted on read -- history would fail validation"); sys.exit(1)
+# emit-rejection: a NEW record in the legacy form must NOT pass the current check
+if CURRENT.match(legacy_value):
+    print("  legacy form passes the CURRENT-format check -- producers are not held"); sys.exit(1)
+if not CURRENT.match(current_value):
+    print("  current form fails the current check"); sys.exit(1)
+PYLEG
+  [ $? -eq 0 ] || { echo "ERROR: the legacy-accepted / current-required distinction does not hold" >&2; exit 1; }
+  echo "  leg 2: legacy accepted on read, rejected as a new emission OK"
+
+  # --- leg 3: the producers, against a MILLISECOND transcript ---
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only >/dev/null
+  local enc proj
+  enc=$(printf '%s' "$TEST_DIR" | sed 's/[^A-Za-z0-9]/-/g')
+  proj="$TEST_DIR/tx"
+  mkdir -p "$proj/$enc"
+  "$pybin" - "$proj/$enc/sconf.jsonl" "$TEST_DIR" <<'PYTX'
+import json, sys
+p, cwd = sys.argv[1], sys.argv[2]
+rows = [{"type": "user", "cwd": cwd, "timestamp": "2026-08-14T10:00:00.123Z"}]
+for i in range(2):
+    rows.append({"type": "assistant", "timestamp": f"2026-08-14T10:0{i}:00.456Z",
+                 "message": {"usage": {"input_tokens": 100, "output_tokens": 200,
+                                       "cache_creation_input_tokens": 0,
+                                       "cache_read_input_tokens": 0},
+                             "content": [{"type": "tool_use", "name": "Bash",
+                                          "input": {"command": "echo hi"}}]}})
+with open(p, "w", encoding="utf-8", newline="\n") as f:
+    for r in rows:
+        f.write(json.dumps(r) + "\n")
+PYTX
+  find "$TEST_DIR/.claude/observations" -name '*.json' -delete 2>/dev/null || true
+  ( cd "$TEST_DIR" && CLAUDE_PROJECT_DIR="$TEST_DIR" CLAUDE_PROJECTS_DIR_OVERRIDE="$proj" \
+      CLAUDE_HOOK_SESSION_ID=sconf CLAUDE_HOOK_TRANSCRIPT_PATH="$proj/$enc/sconf.jsonl" \
+      bash "$TEST_DIR/.claude/lib/generate-session-telemetry.sh" ) >/dev/null 2>&1
+  "$pybin" - "$TEST_DIR/.claude/observations" <<'PYEMIT'
+import json, os, re, sys
+CURRENT = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$')
+d = sys.argv[1]
+files = [f for f in os.listdir(d) if f.endswith(".json")]
+if not files:
+    print("  producer emitted no observation"); sys.exit(1)
+bad = []
+for f in files:
+    o = json.load(open(os.path.join(d, f), encoding="utf-8"))
+    for k in ("first_seen", "last_seen"):
+        if not CURRENT.match(o.get(k, "")):
+            bad.append(f"{k}={o.get(k)!r}")
+    for i, e in enumerate(o.get("evidence") or []):
+        if not CURRENT.match(e.get("timestamp", "")):
+            bad.append(f"evidence[{i}].timestamp={e.get('timestamp')!r}")
+if bad:
+    print("  producer emitted non-current timestamps from a millisecond transcript:")
+    for b in bad:
+        print("    " + b)
+    sys.exit(1)
+PYEMIT
+  [ $? -eq 0 ] || { echo "ERROR: a producer still copies transcript millisecond precision into an observation" >&2; exit 1; }
+  echo "  leg 3: telemetry producer normalises a millisecond transcript to second precision OK"
+
+  # --- leg 4: an undocumented field must FAIL, so the schema stays honest ---
+  "$pybin" - <<'PYUNK'
+import sys
+REQUIRED = {"pattern_id","source","pattern_type","occurrences","first_seen",
+            "last_seen","resolved_at","evidence","confidence","privacy_class"}
+OPTIONAL = {"notes","target_resource"}
+rec = {k: None for k in REQUIRED} | {"brand_new_field": 1}
+allowed = REQUIRED | OPTIONAL
+unknown = [k for k in rec if k not in allowed]
+if not unknown:
+    print("  an unknown field was NOT flagged -- the schema check is vacuous"); sys.exit(1)
+PYUNK
+  [ $? -eq 0 ] || { echo "ERROR: the undocumented-field check does not fire" >&2; exit 1; }
+  echo "  leg 4: an undocumented field is rejected (schema stays honest) OK"
+
+  # --- leg 5: couple the validator to the schema DOCUMENT. Legs 1-4 validate
+  #     the corpus against this scenario's TRANSCRIPTION of the schema, so
+  #     nothing above would notice the schema file and the validator drifting
+  #     apart. This asserts every field the validator allows is actually
+  #     documented in session-observer.schema.md, and that the schema states
+  #     the normative timestamp format. Stated plainly: it is a coupling
+  #     check, not a parser -- it does not derive the rules from the doc.
+  "$pybin" - "$SKELETON_DIR/.claude/agents/05_meta/session-observer.schema.md" <<'PYDOC'
+import sys
+doc = open(sys.argv[1], encoding="utf-8").read()
+names = ["pattern_id","source","pattern_type","occurrences","first_seen",
+         "last_seen","resolved_at","evidence","confidence","privacy_class",
+         "notes","target_resource",
+         "data_available","total_tokens_in","total_tokens_out",
+         "total_cache_creation","total_cache_read","turns_with_usage",
+         "useful_units_shipped","useful_units_drafted","tokens_per_useful_unit",
+         "timestamp","kind","summary","tool_name","args_redacted"]
+missing = [n for n in names if f"`{n}`" not in doc]
+if missing:
+    print("  validator allows fields the schema does not document: " + ", ".join(missing))
+    sys.exit(1)
+if "YYYY-MM-DDTHH:MM:SSZ" not in doc:
+    print("  the schema no longer states the normative timestamp format")
+    sys.exit(1)
+PYDOC
+  [ $? -eq 0 ] || { echo "ERROR: the validator and session-observer.schema.md have drifted apart" >&2; exit 1; }
+  echo "  leg 5: validator field set is documented in the schema (coupling check) OK"
+
+  echo "PASS observation-schema-conformance (5 legs)"
+}
+
 # ---- dispatch ----
 case "${1:-}" in
   fresh-install)                scenario_fresh_install ;;
@@ -4290,6 +4524,7 @@ case "${1:-}" in
   redaction-windows-identity)   scenario_redaction_windows_identity ;;
   write-atomicity)              scenario_write_atomicity ;;
   share-disable-tear)           scenario_share_disable_tear ;;
+  observation-schema-conformance) scenario_observation_schema_conformance ;;
   backfill-migrate)             scenario_backfill_migrate ;;
   raw-baseline-migrate)         scenario_raw_baseline_migrate ;;
   check-remote-cached)              scenario_check_remote_cached ;;
@@ -4351,6 +4586,7 @@ case "${1:-}" in
     scenario_redaction_windows_identity
     scenario_write_atomicity
     scenario_share_disable_tear
+    scenario_observation_schema_conformance
     scenario_backfill_migrate
     scenario_raw_baseline_migrate
     scenario_check_remote_cached
@@ -4418,6 +4654,7 @@ Scenarios:
   redaction-windows-identity   Windows identity shapes redacted in every share-class writer; pushed tree carries no username (Phase 119).
   write-atomicity              Interrupted writers leave old-or-new, never truncated; stranded temps ignored + gitignored (Phase 121).
   share-disable-tear           purge/disable ordering: no interrupt point leaves purged-but-enabled; resume reports the purge (Phase 122).
+  observation-schema-conformance  Live corpus validated against the schema; legacy timestamps accepted on read, rejected on emit (Phase 123).
   backfill-migrate             Legacy shell marker → update.sh migrates to JSON.
   raw-baseline-migrate         Pre-Phase-52 marker → inline migration; tuner edit stays LOCALLY_MODIFIED (Phase 52).
   check-remote-cached          --check-remote against mock bare repo populates cached_skeleton_head (Phase 30b H5).

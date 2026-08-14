@@ -301,6 +301,10 @@ jobs:
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh share-disable-tear
 
+      - name: Scenario - observation-schema-conformance
+        shell: bash
+        run: bash .github/test-fixtures/scenarios.sh observation-schema-conformance
+
       - name: Scenario - watchdog-transcript-resolution
         shell: bash
         run: bash .github/test-fixtures/scenarios.sh watchdog-transcript-resolution
