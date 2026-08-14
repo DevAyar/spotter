@@ -18,12 +18,31 @@ Lock the schema; extend the enums. New producers register a `source` value, new 
 | `source` | string enum (extensible) | yes | Which producer emitted this observation. v1.1.0 values: `session-observer`, `task-watchdog`, `manual`, `other`. v1.1.x adds `cruft-checker` (skeleton-doc cruft; dogfood-only). v1.1.4 adds `code-quality-auditor` (installed-plugin manifest + security audit; ships in template). Phase 46's SessionEnd telemetry emits `session-end-telemetry` (registered Phase 65). Phase 75 adds `roadmap-auditor` (skeleton-level claim integrity; dogfood-only). |
 | `pattern_type` | string enum (extensible) | yes | What kind of pattern. v1.1.0 values: `repeated_command`, `repeated_edit`, `error_resolution`, `recurring_failure` (canonical producer: `task-watchdog`), `other`. v1.1.4 adds `plugin_quality` (emitted by `code-quality-auditor` for the three plugin-verification heuristics — manifest path missing/empty, hooks.json schema violation, destructive shell pattern against unguarded path). Phase 46 adds `token_telemetry` (session-end telemetry; registered Phase 65 — see the `target_resource` requirement below). |
 | `occurrences` | integer (≥ 1) | yes | Count of times this pattern was observed across the producer's inspection windows. Monotonic — updates on re-observation. Minimum 2 for pattern-detection producers (`task-watchdog`; historically also the retired `session-observer`) — a single sighting isn't a pattern. Deterministic-detection producers with full-resolve-pass semantics (`cruft-checker`, `code-quality-auditor`) MAY emit at `occurrences = 1` because each scan is an independent atomic detection — the pattern's existence at scan-time is the observation, and absence in subsequent scans is signaled via `resolved_at` rather than via accumulated occurrence counts. |
-| `first_seen` | string (ISO-8601 UTC) | yes | When `pattern_id` was first observed. Set once on creation. Format: `YYYY-MM-DDTHH:MM:SSZ`. |
+| `first_seen` | string (ISO-8601 UTC) | yes | When `pattern_id` was first observed. Set once on creation. See **Timestamp format** below. |
 | `last_seen` | string (ISO-8601 UTC) | yes | When `pattern_id` was most recently observed. Updates on each re-observation. |
 | `resolved_at` | string (ISO-8601 UTC) or `null` | yes | Set by the producer when its scan no longer detects the underlying pattern. `null` = active (detected on most recent scan, or never re-scanned since first emission). Non-null timestamp = producer confirmed the pattern is gone as of that time. Reset to `null` on re-detection (regression). Consumers like `workflow-suggester` skip non-null entries when generating new captures. See "Resolution lifecycle" below. |
 | `evidence` | array of event objects | yes | Concrete instances the pattern was extracted from. Each event: `{ timestamp, kind, summary, tool_name?, args_redacted? }`. See "Evidence" below. Capped at the 20 most recent entries to bound file size. |
 | `confidence` | string enum | yes | `low` \| `med` \| `high`. Default heuristic: ≥5 occurrences → `high`; 3–4 → `med`; 2 → `low`. Producers can override when they have direct evidence (e.g. `task-watchdog` matching an exact stack trace at 2 occurrences → `high`). |
 | `privacy_class` | string enum | yes (v1.1.5+) | `local-only` \| `safe-to-share` \| `share-with-redaction`. Schema-level privacy class governing what can leave the project boundary. Set by the producer at emit time per the producer's mapping. Migrated observations (pre-v1.1.5) default to `local-only` (conservative). The `redact-observation.sh` lib reads this field — refuses `local-only`, passes `safe-to-share`, strips `share-with-redaction` to the safe-to-share field allowlist (see [`redact-observation.sh`](../../lib/redact-observation.sh)). |
+
+**Timestamp format (normative, Phase 123).** Every timestamp field in this
+schema — `first_seen`, `last_seen`, `resolved_at`, and `evidence[].timestamp`
+— is `YYYY-MM-DDTHH:MM:SSZ`: UTC, second precision, no fractional part.
+Previously this format was stated only in `first_seen`'s cell, so the other
+three were constrained merely to "ISO-8601 UTC", under which a millisecond
+form is technically legal — which is how the corpus came to hold values the
+schema's own producers now reject.
+
+*Accepted legacy form.* Records emitted before Phase 123 may carry millisecond
+precision (`2026-07-07T17:59:04.133Z`). Those values are **valid on read** and
+are deliberately **not rewritten** — the corpus is an audit trail, and
+falsifying its history to satisfy a format is a worse trade than accepting two
+readable forms. Consumers MUST parse both. **Producers MUST emit only the
+current form**: transcript-sourced timestamps are normalised on ingest
+(`generate-session-telemetry.sh`, `task-watchdog.sh`, Phase 123), and the
+`observation-schema-conformance` scenario fails any NEW record in the legacy
+form. The distinction is the point — history is accepted, future emission is
+not.
 
 Optional fields per `pattern_type`:
 
@@ -31,6 +50,27 @@ Optional fields per `pattern_type`:
 |---|---|---|
 | `notes` | string (≤ 120 chars) | `pattern_type == "other"`. Free-text label so the consumer knows what shape the pattern is. |
 | `target_resource` | string (format `<category>:<name>`) | Optional/encouraged on all types; **required** on `pattern_type == "token_telemetry"`. Identifies the artifact the observation is about, enabling downstream stale-checker / artifact-fit-analyzer / manager-optimizer queries. Categories: `agent`, `skill`, `command`, `script`, `plugin`, `hook`, `file`, `session`. Examples: `agent:cruft-checker`, `command:goals`, `script:commit.sh`, `plugin:claude-mem`, `file:CLAUDE_MANAGER.md`, `hook:sessionend-observe.sh`, `session:<session_id>`. |
+
+**`token_telemetry` metric fields (Phase 123 — schema catching up to a shipped
+producer).** Records with `pattern_type == "token_telemetry"` carry nine
+additional top-level fields, written by `generate-session-telemetry.sh` since
+Phase 46 and undocumented here until now. They are **required on that
+pattern_type and absent on every other**:
+
+| Field | Type | Description |
+|---|---|---|
+| `data_available` | boolean | `false` when no transcript was found at SessionEnd; the record is then a stub and the six token/turn fields below are `null`. |
+| `total_tokens_in` | integer or `null` | Sum of turn-level input tokens. |
+| `total_tokens_out` | integer or `null` | Sum of turn-level output tokens. |
+| `total_cache_creation` | integer or `null` | Sum of cache-creation input tokens. |
+| `total_cache_read` | integer or `null` | Sum of cache-read input tokens. |
+| `turns_with_usage` | integer or `null` | Turns carrying a `usage` field; the denominator behind any per-turn average. |
+| `useful_units_shipped` | integer or `null` | Commits authored inside the session window (Phase 45 usefulness-is-the-floor). |
+| `useful_units_drafted` | integer or `null` | Capture files with mtime inside the session window. |
+| `tokens_per_useful_unit` | number or `null` | `(in + out) / max(1, shipped + drafted)`. |
+
+These are metrics, not pattern data: consumers that walk the corpus generically
+should ignore unknown-to-them fields rather than reject the record.
 
 ## Evidence
 
