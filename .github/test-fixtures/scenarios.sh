@@ -2674,6 +2674,11 @@ EOF
   # cost hook must exist in the fixture root for --live's subprocess
   mkdir -p "$root6/.claude/hooks"
   cp "$SKELETON_DIR/.claude/hooks/sessionstart-cost-summary.sh" "$root6/.claude/hooks/sessionstart-cost-summary.sh"
+  # Phase 126: the hook sources the canonical detector from ../lib — ship it
+  # beside the hook exactly as every real install does (both are in the same
+  # installed file set; a hook-without-lib tree is not a real install shape).
+  mkdir -p "$root6/.claude/lib"
+  cp "$SKELETON_DIR/.claude/lib/detect-python.sh" "$root6/.claude/lib/detect-python.sh"
   printf 'VERDICT: Phase 90 shipped and pushed (b71dbb1) - fixture verdict for the strip.\n' > "$root6/.claude/receipts/last-verdict.txt"
   ( cd "$root6" && CLAUDE_PROJECT_DIR="$root6" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --live > /dev/null )
   local live="$root6/.claude/receipts/live.html"
@@ -3224,22 +3229,167 @@ scenario_interpreter_probe_class() {
     || { echo "ERROR: cruft-check still passes SILENTLY with no interpreter (appears to have audited): [$cerr]" >&2; exit 1; }
   echo "  leg 3: cruft-check exits 0 but names the real cause instead of appearing to pass OK"
 
-  # Leg 4 — every shipped consumer sources the one detector; no
-  # presence-only probe survives outside the documented bootstrap.
+  # Leg 4 — every shipped consumer sources the one detector; no inline
+  # probe survives in the installed tree. Phase 126 extended the net: the
+  # original pattern was the literal `command -v python`, which seven
+  # surfaces (the Phase 113 filing) slipped as `command -v "$_cand"` inside
+  # a python-first loop — so the loop signature is swept too, and hooks/
+  # (previously unswept) joins scripts/ and lib/. No exception list:
+  # install.sh's sanctioned bootstrap copy lives at repo scripts/, never
+  # installed; detect-python.sh IS the probe and stays name-excluded.
   local leftovers
-  # detect-python.sh is EXPECTED to contain the probe — it IS the probe.
-  leftovers=$(grep -ln 'command -v python' \
-    "$TEST_DIR"/.claude/scripts/*.sh "$TEST_DIR"/.claude/lib/*.sh 2>/dev/null \
+  leftovers=$(grep -ln 'command -v python\|for _cand in python' \
+    "$TEST_DIR"/.claude/scripts/*.sh "$TEST_DIR"/.claude/lib/*.sh \
+    "$TEST_DIR"/.claude/hooks/*.sh 2>/dev/null \
     | grep -v 'detect-python.sh' || true)
   if [ -n "$leftovers" ]; then
-    echo "ERROR: presence-only probes survive in the installed tree:" >&2
+    echo "ERROR: inline interpreter probes survive in the installed tree:" >&2
     printf '%s\n' "$leftovers" >&2; exit 1
   fi
   grep -q 'detect-python.sh' "$TEST_DIR/.claude/lib/shared-memory-lib.sh" \
     || { echo "ERROR: shared-memory-lib does not source the canonical detector" >&2; exit 1; }
-  echo "  leg 4: no presence-only probe survives in the installed tree OK"
+  echo "  leg 4: no inline probe survives in the installed tree (hooks swept, loop shape caught) OK"
 
-  echo "PASS interpreter-probe-class (4 legs)"
+  # Leg 5 — Phase 126: the broken-python-first PATH. A fake `python` that
+  # accepts the OLD inline probes' whole validation bar (-c pass) but fails
+  # all real work — the Python-2-shadowing-python3 class — sits ahead of a
+  # real python3. The pre-126 python-first probes SELECTED the fake, and
+  # each surface then died or went silent downstream; the canonical
+  # detector's version-floor probe runs real code, rejects it, and picks
+  # python3. Selection is proven by OUTCOME — each of the seven converted
+  # surfaces does its real work — not by echoing a name.
+  local py2="$TEST_DIR/py2path"
+  mkdir -p "$py2"
+  printf '#!/usr/bin/env bash\n[ "$1" = -c ] && [ "$2" = pass ] && exit 0\nexit 2\n' > "$py2/python"
+  printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "$real_py" > "$py2/python3"
+  chmod +x "$py2/python" "$py2/python3"
+  local p126="$py2:$PATH"
+
+  # (5a) generate-session-telemetry — rollup written from a direct-path
+  # transcript (fixture shape per telemetry-generator-fixture).
+  local cwd_py tr
+  cwd_py=$("$real_py" -c 'import sys; print(sys.argv[1])' "$TEST_DIR")
+  tr="$TEST_DIR/p126-transcript.jsonl"
+  cat > "$tr.tmpl" <<'JSONL'
+{"type":"summary","sessionId":"sess-p126","timestamp":"2026-07-01T00:00:00Z"}
+{"type":"assistant","sessionId":"sess-p126","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T00:01:00Z","message":{"usage":{"input_tokens":100,"output_tokens":40,"cache_read_input_tokens":0,"cache_creation_input_tokens":0},"content":[{"type":"tool_use","id":"t1","name":"Read","input":{"file_path":"docs/x.md"}}]}}
+JSONL
+  sed "s|__CWD__|$cwd_py|g" "$tr.tmpl" > "$tr"; rm -f "$tr.tmpl"
+  PATH="$p126" CLAUDE_PROJECT_DIR="$TEST_DIR" \
+  CLAUDE_HOOK_SESSION_ID="sess-p126" CLAUDE_HOOK_TRANSCRIPT_PATH="$tr" \
+    bash "$TEST_DIR/.claude/lib/generate-session-telemetry.sh" >/dev/null 2>&1 || true
+  [ -f "$TEST_DIR/.claude/telemetry/sessions/sess-p126.md" ] \
+    || { echo "ERROR: telemetry rollup missing under the broken-python-first PATH (fake python selected?)" >&2; exit 1; }
+
+  # (5b) sessionstart-cost-summary — the cost line prints (pre-126 the
+  # stanza failed soft and printed NOTHING). Fixture per cost-line-sitting-delta.
+  mkdir -p "$TEST_DIR/.claude/telemetry/sessions"
+  cat > "$TEST_DIR/.claude/telemetry/model-pricing.json" <<'JSON'
+{"models": {"test-model": {"input_per_mtok": 1, "output_per_mtok": 1}}, "cache_read_multiplier": 0, "cache_write_multiplier_5m": 0}
+JSON
+  cat > "$TEST_DIR/.claude/gate-config.json" <<'JSON'
+{"cost": {"enabled": true, "assumed_model": "test-model", "warn_usd_per_session": 5, "warn_usd_per_7d": 10000}}
+JSON
+  cat > "$TEST_DIR/.claude/telemetry/sessions/p126.md" <<'EOF'
+---
+session_id: p126
+started: 2026-07-01T00:00:00Z
+ended: 2026-07-01T01:00:00Z
+total_tokens_in: 3000000
+total_tokens_out: 0
+total_cache_creation: 0
+total_cache_read: 0
+turns_with_usage: 1
+data_available: true
+---
+EOF
+  local c_out
+  c_out=$(PATH="$p126" CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$TEST_DIR/.claude/hooks/sessionstart-cost-summary.sh" 2>&1)
+  printf '%s' "$c_out" | grep -qi "sitting" \
+    || { echo "ERROR: cost summary printed no cost line under the broken-python-first PATH: [$c_out]" >&2; exit 1; }
+
+  # (5c) sessionend-cost-proposals — the mechanical session counter lands
+  # (pre-126 the counter block failed silently; no state file).
+  rm -f "$TEST_DIR/.claude/telemetry/optimizer-state.json"
+  PATH="$p126" CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$TEST_DIR/.claude/hooks/sessionend-cost-proposals.sh" >/dev/null 2>&1 || true
+  grep -q '"sessions_since_last_run": 1' "$TEST_DIR/.claude/telemetry/optimizer-state.json" 2>/dev/null \
+    || { echo "ERROR: cost-proposals session counter not written under the broken-python-first PATH" >&2; exit 1; }
+
+  # (5d) receipt-render — renders (pre-126: loud death at the render block).
+  local rr="$TEST_DIR/p126rr"
+  mkdir -p "$rr/.claude"
+  cat > "$rr/r.txt" <<'EOF'
+VERDICT: Phase 126 fixture receipt rendered through the canonical probe.
+WHAT CHANGED: The interpreter now comes from the shared detector.
+COST: Typical.
+EOF
+  ( cd "$rr" && PATH="$p126" CLAUDE_PROJECT_DIR="$rr" bash "$TEST_DIR/.claude/scripts/receipt-render.sh" "$rr/r.txt" >/dev/null 2>&1 ) \
+    || { echo "ERROR: receipt-render failed under the broken-python-first PATH" >&2; exit 1; }
+  [ -f "$rr/.claude/receipts/latest.html" ] \
+    || { echo "ERROR: receipt card not written under the broken-python-first PATH" >&2; exit 1; }
+
+  # (5e) plugin-discovery + (5f) plugin-context-matcher — manifest written,
+  # verdict pass runs (fixture shapes per plugin-discovery-manifest).
+  local pd="$TEST_DIR/p126pd"
+  mkdir -p "$pd/proj/.claude" "$pd/marketplaces/fixture-market/.claude-plugin"
+  cat > "$pd/marketplaces/fixture-market/.claude-plugin/marketplace.json" <<'JSON'
+{"name": "fixture-market", "plugins": [
+  {"name": "alpha-tool", "description": "Repo-hosted fixture plugin.", "category": "testing", "source": "./plugins/alpha-tool"}
+]}
+JSON
+  printf '{"plugins": {}}\n' > "$pd/installed_plugins.json"
+  PATH="$p126" CLAUDE_PROJECT_DIR="$pd/proj" \
+    PLUGIN_MARKETPLACES_DIR_OVERRIDE="$pd/marketplaces" \
+    INSTALLED_PLUGINS_FILE_OVERRIDE="$pd/installed_plugins.json" \
+    bash "$TEST_DIR/.claude/scripts/plugin-discovery.sh" >/dev/null 2>&1 \
+    || { echo "ERROR: plugin-discovery failed under the broken-python-first PATH" >&2; exit 1; }
+  [ -f "$pd/proj/.claude/recommendations/manifest.md" ] \
+    || { echo "ERROR: manifest not written under the broken-python-first PATH" >&2; exit 1; }
+  PATH="$p126" CLAUDE_PROJECT_DIR="$pd/proj" \
+    PLUGIN_MARKETPLACES_DIR_OVERRIDE="$pd/marketplaces" \
+    INSTALLED_PLUGINS_FILE_OVERRIDE="$pd/installed_plugins.json" \
+    PLUGIN_CACHE_DIR_OVERRIDE="$pd/cache" \
+    bash "$TEST_DIR/.claude/scripts/plugin-context-matcher.sh" >/dev/null 2>&1 \
+    || { echo "ERROR: plugin-context-matcher failed under the broken-python-first PATH" >&2; exit 1; }
+
+  # (5g) plugin-quality-check --hook — the cooldown stamp lands (pre-126
+  # the python helper failed and it bailed silent, stamp not updated).
+  mkdir -p "$TEST_DIR/p126-plugins-empty"
+  rm -f "$TEST_DIR/.claude/.last-plugin-quality-check"
+  local pqrc=0
+  PATH="$p126" CLAUDE_PROJECT_DIR="$TEST_DIR" \
+    bash "$TEST_DIR/.claude/scripts/plugin-quality-check.sh" --hook --plugin-dir "$TEST_DIR/p126-plugins-empty" >/dev/null 2>&1 || pqrc=$?
+  assert_eq "$pqrc" "0"
+  [ -f "$TEST_DIR/.claude/.last-plugin-quality-check" ] \
+    || { echo "ERROR: plugin-quality-check bailed silent under the broken-python-first PATH (cooldown not stamped)" >&2; exit 1; }
+  echo "  leg 5: all seven converted surfaces do their real work under the broken-python-first PATH OK"
+
+  # Leg 6 — Phase 126: on a no-python PATH each of the seven states the
+  # canonical cause (python 3.7+ required) with its exit contract intact —
+  # 0 for the fail-soft four (session chains must never block), nonzero for
+  # the loud three — and never the wrong remedy (the 112 misdiagnosis class).
+  local surf rc6 msg
+  for surf in hooks/sessionstart-cost-summary.sh hooks/sessionend-cost-proposals.sh lib/generate-session-telemetry.sh scripts/plugin-quality-check.sh; do
+    rc6=0
+    msg=$(PATH="$none_path" CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$TEST_DIR/.claude/$surf" 2>&1 >/dev/null) || rc6=$?
+    [ "$rc6" -eq 0 ] || { echo "ERROR: $surf exited $rc6 on a no-python PATH — session chains must never block" >&2; exit 1; }
+    printf '%s' "$msg" | grep -qi "python 3.7+ required" \
+      || { echo "ERROR: $surf did not state the real cause on a no-python PATH: [$msg]" >&2; exit 1; }
+    printf '%s' "$msg" | grep -qi "update.sh" \
+      && { echo "ERROR: $surf gives the WRONG remedy (update.sh) for a missing interpreter" >&2; exit 1; }
+  done
+  for surf in scripts/receipt-render.sh scripts/plugin-discovery.sh scripts/plugin-context-matcher.sh; do
+    rc6=0
+    msg=$(PATH="$none_path" CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$TEST_DIR/.claude/$surf" 2>&1 >/dev/null) || rc6=$?
+    [ "$rc6" -ne 0 ] || { echo "ERROR: $surf exited 0 on a no-python PATH — its loud-failure contract was weakened" >&2; exit 1; }
+    printf '%s' "$msg" | grep -qi "python 3.7+ required" \
+      || { echo "ERROR: $surf did not state the real cause on a no-python PATH: [$msg]" >&2; exit 1; }
+    printf '%s' "$msg" | grep -qi "update.sh" \
+      && { echo "ERROR: $surf gives the WRONG remedy (update.sh) for a missing interpreter" >&2; exit 1; }
+  done
+  echo "  leg 6: honest cause + intact exit contract on a no-python PATH, all seven OK"
+
+  echo "PASS interpreter-probe-class (6 legs)"
 }
 
 # ---- Phase 110: update.sh install-integrity scenario ----

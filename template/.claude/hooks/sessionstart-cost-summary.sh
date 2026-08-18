@@ -27,17 +27,18 @@ GATECONF="$ROOT/.claude/gate-config.json"
 # (none - the single python block below does the parsing and arithmetic)
 
 # ---- main ----
-# python||python3 validated by EXECUTION, not presence — the Windows Store
-# alias stub passes `command -v` but exits nonzero, silently no-oping every
-# "$PYBIN" block below (the Phase 57 silent-inert class; hardened Phase 63).
-PYBIN=""
-for _cand in python python3; do
-  if command -v "$_cand" >/dev/null 2>&1 && "$_cand" -c 'pass' >/dev/null 2>&1; then
-    PYBIN="$_cand"
-    break
-  fi
-done
-[ -n "$PYBIN" ] || exit 0
+# Phase 126: the canonical probe (python3-first, execution-validated, 3.7
+# floor — .claude/lib/detect-python.sh, Phase 112) replaces the inline
+# python-first copy. Still exits 0 — SessionStart must never block a
+# session — but says why on stderr instead of vanishing (the cruft-check
+# precedent). Exit contract unchanged.
+# shellcheck source=../lib/detect-python.sh
+. "$(cd "$(dirname "$0")/../lib" 2>/dev/null && pwd)/detect-python.sh"
+PYBIN="$DETECTED_PYTHON"
+if [ -z "$PYBIN" ]; then
+  printf 'sessionstart-cost-summary: skipped — %s\n' "$(python_required_message)" >&2
+  exit 0
+fi
 [ -f "$GATECONF" ] || exit 0        # both stanzas need gate-config
 
 # Stanza 1 (Phase 48 cost line). Its inputs gate ONLY this stanza - a

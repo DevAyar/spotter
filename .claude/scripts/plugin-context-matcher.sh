@@ -44,18 +44,16 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd -P)
 QUALITY_CHECK="$SCRIPT_DIR/plugin-quality-check.sh"
 
 # ---- helpers ----
-# python||python3 validated by EXECUTION, not presence (Phase 57/63 class).
-PYBIN=""
-for _cand in python python3; do
-  if command -v "$_cand" >/dev/null 2>&1 && "$_cand" -c 'pass' >/dev/null 2>&1; then
-    PYBIN="$_cand"
-    break
-  fi
-done
+# Phase 126: the canonical probe (python3-first, execution-validated, 3.7
+# floor — .claude/lib/detect-python.sh, Phase 112) replaces the inline
+# python-first copy (Phase 57/63 class).
+# shellcheck source=../lib/detect-python.sh
+. "$(cd "$(dirname "$0")/../lib" 2>/dev/null && pwd)/detect-python.sh"
+PYBIN="$DETECTED_PYTHON"
 
 # ---- main ----
 if [ -z "$PYBIN" ]; then
-  echo "plugin-context-matcher: no working python/python3 found" >&2
+  echo "plugin-context-matcher: $(python_required_message)" >&2
   exit 1
 fi
 if [ ! -f "$MANIFEST" ]; then

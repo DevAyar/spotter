@@ -37,17 +37,18 @@ FAMILIES=(
 # (none - the python blocks below own the merge + counter lifecycles)
 
 # ---- main ----
-# python||python3 validated by EXECUTION, not presence — the Windows Store
-# alias stub passes `command -v` but exits nonzero, silently no-oping every
-# "$PYBIN" block below (the Phase 57 silent-inert class; hardened Phase 63).
-PYBIN=""
-for _cand in python python3; do
-  if command -v "$_cand" >/dev/null 2>&1 && "$_cand" -c 'pass' >/dev/null 2>&1; then
-    PYBIN="$_cand"
-    break
-  fi
-done
-[ -n "$PYBIN" ] || exit 0
+# Phase 126: the canonical probe (python3-first, execution-validated, 3.7
+# floor — .claude/lib/detect-python.sh, Phase 112) replaces the inline
+# python-first copy. Still exits 0 — the SessionEnd chain must never
+# block — but says why on stderr instead of vanishing (the cruft-check
+# precedent). Exit contract unchanged.
+# shellcheck source=../lib/detect-python.sh
+. "$(cd "$(dirname "$0")/../lib" 2>/dev/null && pwd)/detect-python.sh"
+PYBIN="$DETECTED_PYTHON"
+if [ -z "$PYBIN" ]; then
+  printf 'sessionend-cost-proposals: skipped — %s\n' "$(python_required_message)" >&2
+  exit 0
+fi
 
 # Phase 53: mechanical session counter (runs every session end, fail-soft).
 [ -d "$TELEM" ] && "$PYBIN" - "$OPT_STATE" <<'PYEOF' 2>/dev/null

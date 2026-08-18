@@ -186,18 +186,14 @@ launch_window() {
 }
 
 # ---- main ----
-# python||python3 validated by EXECUTION, not presence — the Windows Store
-# alias stub passes `command -v` but exits nonzero (the Phase 57
-# silent-inert class; hardened Phase 63).
-PYBIN=""
-for _cand in python python3; do
-  if command -v "$_cand" >/dev/null 2>&1 && "$_cand" -c 'pass' >/dev/null 2>&1; then
-    PYBIN="$_cand"
-    break
-  fi
-done
+# Phase 126: the canonical probe (python3-first, execution-validated, 3.7
+# floor — .claude/lib/detect-python.sh, Phase 112) replaces the inline
+# python-first copy. Loud-failure contract unchanged.
+# shellcheck source=../lib/detect-python.sh
+. "$(cd "$(dirname "$0")/../lib" 2>/dev/null && pwd)/detect-python.sh"
+PYBIN="$DETECTED_PYTHON"
 if [ -z "$PYBIN" ]; then
-  echo "receipt-render: no working python found" >&2
+  echo "receipt-render: $(python_required_message)" >&2
   exit 1
 fi
 

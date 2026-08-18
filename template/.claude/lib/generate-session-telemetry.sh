@@ -53,18 +53,13 @@ OBS_DIR="$PROJECT_DIR/.claude/observations"
 CAPTURES_DIR="$PROJECT_DIR/.claude/captures"
 PROJECTS_DIR="${CLAUDE_PROJECTS_DIR_OVERRIDE:-${HOME}/.claude/projects}"
 NOTICE_PREFIX="[generate-session-telemetry]"
-# python||python3, validated by EXECUTION not presence: stock macOS and
-# Debian/Ubuntu ship python3 only, and the Windows Store publishes a
-# python/python3 execution-alias stub that passes `command -v` but exits
-# nonzero — either way a presence-only probe silently no-ops this script
-# (the Phase 57 silent-inert class; ported from task-watchdog.sh, Phase 63).
-PYBIN=""
-for _cand in python python3; do
-  if command -v "$_cand" >/dev/null 2>&1 && "$_cand" -c 'pass' >/dev/null 2>&1; then
-    PYBIN="$_cand"
-    break
-  fi
-done
+# Phase 126: the canonical probe (python3-first, execution-validated, 3.7
+# floor — detect-python.sh, Phase 112) replaces the inline python-first
+# copy (Phase 63 shape). This file lives in .claude/lib/, so the detector
+# is a SIBLING, not ../lib.
+# shellcheck source=./detect-python.sh
+. "$(cd "$(dirname "$0")" 2>/dev/null && pwd)/detect-python.sh"
+PYBIN="$DETECTED_PYTHON"
 
 # ---- helpers ----
 # encode_cwd <absolute-path>
@@ -184,7 +179,7 @@ PYFALLBACK
 
 # ---- main ----
 if [ -z "$PYBIN" ]; then
-  printf '%s no working python/python3 on PATH — skipping telemetry\n' "$NOTICE_PREFIX" >&2
+  printf '%s skipping telemetry — %s\n' "$NOTICE_PREFIX" "$(python_required_message)" >&2
   exit 0
 fi
 

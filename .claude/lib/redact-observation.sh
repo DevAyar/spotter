@@ -87,13 +87,15 @@ emit_redacted() {
 # rather than emit raw (the export pipeline already requires python
 # upstream for envelope building, so the practical delta is nil).
 redact_json_text() {
-  local libdir pybin="" _cand
+  local libdir pybin
   libdir="$(cd "$(dirname "$0")" && pwd)"
-  for _cand in python3 python; do
-    if command -v "$_cand" >/dev/null 2>&1 && "$_cand" -c 'pass' >/dev/null 2>&1; then
-      pybin="$_cand"; break
-    fi
-  done
+  # Phase 126: the canonical probe (python3-first, execution-validated, 3.7
+  # floor — detect-python.sh, Phase 112) replaces the inline no-floor copy.
+  # Sibling source; safe to re-source per call. Fail-closed contract
+  # unchanged: no interpreter → return 1, callers own the messaging.
+  # shellcheck source=./detect-python.sh
+  . "$libdir/detect-python.sh"
+  pybin="$DETECTED_PYTHON"
   [ -n "$pybin" ] || return 1
   # -c, NOT `python - <<heredoc`: the heredoc form replaces stdin with the
   # script text, so the piped JSON this function exists to read would hit
