@@ -44,12 +44,38 @@ current form**: transcript-sourced timestamps are normalised on ingest
 form. The distinction is the point — history is accepted, future emission is
 not.
 
+**Field-length caps (Phase 124 — the corpus was the better law).** The old flat
+`<= 120 chars` on `notes` and `evidence[].summary` was violated 512 times across
+182 records. The partition that decided the ruling: **every single violation is
+LLM-authored** (`manual`, `roadmap-auditor`) and **zero come from any script
+producer** — scripts truncate and always have. Measured maxima at the time of
+the amendment: `cruft-checker` 120, `task-watchdog` 120 (both truncate at
+`[:120]`), `session-end-telemetry` 87. So the caps split by who writes the field:
+
+| writer | `evidence[].summary` | `notes` |
+|---|---|---|
+| script producers | **<= 120 chars** (unchanged — they already satisfy it at 100%) | **<= 120 chars** (unchanged — `cruft-checker` truncates at `[:120]` and is at 120) |
+| LLM-authored (`manual`, `roadmap-auditor`) | **<= 400 chars**, intent: one to three sentences | **uncapped** — see below |
+
+*Why `notes` is uncapped rather than raised.* The field's original spec was a
+short shape-label. In practice every phase that resolves, annotates or
+adjudicates an observation **appends one entry to it**, so `notes` now carries
+the label PLUS an accumulating resolution ledger. Its length is a function of
+how many phases have touched the record, not of how verbosely any one of them
+wrote — a character cap is simply the wrong instrument. Per-appended-entry
+intent remains one to three sentences.
+
+*Accepted legacy form.* 24 LLM-authored `summary` values predate this amendment
+and exceed 400 (longest 812). They are **valid on read** and **not rewritten**,
+under the same frozen-history trade the timestamp clause above makes. New
+LLM-authored summaries are held to 400.
+
 Optional fields per `pattern_type`:
 
 | Field | Type | Required when |
 |---|---|---|
-| `notes` | string (≤ 120 chars) | `pattern_type == "other"`. Free-text label so the consumer knows what shape the pattern is. |
-| `target_resource` | string (format `<category>:<name>`) | Optional/encouraged on all types; **required** on `pattern_type == "token_telemetry"`. Identifies the artifact the observation is about, enabling downstream stale-checker / artifact-fit-analyzer / manager-optimizer queries. Categories: `agent`, `skill`, `command`, `script`, `plugin`, `hook`, `file`, `session`. Examples: `agent:cruft-checker`, `command:goals`, `script:commit.sh`, `plugin:claude-mem`, `file:CLAUDE_MANAGER.md`, `hook:sessionend-observe.sh`, `session:<session_id>`. |
+| `notes` | string | `pattern_type == "other"`. Carries a short shape-label (aim: one line) so the consumer knows what shape the pattern is, PLUS the appended resolution ledger when one exists — see **Field-length caps** below. |
+| `target_resource` | string (format `<category>:<name>`) | Optional/encouraged on all types; **required** on `pattern_type == "token_telemetry"`. Identifies the artifact the observation is about, enabling downstream stale-checker / artifact-fit-analyzer / manager-optimizer queries. Categories: `agent`, `skill`, `command`, `script`, `plugin`, `hook`, `file`, `session`, `tool`. `tool` (registered Phase 124) names a Claude Code tool by name — `Bash`, `Edit`, `Agent` — and is used when the observation is about the TOOL itself rather than the artifact it acted on; `task-watchdog` emits `script:<file>` when it can identify the failing script and falls back to `tool:Bash` when it cannot, so the two are a deliberate distinction rather than a mislabel. Examples: `agent:cruft-checker`, `command:goals`, `script:commit.sh`, `plugin:claude-mem`, `file:CLAUDE_MANAGER.md`, `hook:sessionend-observe.sh`, `session:<session_id>`. |
 
 **`token_telemetry` metric fields (Phase 123 — schema catching up to a shipped
 producer).** Records with `pattern_type == "token_telemetry"` carry nine
@@ -80,7 +106,7 @@ Each entry in the `evidence` array has these fields:
 |---|---|---|---|
 | `timestamp` | string (ISO-8601 UTC) | yes | When this specific event happened. |
 | `kind` | string | yes | What kind of event. Examples: `tool_call`, `file_edit`, `error`, `commit`, `test_failure`. |
-| `summary` | string (≤ 120 chars) | yes | One-line description of the event. Plain English, no markup. |
+| `summary` | string | yes | Description of the event. Plain English, no markup. Length depends on who wrote it — see **Field-length caps** below. |
 | `tool_name` | string | when `kind == "tool_call"` | The tool that was invoked (e.g. `Bash`, `Edit`, `Read`). |
 | `args_redacted` | string (≤ 120 chars) | optional | Short, redacted snapshot of the args. Secrets, full file contents, and long paths are stripped. |
 

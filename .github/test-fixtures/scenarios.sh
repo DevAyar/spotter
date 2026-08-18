@@ -4350,6 +4350,29 @@ for fn in sorted(os.listdir(obs_dir)):
     for k in d:
         if k not in allowed:
             errs.append(f"{tag}: undocumented top-level field {k!r}")
+    # Phase 124 caps: split by who writes the field. Script producers keep
+    # 120 (they truncate); LLM-authored get 400 on summary and no cap on
+    # notes, because notes accumulates a resolution ledger across phases.
+    # Legacy LLM summaries over 400 predate the amendment and are accepted
+    # on read, exactly as the timestamp clause accepts millisecond values.
+    SCRIPT_SRC = {"cruft-checker", "task-watchdog", "session-end-telemetry",
+                  "code-quality-auditor", "session-observer"}
+    src = d.get("source")
+    if src in SCRIPT_SRC:
+        for i, e in enumerate(d.get("evidence") or []):
+            if isinstance(e, dict) and len(e.get("summary") or "") > 120:
+                errs.append(f"{tag}: script-authored evidence[{i}].summary "
+                            f"{len(e.get('summary'))} chars > 120")
+        if d.get("notes") is not None and len(d["notes"]) > 120:
+            errs.append(f"{tag}: script-authored notes {len(d['notes'])} chars > 120")
+    # target_resource category must be registered (tool registered Phase 124)
+    CATEGORIES = {"agent","skill","command","script","plugin","hook","file",
+                  "session","tool"}
+    tr = d.get("target_resource")
+    if isinstance(tr, str) and tr:
+        cat = tr.split(":", 1)[0]
+        if cat not in CATEGORIES:
+            errs.append(f"{tag}: target_resource category {cat!r} not registered")
     # conditional requirements
     if d.get("pattern_type") == "token_telemetry":
         for k in TELEMETRY:
@@ -4481,11 +4504,61 @@ if missing:
 if "YYYY-MM-DDTHH:MM:SSZ" not in doc:
     print("  the schema no longer states the normative timestamp format")
     sys.exit(1)
+if "Field-length caps" not in doc:
+    print("  the schema no longer states the normative field-length caps")
+    sys.exit(1)
+if "`tool`" not in doc:
+    print("  the schema no longer registers the tool: target_resource category")
+    sys.exit(1)
 PYDOC
   [ $? -eq 0 ] || { echo "ERROR: the validator and session-observer.schema.md have drifted apart" >&2; exit 1; }
   echo "  leg 5: validator field set is documented in the schema (coupling check) OK"
 
-  echo "PASS observation-schema-conformance (5 legs)"
+  # --- leg 6: PRODUCER dedupe at write. The corpus holds 172 byte-identical
+  #     duplicate evidence entries across 61 cruft-checker records -- same
+  #     timestamp, same summary -- because one scan can emit the same
+  #     signature twice and the append site was blind. Fixture: the same
+  #     broken link TWICE ON ONE LINE, so heuristic i fires twice with an
+  #     identical signature, line number and summary inside a single scan.
+  local clone="$TEST_DIR/skelclone"
+  git clone -q --depth 1 "file://$SKELETON_DIR" "$clone" 2>/dev/null
+  # The clone carries COMMITTED state, so it would silently exercise the
+  # pre-fix script whenever the fix is still in the working tree -- which is
+  # exactly how this leg first ran red for the right reason by accident. Copy
+  # the live script in so the guard tests the tree under edit. (Third time
+  # this project has had to aim failure injection at the copy under TEST
+  # rather than the copy under EDIT -- see Phases 122 and 123.)
+  cp "$SKELETON_DIR/.claude/scripts/cruft-check.sh" "$clone/.claude/scripts/cruft-check.sh"
+  rm -f "$clone/.claude/.last-cruft-check" 2>/dev/null || true
+  find "$clone/.claude/observations" -name '*.json' -delete 2>/dev/null || true
+  printf '# dup
+
+See [x](P124_MISSING.md) and again [x](P124_MISSING.md) on one line.
+'     > "$clone/P124_DUP.md"
+  ( cd "$clone" && CLAUDE_PROJECT_DIR="$clone" bash .claude/scripts/cruft-check.sh ) >/dev/null 2>&1
+  "$pybin" - "$clone/.claude/observations" <<'PYDUP'
+import json, os, sys
+d = sys.argv[1]
+worst = 0
+for fn in os.listdir(d):
+    if not fn.endswith(".json"):
+        continue
+    o = json.load(open(os.path.join(d, fn), encoding="utf-8"))
+    if o.get("source") != "cruft-checker":
+        continue
+    ev = o.get("evidence") or []
+    keys = [(e.get("timestamp"), e.get("kind"), e.get("summary")) for e in ev]
+    dupes = len(keys) - len(set(keys))
+    if dupes > worst:
+        worst = dupes
+        print(f"  duplicate evidence in {o['pattern_id'][:12]}: "
+              f"{len(keys)} entries, {len(set(keys))} unique")
+sys.exit(1 if worst else 0)
+PYDUP
+  [ $? -eq 0 ] || { echo "ERROR: cruft-check emitted duplicate evidence entries in a single scan" >&2; exit 1; }
+  echo "  leg 6: cruft-check dedupes identical evidence at write OK"
+
+  echo "PASS observation-schema-conformance (6 legs)"
 }
 
 # ---- dispatch ----

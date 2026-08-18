@@ -162,7 +162,18 @@ def emit(signature, notes, confidence='high'):
         occurrences = int(existing.get('occurrences', 0)) + 1
         first_seen = existing.get('first_seen', ts)
         prior = existing.get('evidence') or []
-        evidence = (prior + [new_evidence])[-evidence_cap:]
+        # Phase 124: dedupe on (timestamp, kind, summary) at the append site.
+        # This was a blind append, so the same finding detected twice inside one
+        # scan wrote two byte-identical entries -- 172 duplicate entries across
+        # 61 records before the fix. Same key task-watchdog has used since
+        # Phase 67, so this is the in-repo precedent rather than a new idea.
+        # occurrences is NOT derived from len(evidence) here (it is
+        # existing+1 per scan), so deduping changes the array and nothing else.
+        _seen = {(e.get('timestamp'), e.get('kind'), e.get('summary'))
+                 for e in prior if isinstance(e, dict)}
+        _key = (new_evidence.get('timestamp'), new_evidence.get('kind'),
+                new_evidence.get('summary'))
+        evidence = (prior if _key in _seen else prior + [new_evidence])[-evidence_cap:]
         prior_notes = existing.get('notes', notes)
     else:
         occurrences = 1
