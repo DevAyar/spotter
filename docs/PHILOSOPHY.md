@@ -18,7 +18,7 @@ Files reference other files in a directed acyclic way. `STATUS.md` references `S
 
 ### Section-routing
 
-Work is routed to specialized handlers based on what kind of work it is. A code review goes to the `code-reviewer` agent; a security pass goes to `security-review`; mechanical renames go to a script. The routing is explicit (a routing table, not vibes), documented (in `ROUTING.md`), and audited regularly.
+Work is routed to specialized handlers based on what kind of work it is. A doc-drift audit goes to the `audit-helper` agent; a session retro goes to `monitoring-helper`; mechanical renames go to a script. The routing is explicit (a routing table, not vibes), documented (in `ROUTING.md`), and audited regularly.
 
 ### Scripts for mechanical work
 
@@ -55,7 +55,7 @@ Before any third-party plugin, skill, or agent is added to the skeleton, it pass
 
 Plugins that fail any of these don't get added. Loose plugin discipline is how Claude Code projects rot — a year of "this looks useful" leaves you with twenty half-integrated skills that conflict.
 
-Today this is enforced by review, not by code. A future `plugin-integration-checker` skill could automate it; for now, the rules above are the discipline. (The `integration-installer` agent shipped in Phase 4c handles install *mechanics*, not plugin-discipline pre-checks — different concern.)
+The pre-add 5-question check is enforced by review; the mechanical slices are automated since v1.1.4 (`plugin-quality-check.sh`) and v1.5 (the discovery checklist) — for the judgment slice, the rules above are the discipline. (The `integration-installer` agent shipped in Phase 4c handles install *mechanics*, not plugin-discipline pre-checks — different concern.)
 
 ## Non-destructive install
 

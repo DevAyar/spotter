@@ -117,7 +117,7 @@ You read the reasons; anything you choose to install goes through
 - [`GETTING-STARTED.md`](GETTING-STARTED.md) — your first 15 minutes.
 - [`../CLAUDE_MANAGER.md`](../CLAUDE_MANAGER.md) § Plugin marketplace
   composition — the ecosystem sources and the install rule.
-- Plugin recommendations *with reasons* shipped as the v1.5 flow above
+- Plugin recommendations *with reasons* shipped as the ROADMAP tier v1.5 flow above (a roadmap tier, not an install version)
   (Phases 76–78). v2.0 deepens the positive-evidence classes per
   [`ROADMAP.md`](ROADMAP.md) — the first cross-install data already
   names that as the design requirement.

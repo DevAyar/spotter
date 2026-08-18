@@ -9,6 +9,7 @@
 # Usage:
 #   shared-memory-push.sh            SessionEnd path — silent (stderr logs only).
 #   shared-memory-push.sh --manual   /share-push — emits user-facing status.
+#   shared-memory-push.sh --preview  /share-preview — dry-run: lists what would push; commits nothing.
 #
 # No-op (exit 0, no clone) when share-config.json is absent or enabled != true.
 

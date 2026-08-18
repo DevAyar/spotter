@@ -71,8 +71,10 @@ dual-sided file:line cites. Filename is `<pattern_id>.json` per the schema.
 
 **A clean bill per lane is an expected honest output** — report "lane N:
 clean" plainly rather than manufacturing findings. Never edit, fix, or move
-anything audited: findings route to `.claude/observations/` → workflow
-suggester / manual triage, exactly like every other producer.
+anything audited: findings route to `.claude/observations/` → manual
+triage. (This agent emits `occurrences: 1`, below workflow-suggester's ≥3
+capture threshold, so the practical route is manual triage until
+re-detections accumulate — Phase 127 honesty note.)
 
 ## Boundaries, one breath each
 

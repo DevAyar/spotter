@@ -25,7 +25,7 @@ Compares records to reality, section by section.
 1. **Locate the record.** Glob for the doc file (`docs/STATUS.md`, `ROUTING.md`, `README.md`, etc.).
 2. **Section-route the read.** Grep for the header, capture the line number, Read with `offset` and `limit` to pull just that section. Do not Read full files >300 lines end-to-end — section-routing is the discipline.
 3. **Verify claims.** For each factual claim in the section (file paths, function names, version numbers, dates), check it against the live tree using Glob/Grep.
-4. **Cross-reference git history if asked.** When `Bash` is unavailable, infer from filenames and CHANGELOG entries.
+4. **Cross-reference git history if asked.** `Bash` is not in this agent's tools, so infer from filenames and CHANGELOG entries — the fallback is the only path.
 
 ## What it outputs
 

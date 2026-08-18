@@ -102,8 +102,8 @@ never ad hoc.
    Known confound, named at design time: the gap conflates deliberation
    with walk-away in multi-day sessions, so dwell is read jointly with
    event context, or not at all. (The raw material exists: the optimizer
-   ledger's evidence lines record 80 ExitPlanMode events in the current
-   window — `.claude/telemetry/optimizer-proposals.json`.) Source:
+   ledger's evidence lines record 80 ExitPlanMode events in the then-current
+   window (predates the 2026-07-21 amendment; restated baseline v = 370) — `.claude/telemetry/optimizer-proposals.json`.) Source:
    `.claude/telemetry/events/*.jsonl` (`timestamp`, `tool_name`).
 6. **Override / disable events** — hand-edits to `.claude/gate-config.json`
    (git history), hook removals or disables (diffs of `settings.json`
@@ -155,7 +155,7 @@ approximated — compose with available surfaces, don't invent them.
 | ii | Batch-flip | per-commit ledger/capture diffs | **AVAILABLE** (joint-read rule applies) | 1 (the `d8c6277` worked example) |
 | iii | Disposition mix | ledger statuses + review_notes; captures; update.sh | **PARTIAL** — ledgers/captures yes; update.sh keeps/rejects leave no trace, and overwrite backups are ephemeral (deleted on successful completion) | ledger: 3 dispositions; update: not reconstructable |
 | iv | Draft-edit distance | ledger drafts vs applied-text git history | **AVAILABLE** | 2 applied (1 verbatim, 1 recalibrated) |
-| v | Plan-mode dwell | telemetry event timestamps | **AVAILABLE** (walk-away confound named) | ~80 gaps measured by the optimizer's first pass |
+| v | Plan-mode dwell | telemetry event timestamps | **AVAILABLE** (walk-away confound named) | ~80 gaps measured by the optimizer's first pass *(predates the 2026-07-21 amendment; restated baseline v = 370)* |
 | vi | Override/disable | gate-config + settings git history; `--force` | **PARTIAL** — config-edit and hook-disable detection yes; `--force` DEFERRED (no args in telemetry) | gate-config hand-edits: 0; hook disables: 0 |
 | +i–iv | Spec lifecycle flips (2026-07-21 amendment) | git history of `.claude/specs/` | **AVAILABLE** | 2 flips, 1 spec (`b878a66` approved, `d56c781` consumed) |
 

@@ -106,7 +106,7 @@ The two install agents have separated scopes:
   It owns the question "is the target safe to install into, and what
   mode fits?"
 - `project-tuner-helper` runs **after** `install.sh` succeeds. It
-  inspects the freshly installed target, fills the nine placeholders,
+  inspects the freshly installed target, fills the template placeholders,
   and suggests project-specific helpers.
 
 The manager dispatches both in sequence for a full interactive install.

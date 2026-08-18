@@ -206,7 +206,9 @@ rollback() {
   for d in "${ADDED_DIRS[@]}"; do
     rmdir "$d" 2>/dev/null || true
   done
-  ok "rollback complete"
+  # Phase 127 (bd13d3f1): honest about the limit — replace-mode overwrites
+  # taken before the failure are not restorable from here.
+  ok "rollback complete (files this run added were removed; anything --mode=replace overwrote before the failure is not restored)"
 }
 
 trap cleanup EXIT INT TERM
@@ -316,13 +318,15 @@ resolve_skeleton_root() {
 }
 
 resolve_target_root() {
+  # Phase 127 (b47d293c): probe for git BEFORE invoking it — a machine
+  # without git used to die with the misleading "not in a git repository".
+  command -v git >/dev/null 2>&1 || die "git not on PATH"
   if [ -n "$TARGET_PATH" ]; then
     [ -d "$TARGET_PATH" ] || die "--target path does not exist: $TARGET_PATH"
     TARGET_PATH=$(cd "$TARGET_PATH" && pwd -P)
   else
     TARGET_PATH=$(git rev-parse --show-toplevel 2>/dev/null) || die "not in a git repository (cd to a project root, or pass --target)"
   fi
-  command -v git >/dev/null 2>&1 || die "git not on PATH"
   (cd "$TARGET_PATH" && git rev-parse --show-toplevel >/dev/null 2>&1) || die "target is not a git repository: $TARGET_PATH"
 }
 

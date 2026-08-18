@@ -37,6 +37,10 @@ template/.claude/
 ├── scripts/                 # Baseline scripts target projects inherit
 ├── commands/                # Baseline slash commands target projects inherit
 ├── hooks/                   # Baseline hooks target projects inherit
+├── lib/                     # Shared libraries (detect-python, redaction, telemetry, share)
+├── specs/                   # Goal-spec schema + specs (Phase 68)
+├── captures/ observations/ recommendations/ telemetry/   # Runtime surfaces (seeded empty)
+├── gate-config.json         # Gate/friction + audit-cadence config
 └── settings.json.template   # Baseline settings (target-specific values filled at install)
 ```
 
@@ -52,6 +56,7 @@ claude-skeleton/
 │   ├── docs/           # Doc templates (STATUS, SESSION_LOG, ARCHITECTURE)
 │   ├── CLAUDE.md.template
 │   ├── CLAUDE_MANAGER.md.template
+│   ├── PLUGINS.md.template
 │   ├── ROUTING.md.template
 │   └── .gitignore.template
 ├── scripts/            # Install / update scripts. Uninstall TBD.

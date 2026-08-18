@@ -33,6 +33,10 @@ UTF-8 markdown with YAML frontmatter delimited by `---` lines. Filename is
 - `## Open questions` — non-blocking judgment calls deferred to build time.
   A draft with blocking unknowns here isn't ready to approve — that's the
   reviewer's signal.
+- `## Consumption record` (appended at consumption, not authored) — the
+  landing commits for each leg. The corpus grew this section before the
+  schema named it; registered Phase 127 on the Phase 123 corpus-is-the-law
+  precedent.
 
 ## Lifecycle (the approval gate is load-bearing)
 

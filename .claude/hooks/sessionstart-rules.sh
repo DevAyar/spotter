@@ -3,7 +3,7 @@
 # surface any signals produced by drift-check.sh / task-watchdog.sh /
 # goals-surface.sh.
 #
-# Six pieces of work in one hook:
+# Seven pieces of work in one hook:
 #   1. Read `compactPrompt` from .claude/settings.json (the durable
 #      rules block re-injected after auto-compact / on session start).
 #   2. Invoke .claude/scripts/drift-check.sh and capture its stdout.
@@ -26,6 +26,9 @@
 #      audit past its sessions_between_dispatches -> ONE [infrastructure-audit]
 #      line, 24h anti-repeat marker. The line surfaces; the manager +
 #      human dispatch — nothing auto-runs from here.
+#   7. Live status-strip refresh (Phase 97): rewrite
+#      .claude/receipts/live.html from on-disk state. File write only,
+#      ZERO output, fail-soft — the ambient-line budget is untouched.
 #
 # All pieces are folded into a single `additionalContext` string
 # (blank-line separated). If all are empty, the hook exits 0 with no
@@ -61,7 +64,7 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 0
 fi
 
-PROMPT=$(jq -r '.compactPrompt // empty' "$SETTINGS_FILE")
+PROMPT=$(jq -r '.compactPrompt // empty' "$SETTINGS_FILE" 2>/dev/null || true)
 
 DRIFT_OUTPUT=""
 if [ -f "$DRIFT_SCRIPT" ]; then

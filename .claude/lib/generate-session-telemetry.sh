@@ -17,7 +17,7 @@
 #      Per-session markdown rollup with YAML frontmatter (totals + the
 #      useful_unit metrics) and a human-readable narrative body.
 #
-#   3. .claude/observations/token-telemetry-<session_id>.json
+#   3. .claude/observations/<pattern_id>.json  (schema-mandated name, Phase 65)
 #      Schema-conformant observation file. pattern_type: token_telemetry,
 #      source: session-end-telemetry, privacy_class: safe-to-share,
 #      target_resource: session:<session_id>.

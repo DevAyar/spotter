@@ -112,7 +112,7 @@ for _lib in "$BASH_LIB" "$PS_LIB"; do
   fi
 done
 
-"$PYBIN" - "$PLUGIN_DIR" "$OBS_DIR" "$EVIDENCE_CAP" "$BASH_LIB" "$PS_LIB" "$CANDIDATE_PLUGIN" 2>/dev/null <<'PYIMPL'
+"$PYBIN" - "$PLUGIN_DIR" "$OBS_DIR" "$EVIDENCE_CAP" "$BASH_LIB" "$PS_LIB" "$CANDIDATE_PLUGIN" "$PLUGIN_DIR_OVERRIDE" 2>/dev/null <<'PYIMPL'
 import hashlib, json, os, re, sys
 from datetime import datetime, timezone
 from glob import glob
@@ -126,6 +126,10 @@ ps_lib = sys.argv[5]
 # print to stdout; nothing is written.
 candidate_plugin = sys.argv[6] if len(sys.argv) > 6 else ''
 CANDIDATE_MODE = bool(candidate_plugin)
+# Phase 127 (b1076713): when --plugin-dir points anywhere but the real cache,
+# absence-based resolution would wrongly resolve real installed-plugin
+# observations. A testing flag must never mutate real state.
+DIR_OVERRIDDEN = len(sys.argv) > 7 and bool(sys.argv[7])
 
 # Module-level set of pattern_ids emitted this run.
 emitted_ids = set()
@@ -534,7 +538,7 @@ for plugin_name, plugin_path in plugins:
 
 # ---- resolution pass (installed mode only — absence semantics need the
 # full-scan scope; candidate mode owns no observation files) ----
-if not CANDIDATE_MODE:
+if not CANDIDATE_MODE and not DIR_OVERRIDDEN:
     resolve_untouched()
 
 PYIMPL

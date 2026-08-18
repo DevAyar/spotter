@@ -1318,6 +1318,16 @@ write_version_marker() {
   local installed_at="${MARKER_INSTALLED_AT:-unknown}"
   local prev_mode="${MARKER_MODE:-merge}"
   local prev_claude_only="${MARKER_CLAUDE_ONLY:-false}"
+  # Phase 127 (95ee8215): a clone-based update used to record the deleted
+  # TMP_CLONE_DIR as `source` — dead-path provenance. Record the repo URL
+  # the bytes actually came from instead. Provenance-only field; no reader
+  # resolves source paths from it.
+  local marker_source_out
+  if [ -n "${TMP_CLONE_DIR:-}" ] && [ "$SOURCE_PATH" = "$TMP_CLONE_DIR" ]; then
+    marker_source_out="$SKELETON_REPO_URL"
+  else
+    marker_source_out=$(portable_source_path "$SOURCE_PATH" "$TARGET_PATH")
+  fi
   {
     local entry
     for entry in "${MARKER_HASH_ENTRIES[@]:-}"; do
@@ -1332,7 +1342,7 @@ write_version_marker() {
       [ -z "$entry" ] && continue
       printf 'B\t%s\t%s\n' "$ts" "$entry"
     done
-  } | write_marker_json "$marker" "$version" "$commit" "$installed_at" "$prev_mode" "$prev_claude_only" "$(portable_source_path "$SOURCE_PATH" "$TARGET_PATH")" "$ts" "$MARKER_CACHED_SKELETON_HEAD" "$MARKER_CACHED_SKELETON_HEAD_FETCHED_AT" "$MARKER_INSTALL_UUID" "$MARKER_INSTALL_LABEL" "$MARKER_INSTALL_CREATED"
+  } | write_marker_json "$marker" "$version" "$commit" "$installed_at" "$prev_mode" "$prev_claude_only" "$marker_source_out" "$ts" "$MARKER_CACHED_SKELETON_HEAD" "$MARKER_CACHED_SKELETON_HEAD_FETCHED_AT" "$MARKER_INSTALL_UUID" "$MARKER_INSTALL_LABEL" "$MARKER_INSTALL_CREATED"
 }
 
 summary() {
@@ -1360,7 +1370,7 @@ summary() {
     ok "marker raw baselines backfilled for files the marker didn't know"
   fi
   if [ "$RAW_BASELINE_REBASED" = true ] && [ "$DRY_RUN" = false ]; then
-    ok "match-rebaseline: ${REBASED_COUNT} entrie(s) caught up to the current template hash"
+    ok "match-rebaseline: ${REBASED_COUNT} entries caught up to the current template hash"
   fi
 }
 
@@ -1399,7 +1409,7 @@ if [ ${#NEW_FILES[@]} -eq 0 ] \
     [ "$MIGRATED" = true ] && ok "marker upgraded with raw-template baselines (Phase 52)"
     [ "$IDENTITY_BACKFILLED" = true ] && ok "marker backfilled with install identity (Phase 47a)"
     [ "$RAW_BASELINE_BACKFILLED" = true ] && ok "marker raw baselines backfilled for files the marker didn't know"
-    [ "$RAW_BASELINE_REBASED" = true ] && ok "match-rebaseline: ${REBASED_COUNT} entrie(s) caught up to the current template hash"
+    [ "$RAW_BASELINE_REBASED" = true ] && ok "match-rebaseline: ${REBASED_COUNT} entries caught up to the current template hash"
   fi
   exit 0
 fi

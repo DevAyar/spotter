@@ -43,6 +43,8 @@ This table is the mechanical "for X, dispatch Y" map. The strategic "when to dis
 | "What plugins are out there for this project / refresh the plugin manifest" | `plugin-discovery-agent` | Agent | (no preload — runs `plugin-discovery.sh` over marketplace clones + installed registry) |
 | "Which plugins fit this project / verdict the manifest" | `plugin-context-matcher` | Agent | Draft manifest at `.claude/recommendations/manifest.md` (refresh via discovery first if stale) |
 | "Audit the skeleton's own claims / roadmap integrity" | `roadmap-auditor` | Agent | (dogfood-only — never ships; dispatched on the [infrastructure-audit] line or on demand) |
+| "Review cross-install shared-memory events for graduation" | `/graduation-review` | Command | (dogfood-only — never ships; maintainer review of the share bus, Phase 47d) |
+| "Scan the skeleton's own docs/refs for cruft" | `cruft-check.sh` | Script (SessionStart hook, 24h cooldown) | (dogfood-only — never ships; manual dispatch ignores the cooldown) |
 | `/commit "<message>"` | `.claude/commands/commit.md` → `commit.sh` | Slash command | Commit message |
 | `/audit <doc>:<section>` | `.claude/commands/audit.md` → `audit-helper` | Slash command | Doc path + section header |
 | `/deploy [flags]` | `.claude/commands/deploy.md` → `deploy.sh` | Slash command | Deploy flags. Deploy command resolved as N/A — the skeleton has no deploy step (releases publish as git tags + GitHub Release), so the command is unused in this install. |

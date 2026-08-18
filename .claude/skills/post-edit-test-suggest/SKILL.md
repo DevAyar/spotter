@@ -15,11 +15,11 @@ A successful Edit or Write on any file matching the watched list (below).
 
 After the edit, the manager's next message includes:
 
-> **Next:** run `{{TEST_COMMAND}}` to verify.
+> **Next:** run `bash .github/test-fixtures/scenarios.sh <scenario>` to verify.
 
 If the manager has permission to run the command (e.g. it's in the permission allowlist), it may run the command directly. Otherwise it offers and waits for the user. Do not skip the suggestion just because the edit "looks small" — small edits are exactly when broken tests slip through.
 
-`{{TEST_COMMAND}}` is project-specific. `project-tuner-helper` fills this at install time. Common values:
+The test command is project-specific — `project-tuner-helper` fills it at install time; in this install it is the CI scenario runner (filled Phase 127; the template keeps the `{{TEST_COMMAND}}` placeholder). Common values:
 
 - JS/TS: `npm test` or `npm run test:unit`
 - Python: `pytest` or `python -m unittest`

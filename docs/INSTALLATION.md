@@ -302,8 +302,9 @@ There is no `uninstall.sh` in v1. To remove:
 
 ```bash
 rm -rf .claude/
-rm -f CLAUDE.md CLAUDE_MANAGER.md ROUTING.md
-# also any docs/STATUS.md, docs/SESSION_LOG.md created during install
+rm -f CLAUDE.md CLAUDE_MANAGER.md ROUTING.md PLUGINS.md
+# also any docs/STATUS.md, docs/SESSION_LOG.md, docs/ARCHITECTURE.md
+# created during install
 ```
 
 Project-level customizations (anything `project-tuner-helper`
