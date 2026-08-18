@@ -4819,6 +4819,76 @@ PYDUP
   echo "PASS observation-schema-conformance (6 legs)"
 }
 
+
+# ---- Phase 127: monitoring-helper reads the newest end of the session log ----
+# An agent .md is the executable prompt (Phase 117 directive), so its read
+# RECIPE is the behavior. docs/SESSION_LOG.md is reverse-chronological --
+# newest at top -- but the .md used to prescribe offset = total - N, which
+# lands on the OLDEST entries: the agent as documented graded ancient
+# history (filing 13d807bc, found Phase 114, deferred to a plan gate).
+# The guard derives the recipe from the INSTALLED .md (the copy under
+# test) and executes it on a fixture log of known order, so a revert of
+# the .md re-runs the tail simulation and goes red for the true reason.
+scenario_monitoring_log_window() {
+  echo ">> monitoring-log-window: the documented read recipe lands on the newest entries (Phase 127)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" \
+    --mode=fresh --claude-only > /dev/null
+
+  local agent_md="$TEST_DIR/.claude/agents/03_monitoring/monitoring-helper.md"
+  [ -f "$agent_md" ] || { echo "ERROR: monitoring-helper.md not installed" >&2; exit 1; }
+
+  # Fixture log: newest-at-top, three 4-line entries under a 3-line header.
+  local fxlog="$TEST_DIR/fixture-session-log.md"
+  {
+    printf '# Session log -- fixture\n'
+    printf '> Reverse-chronological -- newest at top.\n'
+    printf '\n'
+    printf '## 2026-08-03 -- SENTINEL-NEWEST\nbody a\nbody b\n\n'
+    printf '## 2026-08-02 -- SENTINEL-MIDDLE\nbody a\nbody b\n\n'
+    printf '## 2026-08-01 -- SENTINEL-OLDEST\nbody a\nbody b\n\n'
+  } > "$fxlog"
+
+  # Derive the documented recipe from the installed .md and simulate it
+  # with window N=6. Unrecognized recipe fails loud rather than guessing.
+  local total window
+  total=$(wc -l < "$fxlog")
+  # Match the full PRESCRIPTIVE phrase, not the bare formula -- the fixed
+  # .md still NAMES the old formula in its warning sentence, and a bare
+  # grep would read the caution as the recipe.
+  if grep -q 'with `offset = total - N` and `limit = N`' "$agent_md"; then
+    window=$(tail -n 6 "$fxlog")
+  elif grep -q 'with `offset = 0` and `limit = N`' "$agent_md"; then
+    window=$(head -n 6 "$fxlog")
+  else
+    echo "ERROR: monitoring-helper.md carries no recognizable read recipe (neither prescriptive phrase found)" >&2
+    exit 1
+  fi
+
+  printf '%s' "$window" | grep -q "SENTINEL-NEWEST" || {
+    echo "ERROR: the documented recipe grades the oldest sessions -- the window from a newest-at-top log missed SENTINEL-NEWEST:" >&2
+    printf '%s\n' "$window" >&2
+    exit 1
+  }
+  if printf '%s' "$window" | grep -q "SENTINEL-OLDEST"; then
+    echo "ERROR: the documented window reaches the OLDEST entry on a newest-at-top log" >&2
+    exit 1
+  fi
+  echo "  leg 1: documented recipe captures the newest entry, not the oldest OK"
+
+  # The stale framing must not survive anywhere in the installed .md: the
+  # description used to say "recent tail", the body called the tail
+  # "forward-chronological" -- on this log the tail is the oldest content.
+  if grep -qi 'forward-chronological tail\|recent tail' "$agent_md"; then
+    echo "ERROR: the .md still frames the tail as the recent end" >&2
+    exit 1
+  fi
+  echo "  leg 2: stale tail framing gone from the installed .md OK"
+
+  echo "PASS monitoring-log-window (2 legs)"
+}
+
 # ---- dispatch ----
 case "${1:-}" in
   fresh-install)                scenario_fresh_install ;;
@@ -4864,6 +4934,7 @@ case "${1:-}" in
   watchdog-transcript-resolution)   scenario_watchdog_transcript_resolution ;;
   watchdog-dedup-reobserve)         scenario_watchdog_dedup_reobserve ;;
   match-rebaseline)                 scenario_match_rebaseline ;;
+  monitoring-log-window)            scenario_monitoring_log_window ;;
   rebase-only-persist)              scenario_rebase_only_persist ;;
   check-remote-identity)            scenario_check_remote_identity ;;
   telemetry-generator-fixture)      scenario_telemetry_generator_fixture ;;
@@ -4926,6 +4997,7 @@ case "${1:-}" in
     scenario_watchdog_transcript_resolution
     scenario_watchdog_dedup_reobserve
     scenario_match_rebaseline
+    scenario_monitoring_log_window
     scenario_rebase_only_persist
     scenario_check_remote_identity
     scenario_telemetry_generator_fixture
@@ -4998,6 +5070,7 @@ Scenarios:
   watchdog-transcript-resolution  Encoded-dir + cwd-fallback transcript resolution emits observations (Phase 57).
   watchdog-dedup-reobserve     Replayed lineage merges without x2 duplication; heterogeneous one-offs sub-threshold (Phase 67).
   match-rebaseline             Stale-but-matching baseline -> UNCHANGED + caught up; converse stays LOCALLY_MODIFIED (Phase 59).
+  monitoring-log-window        The monitoring-helper .md read recipe lands on the newest log entries (Phase 127).
   rebase-only-persist          Rebase-only run (all buckets empty) persists the marker through the early exit (Phase 62).
   check-remote-identity        --check-remote round-trips install_uuid/label/created byte-identical (Phase 62).
   telemetry-generator-fixture  Synthetic transcript -> events/rollup/observation via the cwd-match fallback (Phase 63).

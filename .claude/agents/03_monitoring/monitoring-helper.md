@@ -1,6 +1,6 @@
 ---
 name: monitoring-helper
-description: Session retro and grading. Use to read the recent tail of docs/SESSION_LOG.md, grade past sessions against criteria (commits landed, helpers used correctly, hooks fired as expected), and surface patterns worth correcting.
+description: Session retro and grading. Use to read the newest entries at the top of docs/SESSION_LOG.md, grade past sessions against criteria (commits landed, helpers used correctly, hooks fired as expected), and surface patterns worth correcting.
 tools: Glob, Grep, Read, Bash
 model: sonnet
 ---
@@ -28,10 +28,13 @@ Do **not** dispatch for: future planning, drift detection (that's audit-helper),
 > say so and name the project's live operating record rather than grading
 > stale entries. (In the skeleton itself that record is `docs/CHANGELOG.md`.)
 
-Reads the **forward-chronological tail** of `docs/SESSION_LOG.md` and grades.
+Reads the **newest entries** of `docs/SESSION_LOG.md` and grades. The log is
+**reverse-chronological — newest at top** (its own header says so), so the
+recent sessions are the FIRST lines, and the tail of the file is its oldest
+history.
 
-1. **Find total length.** `Bash: wc -l docs/SESSION_LOG.md` to get the line count.
-2. **Read the tail.** Read with `offset = total - N` and `limit = N`, where N is the requested window (default 100 lines, ≈ last 5-10 sessions). This is the canonical forward-chronological read pattern — never Read from offset 0 on a session log that grows.
+1. **Read the top.** Read `docs/SESSION_LOG.md` with `offset = 0` and `limit = N`, where N is the requested window (default 100 lines, ≈ last 5-10 sessions). This is the canonical newest-first read pattern for this log — never seek the tail: `offset = total - N` lands on the OLDEST sessions and grades ancient history (the Phase 127 correction; filed 13d807bc).
+2. **Trim to whole entries.** If the window ends mid-entry, drop the partial entry rather than grading a fragment.
 3. **Grade each session.** Apply the rubric the manager passed. Common dimensions: helper-dispatch correctness, commit hygiene (was `commit.sh` used? does the message match the diff?), context discipline (any duplicate reads?), tier compliance.
 4. **Surface patterns.** If three+ sessions miss the same dimension, call that out as a recurring issue.
 
