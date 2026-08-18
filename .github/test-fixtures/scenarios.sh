@@ -1698,6 +1698,103 @@ scenario_match_rebaseline() {
   fi
   echo "  (b) modified-only stays LOCALLY_MODIFIED, match class drained OK"
 
+  # (d) Phase 125: the catch-up in (a) left a record. Before this, a recorded
+  #     baseline could change with nothing anywhere saying so.
+  local prov
+  prov=$(python - "$marker" "$relmatch" <<'PYPROV'
+import json, sys
+d = json.load(open(sys.argv[1]))
+hits = [e for e in d.get("baseline_rebases") or [] if e.get("path") == sys.argv[2]]
+if len(hits) != 1:
+    print("COUNT=%d" % len(hits)); raise SystemExit(0)
+e = hits[0]
+print("%s %s %s %s" % (e.get("from"), e.get("to"), e.get("reason"),
+                       "WHEN" if e.get("when") else "NOWHEN"))
+PYPROV
+)
+  case "$prov" in
+    COUNT=*) echo "ERROR: expected exactly 1 baseline_rebases entry for $relmatch, got ${prov#COUNT=}" >&2; exit 1 ;;
+  esac
+  set -- $prov
+  local prov_from="$1" prov_to="$2" prov_reason="$3" prov_when="$4"
+  [ "$prov_from" = "$base_before" ] || {
+    echo "ERROR: provenance from=$prov_from, expected the pre-catch-up baseline $base_before" >&2; exit 1; }
+  [ "$prov_to" = "$base_after" ] || {
+    echo "ERROR: provenance to=$prov_to, expected the written baseline $base_after" >&2; exit 1; }
+  [ "$prov_reason" = "match-rebaseline" ] || {
+    echo "ERROR: provenance reason=$prov_reason" >&2; exit 1; }
+  [ "$prov_when" = "WHEN" ] || { echo "ERROR: provenance entry carries no timestamp" >&2; exit 1; }
+  echo "  (d) the catch-up recorded from/to/reason/when OK"
+
+  # (e) THE PROPERTY THAT MAKES THE MECHANISM SAFE. match-rebaseline fires
+  #     only in the branch where current == template, so what it writes is
+  #     the template hash and it can never adopt local content as a baseline
+  #     (the Phase 52 wound). An entry therefore MEANS "caught up to the
+  #     template" -- so no entry may name a file that differs from it.
+  #     relmod is exactly such a file: modified in the target only. If it
+  #     ever appears here, the mechanism has escaped its branch, or a record
+  #     is being written where no catch-up happened. Checked over every
+  #     entry, not just the one we planted, so a stray write anywhere in
+  #     update.sh surfaces.
+  local badentry
+  badentry=$(python - "$marker" "$target" "$src/template" <<'PYSAFE'
+import hashlib, json, os, sys
+marker, target, tmpl = sys.argv[1], sys.argv[2], sys.argv[3]
+def h(p):
+    try:
+        with open(p, "rb") as f: return hashlib.sha256(f.read()).hexdigest()
+    except OSError: return None
+for e in json.load(open(marker)).get("baseline_rebases") or []:
+    rel = e.get("path", "")
+    th = h(os.path.join(tmpl, rel))
+    if th is None:
+        print("%s NO-TEMPLATE-FILE" % rel); break
+    if h(os.path.join(target, rel)) != th or e.get("to") != th:
+        print("%s DIFFERS-FROM-TEMPLATE" % rel); break
+else:
+    print("CLEAN")
+PYSAFE
+)
+  [ "$badentry" = "CLEAN" ] || {
+    echo "ERROR: baseline_rebases names a file that does not match the template: $badentry" >&2
+    echo "       a recorded catch-up must mean the baseline was set to the template hash;" >&2
+    echo "       if the rebaseline has escaped its current == template branch it is" >&2
+    echo "       adopting local content as a baseline -- the Phase 52 wound." >&2
+    exit 1; }
+  case "$(python -c "import json,sys;print(' '.join(e['path'] for e in (json.load(open(sys.argv[1])).get('baseline_rebases') or [])))" "$marker")" in
+    *"$relmod"*) echo "ERROR: the LOCALLY_MODIFIED file $relmod was rebaselined" >&2; exit 1 ;;
+  esac
+  echo "  (e) every recorded catch-up matches the template; the modified file is absent OK"
+
+  # (f) the record is bounded and carries forward. An unbounded array in a
+  #     file read on every run is a growth leak, and a record that resets
+  #     each run is not a record.
+  python - "$marker" <<'PYPAD'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["baseline_rebases"] = [{"when": "2020-01-01T00:00:00Z", "path": "pad/%d" % i,
+                          "from": "a" * 64, "to": "b" * 64,
+                          "reason": "match-rebaseline"} for i in range(60)]
+json.dump(d, open(sys.argv[1], "w"), indent=2, sort_keys=True)
+PYPAD
+  printf '\n<!-- rebase test 2 -->\n' >> "$src/template/$relmatch"
+  printf '\n<!-- rebase test 2 -->\n' >> "$target/$relmatch"
+  printf 'k\n' | bash "$src/scripts/update.sh" --source "$src" --target "$target" \
+    > "$TEST_DIR/out2.txt" 2>&1 || true
+  local capped
+  capped=$(python - "$marker" "$relmatch" <<'PYCAP'
+import json, sys
+r = json.load(open(sys.argv[1])).get("baseline_rebases") or []
+print("%d %s %s" % (len(r), r[0]["path"] if r else "NONE",
+                    "NEW" if r and r[-1]["path"] == sys.argv[2] else "MISSING"))
+PYCAP
+)
+  set -- $capped
+  [ "$1" = "50" ] || { echo "ERROR: baseline_rebases grew to $1, cap is 50" >&2; exit 1; }
+  [ "$2" = "pad/11" ] || { echo "ERROR: cap dropped the wrong end (oldest kept: $2, expected pad/11)" >&2; exit 1; }
+  [ "$3" = "NEW" ] || { echo "ERROR: the newest catch-up was not appended" >&2; exit 1; }
+  echo "  (f) record capped at 50 oldest-first, prior entries carried forward OK"
+
   echo "PASS match-rebaseline"
 }
 
