@@ -2874,6 +2874,61 @@ PYEOF
 ) || { echo "ERROR: unknown-badge-state fallback probe failed:" >&2; printf '%s\n' "$fallback_out" >&2; exit 1; }
   printf '%s' "$fallback_out" | grep -q "PROBE-OK" || { echo "ERROR: fallback probe did not confirm: $fallback_out" >&2; exit 1; }
   echo "  leg 16: unknown badge state degrades to neutral (structural probe) OK"
+  # Leg 17 (Phase 128): a NOTES: tail is RELOCATED - dated notes file
+  # written and named on stdout; the card stays clean of the narrative.
+  local root16="$TEST_DIR/proj16"
+  mkdir -p "$root16/.claude"
+  cat > "$root16/r.txt" <<'EOF'
+VERDICT: Phase 90 notes fixture shipped and pushed (abc1234) - quiet conclusions.
+WHAT CHANGED: The narrative now lives in a file.
+TO DO LATER: Board leg follows.
+NEXT UP: Phase 129 when decided.
+NOTES:
+SENTINEL-NARRATIVE the full technical story, relocated not deleted.
+EOF
+  local out16
+  out16=$( cd "$root16" && CI=1 CLAUDE_PROJECT_DIR="$root16" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" "$root16/r.txt" )
+  printf '%s' "$out16" | grep -q "notes: " || { echo "ERROR: render did not name the notes path" >&2; exit 1; }
+  local notesf
+  notesf=$(ls "$root16/.claude/receipts/" | grep -- "-phase-90-notes.md" || true)
+  [ -n "$notesf" ] || { echo "ERROR: dated notes file not written" >&2; ls "$root16/.claude/receipts" >&2; exit 1; }
+  grep -q "SENTINEL-NARRATIVE" "$root16/.claude/receipts/$notesf" || { echo "ERROR: notes file missing the narrative" >&2; exit 1; }
+  if grep -q "SENTINEL-NARRATIVE" "$root16/.claude/receipts/latest.html"; then
+    echo "ERROR: the card still carries the relocated narrative" >&2; exit 1
+  fi
+  echo "  leg 17: NOTES tail relocated to the dated file, card clean, path named OK"
+
+  # Leg 18 (Phase 128): the to-do board - receipt fields + the wake list
+  # parsed from the CHANGELOG headnote; same no-JS / no-external bars as
+  # the cards; a root with no CHANGELOG renders the honest not-parsed line.
+  mkdir -p "$root16/docs"
+  cat > "$root16/docs/CHANGELOG.md" <<'EOF'
+# Changelog
+*(head. **Accrued-for-wake list:** (1) Phase 119 — redaction: the canonical lib. (2) Phase 121 — atomicity: temp+rename. This headnote is the tracked pending-bundle surface.)*
+EOF
+  ( cd "$root16" && CI=1 CLAUDE_PROJECT_DIR="$root16" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" --board > /dev/null )
+  local bhtml
+  bhtml=$(cat "$root16/.claude/receipts/board.html")
+  assert_contains "$bhtml" 'http-equiv="refresh"'
+  assert_contains "$bhtml" "quiet conclusions"
+  assert_contains "$bhtml" "Board leg follows."
+  assert_contains "$bhtml" "Phase 129 when decided."
+  assert_contains "$bhtml" "Phase 119"
+  assert_contains "$bhtml" "Phase 121"
+  if printf '%s' "$bhtml" | grep -qi "http:\|https:"; then
+    echo "ERROR: board carries an external reference" >&2; exit 1
+  fi
+  if printf '%s' "$bhtml" | grep -qi "<script"; then
+    echo "ERROR: board carries JS" >&2; exit 1
+  fi
+  local root17="$TEST_DIR/proj17"
+  mkdir -p "$root17/.claude"
+  printf 'VERDICT: Phase 91 board-fallback fixture shipped and held.\n' > "$root17/r.txt"
+  ( cd "$root17" && CI=1 CLAUDE_PROJECT_DIR="$root17" bash "$SKELETON_DIR/.claude/scripts/receipt-render.sh" "$root17/r.txt" > /dev/null )
+  grep -qF "wake list not parsed from the CHANGELOG headnote" "$root17/.claude/receipts/board.html" \
+    || { echo "ERROR: board fabricated a wake section instead of the honest not-parsed line" >&2; exit 1; }
+  echo "  leg 18: board carries receipt fields + wake entries, honest fallback, same bars OK"
+
   echo "PASS receipt-render"
 }
 

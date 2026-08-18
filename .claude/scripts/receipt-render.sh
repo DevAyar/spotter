@@ -207,6 +207,7 @@ ANSI=0
 SHOW=0
 TOAST=0
 PIN=0
+BOARD=0
 INPUT="-"
 for arg in "$@"; do
   case "$arg" in
@@ -217,6 +218,7 @@ for arg in "$@"; do
     --show) SHOW=1 ;;       # auto dispatcher: vscode note / TTY ansi / silent
     --toast) TOAST=1 ;;     # fire-once OS notification at ship time
     --pin) PIN=1 ;;         # set the target window always-on-top (zero-install)
+    --board) BOARD=1 ;;     # standalone to-do board refresh (Phase 128)
     *) INPUT="$arg" ;;
   esac
 done
@@ -337,6 +339,109 @@ except Exception as exc:
 PYEOF
 )
 
+
+# Phase 128: the to-do board builder. VERDICT / TO DO LATER / NEXT UP come
+# from the receipt stash (last-receipt.txt, written by every full render;
+# absent -> honest empties, the strip precedent). The wake list is parsed
+# from the CHANGELOG headnote between its literal anchors; a parse miss
+# renders ONE honest not-parsed line -- never a fabricated-empty section.
+# Same bars as the strip: 10s meta refresh, no JS, no external refs.
+BOARD_PROGRAM=$(cat <<'PYEOF'
+import datetime, html, os, re, sys
+
+out_dir, root = sys.argv[1], sys.argv[2]
+def e(s): return html.escape(s, quote=True)
+
+FIELDS = ("VERDICT", "WHAT CHANGED", "SAFETY", "COST", "MODEL",
+          "FLAGS", "TO DO LATER", "NEXT UP")
+by = {}
+try:
+    txt = open(os.path.join(out_dir, "last-receipt.txt"), encoding="utf-8-sig").read()
+    for line in txt.splitlines():
+        line = line.strip()
+        for f in FIELDS:
+            if line.startswith(f + ":"):
+                by.setdefault(f, []).append(line[len(f) + 1:].strip())
+                break
+except Exception:
+    pass
+verdict = by.get("VERDICT", [""])[0]
+if not verdict:
+    try:
+        raw = open(os.path.join(out_dir, "last-verdict.txt"), encoding="utf-8-sig").read().strip()
+        verdict = raw[len("VERDICT:"):].strip() if raw.startswith("VERDICT:") else raw
+    except Exception:
+        verdict = ""
+todo = by.get("TO DO LATER", [])
+nextup = by.get("NEXT UP", [])
+
+wake, wake_ok = [], False
+try:
+    ch = open(os.path.join(root, "docs", "CHANGELOG.md"), encoding="utf-8").read()
+    m = re.search(r"\*\*Accrued-for-wake list:\*\*(.*?)(?:\*\*Note for a waking install|This headnote is the tracked)", ch, re.S)
+    if m:
+        for em in re.finditer(r"\((\d+)\)\s*Phase\s*(\d+)\s*\u2014\s*(.*?)(?=\(\d+\)\s*Phase\s*\d|\Z)", m.group(1), re.S):
+            d = " ".join(em.group(3).split())
+            if len(d) > 200:
+                d = d[:200] + "\u2026"
+            wake.append((em.group(1), em.group(2), d))
+        wake_ok = bool(wake)
+except Exception:
+    pass
+
+def ul(items):
+    return "<ul>" + "".join(f"<li>{e(i)}</li>" for i in items) + "</ul>"
+
+now = datetime.datetime.now().strftime("%H:%M")
+rows = []
+rows.append('<div class="sec"><h2>Latest ship</h2><p>'
+            + (e(verdict) if verdict else "no ship recorded yet") + "</p></div>")
+rows.append('<div class="sec"><h2>To do later</h2>'
+            + (ul(todo) if todo else '<p class="muted">nothing pending</p>') + "</div>")
+rows.append('<div class="sec"><h2>Next up</h2>'
+            + (ul(nextup) if nextup else '<p class="muted">undecided</p>') + "</div>")
+if wake_ok:
+    rows.append('<div class="sec"><h2>Accrued for wake</h2>'
+                + ul([f"({n}) Phase {p} \u2014 {d}" for n, p, d in wake]) + "</div>")
+else:
+    rows.append('<div class="sec"><h2>Accrued for wake</h2><p class="muted">'
+                "wake list not parsed from the CHANGELOG headnote \u2014 receipt fields only</p></div>")
+
+page = ("<!DOCTYPE html><html><head><meta charset='utf-8'>"
+        '<meta http-equiv="refresh" content="10">'
+        "<title>To-do board</title><style>"
+        "body{background:#14161a;color:#e6e6e6;font-family:system-ui,'Segoe UI',sans-serif;margin:1.2em;max-width:60em}"
+        "h1{font-size:1.15em;margin:0 0 .6em}"
+        "h2{font-size:.95em;color:#8ab8ec;margin:.2em 0 .3em}"
+        ".sec{margin-bottom:1em}"
+        "ul{margin:.2em 0 .2em 1.2em;padding:0}li{margin:.15em 0}"
+        ".muted{color:#9aa0a6}.asof{color:#9aa0a6;font-size:.85em}"
+        "</style></head><body><h1>To-do board</h1>"
+        + "".join(rows)
+        + '<div class="asof" title="Updates when ship renders and hooks fire; as fresh as the last event, never real-time.">as of '
+        + now + "</div></body></html>")
+
+path = os.path.join(out_dir, "board.html")
+tmp = path + f".tmp.{os.getpid()}"
+try:
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+        f.write(page)
+    os.replace(tmp, path)
+except Exception as exc:
+    try:
+        os.remove(tmp)
+    except OSError:
+        pass
+    print(f"receipt-render: board write failed: {exc}", file=sys.stderr)
+    sys.exit(1)
+print(path)
+PYEOF
+)
+
+render_board() {
+  "$PYBIN" -c "$BOARD_PROGRAM" "$OUT_DIR" "$ROOT"
+}
+
 # --live: standalone strip refresh - no receipt parsing, live.html only.
 if [ "$LIVE" -eq 1 ]; then
   render_live_strip
@@ -362,6 +467,29 @@ if [ "$LIVE" -eq 1 ]; then
   exit "$STRIP_RC"
 fi
 
+# Phase 128: --board standalone - board refresh from the stashes + the
+# CHANGELOG headnote; no receipt parsing (the --live pattern).
+if [ "$BOARD" -eq 1 ]; then
+  render_board
+  BOARD_RC=$?
+  if [ "$WINDOW" -eq 1 ] && [ -z "${CI:-}" ] && [ "$BOARD_RC" -eq 0 ]; then
+    launch_window "$OUT_DIR/board.html" || true
+  fi
+  if [ "$OPEN" -eq 1 ] && [ "$WINDOW" -eq 0 ] && [ -z "${CI:-}" ] && [ "$BOARD_RC" -eq 0 ]; then
+    CARD="$OUT_DIR/board.html"
+    case "$(uname -s)" in
+      MINGW*|MSYS*|CYGWIN*)
+        if command -v cmd.exe >/dev/null 2>&1 && command -v cygpath >/dev/null 2>&1; then
+          cmd.exe //c start "" "$(cygpath -w "$CARD")" >/dev/null 2>&1 || true
+        fi
+        ;;
+      Darwin) command -v open >/dev/null 2>&1 && { open "$CARD" >/dev/null 2>&1 || true; } ;;
+      *) command -v xdg-open >/dev/null 2>&1 && { xdg-open "$CARD" >/dev/null 2>&1 & } || true ;;
+    esac
+  fi
+  exit "$BOARD_RC"
+fi
+
 # Phase 96: the program is captured into a variable and passed via -c so
 # the caller's stdin stays free for a piped receipt. The pre-96 shape
 # ("$PYBIN" - <<'PYEOF') parked the program ON stdin, so piped input
@@ -376,6 +504,19 @@ import datetime, html, os, re, sys
 
 input_arg, out_dir = sys.argv[1], sys.argv[2]
 text = sys.stdin.read() if input_arg == "-" else open(input_arg, encoding="utf-8-sig").read()
+# Phase 128: an optional NOTES: field opens a free-form tail - the full
+# technical narrative. It is relocated to a dated notes file (written
+# below, path printed for the ship report) and kept OFF the card and
+# out of field parsing - quiet conclusions relocate, they do not delete.
+notes_body = ""
+_lines = text.splitlines()
+for _i, _ln in enumerate(_lines):
+    _s = _ln.strip()
+    if _s == "NOTES:" or _s.startswith("NOTES: "):
+        _first = _s[len("NOTES:"):].strip()
+        notes_body = "\n".join(([_first] if _first else []) + _lines[_i + 1:]).strip()
+        text = "\n".join(_lines[:_i])
+        break
 
 FIELDS = ("VERDICT", "WHAT CHANGED", "SAFETY", "COST", "MODEL",
           "FLAGS", "TO DO LATER", "NEXT UP")
@@ -576,6 +717,37 @@ except Exception:
         os.remove(tmp)
     except OSError:
         pass
+# Phase 128: stash the full parsed receipt for the board's writers
+# (best-effort, same contract as the verdict stash) and relocate the
+# NOTES tail to the dated file the receipt names.
+stash2 = os.path.join(out_dir, "last-receipt.txt")
+tmp = stash2 + f".tmp.{os.getpid()}"
+try:
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+        for _f, _v in parsed:
+            f.write(f"{_f}: {_v}\n")
+    os.replace(tmp, stash2)
+except Exception:
+    try:
+        os.remove(tmp)
+    except OSError:
+        pass
+if notes_body:
+    _day = datetime.date.today().isoformat()
+    notes_path = os.path.join(out_dir, f"{_day}-{slug}-notes.md")
+    tmp = notes_path + f".tmp.{os.getpid()}"
+    try:
+        with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+            f.write(notes_body + "\n")
+        os.replace(tmp, notes_path)
+        print(f"notes: {notes_path}")
+    except Exception as exc:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        print(f"receipt-render: notes write failed: {exc}", file=sys.stderr)
+        sys.exit(1)
 # Phase 100: --ansi terminal card - same card language (frame, muted
 # labels, tinted chips, sentences intact), capability-honest coloring.
 mode = sys.argv[3] if len(sys.argv) > 3 else ""
@@ -673,6 +845,8 @@ RENDER_RC=$?
 # Phase 97: the ship render is one of the strip's two writers -
 # best-effort, never fails the render.
 render_live_strip >/dev/null 2>&1 || true
+# Phase 128: the ship render is one of the board's writers too.
+render_board >/dev/null 2>&1 || true
 
 # Phase 100: the VS Code branch of --show - a path + one instruction,
 # no launch (Live Preview's tab auto-reloads on file change).
