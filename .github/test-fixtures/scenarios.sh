@@ -3029,8 +3029,14 @@ scenario_replace_with_yes_piped() {
 # hashes the file ON DISK, so an ordinary uncommitted edit classifies
 # LOCALLY_MODIFIED and is already protected (leg 3 pins that). Work is
 # destroyed only when the MARKER believes the content is pristine while
-# GIT knows the file is dirty — reachable via Phase 59 match-rebaseline
-# adopting a local edit, or an edit predating the baseline backfill.
+# GIT knows the file is dirty.
+# Phase 125 correction: this comment used to name Phase 59 match-rebaseline
+# as a way to REACH that state. It is not one. The rebaseline fires only
+# where current == template, so what it writes is the template's own hash --
+# it cannot record unique user content because it only runs where there is
+# none (audit: all 8 raw_baseline_set sites record template-derived content).
+# The state is reachable by a hand-edited or corrupted marker, and that is
+# what this guard defends against. It stays; only its justification changed.
 # Surfaced by Echoes-Of-Gill's Phase 112 propagation.
 scenario_update_working_tree_safety() {
   echo ">> update-working-tree-safety: marker/git divergence held, not overwritten; no collateral, no new friction (Phase 113)"
