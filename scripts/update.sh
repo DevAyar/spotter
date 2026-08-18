@@ -66,6 +66,9 @@ RAW_BASELINE_BACKFILLED=false
 # this, the next template change to such a file would misclassify a
 # byte-identical file as LOCALLY_MODIFIED (Phase 59; chip task_715e1e30).
 RAW_BASELINE_REBASED=false
+# Phase 125: provenance for the rebaselines above. One entry per catch-up,
+# tab-separated path/from/to, emitted to the marker writer as B lines.
+REBASE_ENTRIES=()
 REBASED_COUNT=0
 
 # ---- Phase 47a: install identity backfill ----
@@ -313,11 +316,17 @@ write_marker_json() {
 import json, sys
 files = {}
 raw = {}
+rebases = []
 for line in sys.stdin:
     line = line.rstrip("\r\n")
     if not line: continue
     parts = line.split("\t")
-    if len(parts) == 3:
+    if parts[0] == "B" and len(parts) == 5:
+        # Phase 125: rebase provenance. B<TAB>when<TAB>path<TAB>from<TAB>to
+        rebases.append({"when": parts[1], "path": parts[2],
+                        "from": parts[3], "to": parts[4],
+                        "reason": "match-rebaseline"})
+    elif len(parts) == 3:
         tag, p, h = parts
         (raw if tag == "R" else files)[p] = h
     elif len(parts) == 2:
@@ -343,10 +352,25 @@ if sys.argv[12]:
 out["files"] = files
 if raw:
     out["raw_template_baselines"] = raw
+# Phase 125: match-rebaseline mutates a recorded baseline. The mutation is
+# provably safe -- it fires only when current == template, so the value
+# written is the hash of the template itself -- but it was INVISIBLE:
+# recorded history changed with nothing on the record. Each catch-up now
+# appends a dated entry. Prior entries are carried forward from the marker
+# being replaced and the list is capped, so the marker cannot grow without
+# bound. Additive field: readers that do not know it ignore it.
+prior = []
+try:
+    with open(sys.argv[14], encoding="utf-8") as pf:
+        prior = json.load(pf).get("baseline_rebases") or []
+except Exception:
+    prior = []
+if rebases or prior:
+    out["baseline_rebases"] = (prior + rebases)[-50:]
 with open(sys.argv[13], "w", newline="\n") as f:
     json.dump(out, f, indent=2, sort_keys=True)
     f.write("\n")
-' "$version" "$commit" "$installed_at" "$mode" "$claude_only" "$source" "$updated_at" "$cached_head" "$cached_fetched_at" "$install_uuid" "$install_label" "$install_created" "$tmp" || { rm -f "$tmp"; return 1; }
+' "$version" "$commit" "$installed_at" "$mode" "$claude_only" "$source" "$updated_at" "$cached_head" "$cached_fetched_at" "$install_uuid" "$install_label" "$install_created" "$tmp" "$file" || { rm -f "$tmp"; return 1; }
   mv -f "$tmp" "$file"
 }
 
@@ -691,6 +715,7 @@ classify() {
   local tgt_claude="$TARGET_PATH/.claude"
   local src rel mapped tgt full_rel
   local hash_baseline hash_current hash_template
+  local _tab=$'	'
   local in_template=()
 
   while IFS= read -r src; do
@@ -751,6 +776,7 @@ classify() {
       # into the marker write via RAW_BASELINE_REBASED; reported in dry-run,
       # applied on real runs (Phase 59; chip task_715e1e30).
       UNCHANGED_FILES+=("$full_rel")
+      REBASE_ENTRIES+=("${full_rel}${_tab}${hash_baseline}${_tab}${hash_current}")
       raw_baseline_set "$full_rel" "$hash_current"
       marker_hash_set "$full_rel" "$hash_current"
       RAW_BASELINE_REBASED=true
@@ -1301,6 +1327,10 @@ write_version_marker() {
     for entry in "${RAW_BASELINE_ENTRIES[@]:-}"; do
       [ -z "$entry" ] && continue
       printf 'R\t%s\n' "$entry"
+    done
+    for entry in "${REBASE_ENTRIES[@]:-}"; do
+      [ -z "$entry" ] && continue
+      printf 'B\t%s\t%s\n' "$ts" "$entry"
     done
   } | write_marker_json "$marker" "$version" "$commit" "$installed_at" "$prev_mode" "$prev_claude_only" "$(portable_source_path "$SOURCE_PATH" "$TARGET_PATH")" "$ts" "$MARKER_CACHED_SKELETON_HEAD" "$MARKER_CACHED_SKELETON_HEAD_FETCHED_AT" "$MARKER_INSTALL_UUID" "$MARKER_INSTALL_LABEL" "$MARKER_INSTALL_CREATED"
 }
