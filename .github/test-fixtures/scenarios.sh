@@ -3812,6 +3812,11 @@ scenario_path_anchoring() {
   local broken="$TEST_DIR/broken"
   mkdir -p "$broken/.claude/lib" "$broken/.claude/scripts"
   cp "$TEST_DIR/.claude/scripts/plugin-quality-check.sh" "$broken/.claude/scripts/"
+  # Phase 126: this leg's degradation dimension is the missing PATTERN libs,
+  # not the interpreter substrate — the script now sources the canonical
+  # detector from ../lib, and every real install that has the script has the
+  # detector (same installed file set), so the broken tree ships it too.
+  cp "$TEST_DIR/.claude/lib/detect-python.sh" "$broken/.claude/lib/"
   local deg_out deg_err
   deg_out=$( cd "$nested" && CLAUDE_PROJECT_DIR="$broken" \
       bash "$broken/.claude/scripts/plugin-quality-check.sh" \
