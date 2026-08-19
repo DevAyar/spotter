@@ -1006,6 +1006,11 @@ DIRTY_PATHS=""
 DIRTY_CHECK_ACTIVE=false
 DIRTY_CHECK_SKIP_REASON=""
 HELD_FILES=()
+# Phase 129: per-file outcomes of the three-way merge pass.
+MERGED_CLEAN_FILES=()
+MERGE_CONFLICT_FILES=()
+MERGE_NOBASE_FILES=()
+MERGE_DIRTY_FILES=()
 
 # dirty_paths_init: one `git status --porcelain` for the WHOLE candidate
 # set, not one per file. A non-git target has no working-tree concept,
@@ -1206,12 +1211,163 @@ review_template_updates() {
   done
 }
 
+# ---- Phase 129: three-way merge for LOCALLY_MODIFIED files ----
+# The marker holds the as-shipped BASELINE HASH; with the local file and
+# the current template that is a real three-way merge (git merge-file —
+# no custom diff logic, by constraint). Clean merges APPLY automatically
+# and are reversible — a pre-merge backup of the local version lands in
+# .claude/receipts/merge-backups/ (gitignored). Conflicts HOLD and ask;
+# a baseline whose content cannot be reconstructed and hash-verified
+# holds too. The Phase 113 dirty guard runs FIRST: a file with
+# uncommitted edits is never auto-merged, because git could not restore
+# it if the merge were wrong. Amends ROADMAP's bounded-autonomy line
+# (Phase 129 approval): the autonomy is bounded by reversibility.
+
+# reconstruct_baseline <rel> <expected-hash> <out-file>
+# Tiered, hash-verified: (1) the template at the install-pinned
+# MARKER_COMMIT (the migrate-path precedent), then (2) a capped
+# rev-list walk of the file's template history at the source. A
+# candidate is accepted ONLY when its sha256 equals the recorded
+# baseline hash — never a guess. Returns 1 when no verified content
+# exists (shallow clone, non-git source, CRLF-materialized install,
+# foreign baseline): the caller reports NO-BASELINE-HELD honestly.
+reconstruct_baseline() {
+  local rel="$1" want="$2" out="$3" tpl_rel commit got
+  tpl_rel="template/$rel"
+  command -v git >/dev/null 2>&1 || return 1
+  git -C "$SOURCE_PATH" rev-parse --git-dir >/dev/null 2>&1 || return 1
+  if [ -n "$MARKER_COMMIT" ] && [ "$MARKER_COMMIT" != "unknown" ]; then
+    if git -C "$SOURCE_PATH" show "${MARKER_COMMIT}:${tpl_rel}" > "$out" 2>/dev/null; then
+      got=$(hash_file "$out")
+      [ "$got" = "$want" ] && return 0
+    fi
+  fi
+  for commit in $(git -C "$SOURCE_PATH" rev-list --max-count=200 HEAD -- "$tpl_rel" 2>/dev/null); do
+    if git -C "$SOURCE_PATH" show "${commit}:${tpl_rel}" > "$out" 2>/dev/null; then
+      got=$(hash_file "$out")
+      [ "$got" = "$want" ] && return 0
+    fi
+  done
+  rm -f "$out" 2>/dev/null
+  return 1
+}
+
+# try_merge_local <rel> — 0: merged clean (dry-run: would merge clean),
+# the file leaves the prompt loop. 1: fall through to the prompt, the
+# reason already printed under the file's listing line.
+try_merge_local() {
+  local rel="$1" src tgt base_hash tpl_hash base_f merged_f rc
+  src=$(src_for_rel "$rel") || return 1
+  tgt="$TARGET_PATH/$rel"
+
+  # Phase 113 guard FIRST: uncommitted edits are never auto-merged.
+  if path_is_dirty "$rel"; then
+    MERGE_DIRTY_FILES+=("$rel")
+    printf '      uncommitted local edits %s merge not attempted (commit or stash first, then re-run)\n' "—"
+    return 1
+  fi
+
+  base_hash=$(raw_baseline_get "$rel")
+  tpl_hash=$(hash_file "$src")
+  if [ -z "$base_hash" ] || [ "$base_hash" = "$tpl_hash" ]; then
+    # No recorded baseline (the classify fallback stamps it to the current
+    # template) or the template has not moved since the baseline: there is
+    # nothing to merge — the only possible action is discarding the
+    # customization, which stays a consented prompt exactly as before.
+    return 1
+  fi
+
+  base_f=$(mktemp 2>/dev/null || mktemp -t cs-mergebase)
+  if ! reconstruct_baseline "$rel" "$base_hash" "$base_f"; then
+    MERGE_NOBASE_FILES+=("$rel")
+    printf '      NO-BASELINE-HELD: baseline content not reconstructable from this source checkout %s kept as-is, decide below\n' "—"
+    rm -f "$base_f" 2>/dev/null
+    return 1
+  fi
+
+  merged_f="${tgt}.merge.tmp.$$"
+  cp "$tgt" "$merged_f" 2>/dev/null || { rm -f "$base_f" 2>/dev/null; return 1; }
+  rc=0
+  git merge-file -L "your version" -L "as installed" -L "template update" \
+    "$merged_f" "$base_f" "$src" >/dev/null 2>&1 || rc=$?
+
+  if [ "$rc" -eq 0 ]; then
+    if [ "$DRY_RUN" = true ]; then
+      MERGED_CLEAN_FILES+=("$rel")
+      printf '      MERGED-CLEAN (dry-run): your changes and the update touch different lines %s would apply with a backup\n' "—"
+      rm -f "$base_f" "$merged_f" 2>/dev/null
+      return 0
+    fi
+    local day flat bdir bfile h old8 new8
+    day=$(date +%Y-%m-%d)
+    flat=$(printf '%s' "$rel" | sed 's|/|__|g')
+    bdir="$TARGET_PATH/.claude/receipts/merge-backups"
+    mkdir -p "$bdir" 2>/dev/null || { rm -f "$base_f" "$merged_f" 2>/dev/null; return 1; }
+    bfile="$bdir/${day}-${flat}"
+    if ! cp "$tgt" "$bfile" 2>/dev/null; then
+      printf '      backup failed %s merge NOT applied, kept for review\n' "—"
+      rm -f "$base_f" "$merged_f" 2>/dev/null
+      return 1
+    fi
+    if ! mv -f "$merged_f" "$tgt" 2>/dev/null; then
+      printf '      write failed %s merge NOT applied, kept for review\n' "—"
+      rm -f "$base_f" "$merged_f" 2>/dev/null
+      return 1
+    fi
+    ensure_exec_if_script "$tgt"
+    h=$(hash_file "$tgt")
+    marker_hash_set "$rel" "$h"
+    # The file's new as-shipped baseline is the template version just
+    # merged in — template-derived content, preserving the Phase 125
+    # audit invariant. The merged hash here would misclassify the next
+    # update as TEMPLATE_UPDATED and overwrite the local half.
+    raw_baseline_set "$rel" "$tpl_hash"
+    old8=$(printf '%s' "$base_hash" | cut -c1-8)
+    new8=$(printf '%s' "$tpl_hash" | cut -c1-8)
+    MERGED_CLEAN_FILES+=("$rel")
+    APPLIED=$((APPLIED+1))
+    ok "merged: $rel — your changes kept + template update applied (baseline ${old8} → ${new8}); backup: ${bfile#"$TARGET_PATH"/}"
+    rm -f "$base_f" 2>/dev/null
+    return 0
+  fi
+
+  local nmsg="?"
+  if [ "$rc" -ge 1 ] && [ "$rc" -lt 128 ]; then nmsg="$rc"; fi
+  MERGE_CONFLICT_FILES+=("$rel")
+  printf '      Gating because: your changes and the update touch the same lines (%s conflicting region(s)) %s nothing changed, decide below\n' "$nmsg" "—"
+  rm -f "$base_f" "$merged_f" 2>/dev/null
+  return 1
+}
+
+# report_merge_outcomes: the per-file outcome block in the summary.
+report_merge_outcomes() {
+  local n=$(( ${#MERGED_CLEAN_FILES[@]} + ${#MERGE_CONFLICT_FILES[@]} + ${#MERGE_NOBASE_FILES[@]} + ${#MERGE_DIRTY_FILES[@]} ))
+  [ "$n" -eq 0 ] && return 0
+  echo
+  info "held-file outcomes (three-way merge, Phase 129):"
+  local rel
+  for rel in "${MERGED_CLEAN_FILES[@]:-}"; do
+    [ -n "$rel" ] && printf '  MERGED-CLEAN     %s\n' "$rel"
+  done
+  for rel in "${MERGE_CONFLICT_FILES[@]:-}"; do
+    [ -n "$rel" ] && printf '  CONFLICT-HELD    %s\n' "$rel"
+  done
+  for rel in "${MERGE_NOBASE_FILES[@]:-}"; do
+    [ -n "$rel" ] && printf '  NO-BASELINE-HELD %s\n' "$rel"
+  done
+  for rel in "${MERGE_DIRTY_FILES[@]:-}"; do
+    [ -n "$rel" ] && printf '  DIRTY-HELD       %s (uncommitted edits %s never auto-merged)\n' "$rel" "—"
+  done
+  return 0
+}
+
 # ---- Apply: LOCALLY_MODIFIED files ----
 apply_local_modifications() {
   [ ${#LOCALLY_MODIFIED_FILES[@]} -eq 0 ] && return 0
   echo
   warn "${C_BOLD}LOCALLY MODIFIED files (changed since install) — review required:${C_RESET}"
-  local rel
+  local rel merged_now
+  local remaining_list=()
   for rel in "${LOCALLY_MODIFIED_FILES[@]}"; do
     if differs_only_in_line_endings "$rel"; then
       printf '  ! %s\n' "$rel"
@@ -1219,15 +1375,27 @@ apply_local_modifications() {
     else
       printf '  ! %s\n' "$rel"
     fi
+    # Phase 129: attempt the three-way merge right here so the outcome
+    # line prints under the file it belongs to (guard first, then
+    # reconstruct + merge). Clean merges apply with a backup and leave
+    # the prompt loop; everything else falls through, reason printed.
+    merged_now=0
+    try_merge_local "$rel" && merged_now=1
+    [ "$merged_now" -eq 1 ] || remaining_list+=("$rel")
   done
+  echo
+  local remaining=("${remaining_list[@]:-}")
+  if [ ${#remaining[@]} -eq 0 ] || { [ ${#remaining[@]} -eq 1 ] && [ -z "${remaining[0]}" ]; }; then
+    return 0
+  fi
   echo
   warn "These will NOT be auto-overwritten. Per-file decision:"
   if [ "$AUTO_APPLY" = true ]; then
-    warn "  (--auto-apply does not apply to LOCALLY_MODIFIED files)"
+    warn "  (--auto-apply covers clean merges only; the files below still ask)"
   fi
 
   local src tgt reply h
-  for rel in "${LOCALLY_MODIFIED_FILES[@]}"; do
+  for rel in "${remaining[@]}"; do
     src=$(src_for_rel "$rel")
     tgt="$TARGET_PATH/$rel"
     echo
@@ -1347,6 +1515,7 @@ write_version_marker() {
 
 summary() {
   report_held_files
+  report_merge_outcomes
   # Phase 113: disclose a check that did NOT run — silence would imply a
   # protection that is not actually running.
   if [ "$DIRTY_CHECK_ACTIVE" != true ] && [ -n "$DIRTY_CHECK_SKIP_REASON" ]; then
