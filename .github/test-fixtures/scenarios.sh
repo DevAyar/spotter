@@ -4944,6 +4944,105 @@ scenario_monitoring_log_window() {
   echo "PASS monitoring-log-window (2 legs)"
 }
 
+
+# ---- Phase 129: three-way merge for LOCALLY_MODIFIED files ----
+# Clean merges apply automatically (reversible: pre-merge backup);
+# conflicts hold and ask; an unverifiable baseline holds honestly. The
+# scenario runs the CLONE's update.sh (committed state = the copy under
+# test, per the Phase 125 directive), with the template mutated
+# UNCOMMITTED so `git show HEAD:` still serves the install-time baseline.
+scenario_local_merge() {
+  echo ">> local-merge: different regions merge clean + backup; same-line holds with the gating line; dead baseline holds honestly (Phase 129)"
+  TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-merge)
+  local src="$TEST_DIR/src" target="$TEST_DIR/target"
+  git clone -q --depth 1 "file://$SKELETON_DIR" "$src"
+  mkdir -p "$target"
+  ( cd "$target" && git init -q && git config user.email "ci@test.local" \
+      && git config user.name "CI Test" && printf '# t\n' > README.md \
+      && git add README.md && git commit -q -m init )
+  bash "$src/scripts/install.sh" --source "$src" --target "$target" \
+    --mode=fresh --claude-only > /dev/null 2>&1
+  ( cd "$target" && git add -A >/dev/null 2>&1 && git commit -q -m install )
+
+  local FA=".claude/agents/01_research/research-helper.md"
+  local FB=".claude/agents/02_audit/audit-helper.md"
+  local FC=".claude/agents/03_monitoring/monitoring-helper.md"
+
+  # (a) different regions: local appends at the END, template changes the
+  # FIRST line (portable first-line rewrite; sed -i differs across BSD/GNU).
+  printf '\nLOCAL-SENTINEL-A\n' >> "$target/$FA"
+  { printf 'TEMPLATE-SENTINEL-A\n'; tail -n +2 "$src/template/$FA"; } > "$src/template/$FA.tmp" \
+    && mv "$src/template/$FA.tmp" "$src/template/$FA"
+
+  # (b) the SAME first line changed on both sides.
+  { printf 'LOCAL-CONFLICT-B\n'; tail -n +2 "$target/$FB"; } > "$target/$FB.tmp" \
+    && mv "$target/$FB.tmp" "$target/$FB"
+  { printf 'TEMPLATE-CONFLICT-B\n'; tail -n +2 "$src/template/$FB"; } > "$src/template/$FB.tmp" \
+    && mv "$src/template/$FB.tmp" "$src/template/$FB"
+
+  # (c) local edit + template moved + baseline staled to 64 zeros -- LOCALLY
+  # MODIFIED (match-rebaseline cannot eat it), and no template version can
+  # ever hash to the staled value.
+  printf '\nLOCAL-SENTINEL-C\n' >> "$target/$FC"
+  printf '\nTEMPLATE-MOVED-C\n' >> "$src/template/$FC"
+  ( cd "$target" && git add -A >/dev/null 2>&1 && git commit -q -m "local edits" )
+  python -c "
+import json, sys
+m = sys.argv[1] + '/.claude/.skeleton-version'
+d = json.load(open(m))
+d['raw_template_baselines'][sys.argv[2]] = '0' * 64
+json.dump(d, open(m, 'w'), indent=2, sort_keys=True)
+" "$target" "$FC"
+  ( cd "$target" && git add -A >/dev/null 2>&1 && git commit -q -m "stale baseline" )
+
+  local hb_before hc_before
+  hb_before=$(sha256_of "$target/$FB")
+  hc_before=$(sha256_of "$target/$FC")
+
+  local out urc=0
+  out=$(bash "$src/scripts/update.sh" --source "$src" --target "$target" < /dev/null 2>&1) || urc=$?
+  [ "$urc" -eq 0 ] || { echo "ERROR: update.sh exited $urc" >&2; printf '%s\n' "$out" >&2; exit 1; }
+
+  # (a) merged clean: both changes present, provenance line, backup is the
+  # PRE-MERGE local (has the local sentinel, not the template's).
+  assert_contains "$out" "merged: $FA"
+  assert_contains "$out" "MERGED-CLEAN"
+  grep -q "LOCAL-SENTINEL-A" "$target/$FA" || { echo "ERROR: merge lost the local change" >&2; exit 1; }
+  grep -q "TEMPLATE-SENTINEL-A" "$target/$FA" || { echo "ERROR: merge lost the template change" >&2; exit 1; }
+  local bfile
+  bfile=$(ls "$target/.claude/receipts/merge-backups/" 2>/dev/null | grep "research-helper" || true)
+  [ -n "$bfile" ] || { echo "ERROR: pre-merge backup missing" >&2; exit 1; }
+  grep -q "LOCAL-SENTINEL-A" "$target/.claude/receipts/merge-backups/$bfile" \
+    || { echo "ERROR: backup is not the pre-merge local version" >&2; exit 1; }
+  if grep -q "TEMPLATE-SENTINEL-A" "$target/.claude/receipts/merge-backups/$bfile"; then
+    echo "ERROR: backup contains the template change -- not the pre-merge local" >&2; exit 1
+  fi
+  # The Phase 125 invariant at the new baseline-write site: the merged
+  # file's recorded baseline is the TEMPLATE hash, never the merged hash.
+  local rec tpl
+  rec=$(python -c "
+import json, sys
+print(json.load(open(sys.argv[1] + '/.claude/.skeleton-version'))['raw_template_baselines'][sys.argv[2]])
+" "$target" "$FA")
+  tpl=$(sha256_of "$src/template/$FA")
+  [ "$rec" = "$tpl" ] || { echo "ERROR: post-merge baseline ($rec) != template hash ($tpl) -- the Phase 125 invariant broke" >&2; exit 1; }
+  echo "  leg a: different regions merged clean, both changes present, reversible backup, baseline = template hash OK"
+
+  # (b) conflict: held, named, untouched.
+  assert_contains "$out" "Gating because: your changes and the update touch the same lines"
+  assert_contains "$out" "CONFLICT-HELD"
+  [ "$(sha256_of "$target/$FB")" = "$hb_before" ] || { echo "ERROR: conflicted file was modified" >&2; exit 1; }
+  echo "  leg b: same-line conflict held with the gating line, file untouched OK"
+
+  # (c) dead baseline: held, honest, untouched.
+  assert_contains "$out" "NO-BASELINE-HELD"
+  assert_contains "$out" "not reconstructable"
+  [ "$(sha256_of "$target/$FC")" = "$hc_before" ] || { echo "ERROR: no-baseline file was modified" >&2; exit 1; }
+  echo "  leg c: unverifiable baseline held with the honest line, file untouched OK"
+
+  echo "PASS local-merge (3 legs)"
+}
+
 # ---- dispatch ----
 case "${1:-}" in
   fresh-install)                scenario_fresh_install ;;
@@ -4990,6 +5089,7 @@ case "${1:-}" in
   watchdog-dedup-reobserve)         scenario_watchdog_dedup_reobserve ;;
   match-rebaseline)                 scenario_match_rebaseline ;;
   monitoring-log-window)            scenario_monitoring_log_window ;;
+  local-merge)                      scenario_local_merge ;;
   rebase-only-persist)              scenario_rebase_only_persist ;;
   check-remote-identity)            scenario_check_remote_identity ;;
   telemetry-generator-fixture)      scenario_telemetry_generator_fixture ;;
@@ -5053,6 +5153,7 @@ case "${1:-}" in
     scenario_watchdog_dedup_reobserve
     scenario_match_rebaseline
     scenario_monitoring_log_window
+    scenario_local_merge
     scenario_rebase_only_persist
     scenario_check_remote_identity
     scenario_telemetry_generator_fixture
@@ -5126,6 +5227,7 @@ Scenarios:
   watchdog-dedup-reobserve     Replayed lineage merges without x2 duplication; heterogeneous one-offs sub-threshold (Phase 67).
   match-rebaseline             Stale-but-matching baseline -> UNCHANGED + caught up; converse stays LOCALLY_MODIFIED (Phase 59).
   monitoring-log-window        The monitoring-helper .md read recipe lands on the newest log entries (Phase 127).
+  local-merge                  LOCALLY_MODIFIED three-way merge: clean applies with backup, conflict holds, dead baseline holds honestly (Phase 129).
   rebase-only-persist          Rebase-only run (all buckets empty) persists the marker through the early exit (Phase 62).
   check-remote-identity        --check-remote round-trips install_uuid/label/created byte-identical (Phase 62).
   telemetry-generator-fixture  Synthetic transcript -> events/rollup/observation via the cwd-match fallback (Phase 63).
