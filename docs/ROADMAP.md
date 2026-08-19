@@ -162,7 +162,7 @@ Decisions that hold across all v1.2+ work. Captured here so future slices don't 
 
 ### Approval-gated autonomy
 
-Thinking is autonomous; action is approved. The skeleton can suggest captures, surface plugin recommendations, detect drift, draft scripts — all autonomously. None of those become installed/applied artifacts without explicit user approval. Plan-mode discipline, capture-lifecycle states (`draft → approved → shipped`), and X-builder draft mechanics all enforce this line. **How it applies:** new mechanisms maintain the line by default; "auto-apply" is a deliberate carve-out (e.g. `--auto-apply` in `update.sh` accepts only TEMPLATE_UPDATED + NEW, never LOCALLY_MODIFIED or ORPHAN — the autonomy is bounded).
+Thinking is autonomous; action is approved. The skeleton can suggest captures, surface plugin recommendations, detect drift, draft scripts — all autonomously. None of those become installed/applied artifacts without explicit user approval. Plan-mode discipline, capture-lifecycle states (`draft → approved → shipped`), and X-builder draft mechanics all enforce this line. **How it applies:** new mechanisms maintain the line by default; "auto-apply" is a deliberate carve-out (e.g. `--auto-apply` in `update.sh` accepts TEMPLATE_UPDATED + NEW and — Phase 129 — clean three-way merges of LOCALLY_MODIFIED files, each reversible via a pre-merge backup of the local version; conflicted and baseline-less files still gate, ORPHAN deletions still prompt — the autonomy is bounded by reversibility).
 
 ### Per-project governance
 
