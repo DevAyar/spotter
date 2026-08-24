@@ -65,9 +65,8 @@ CACHED=$(read_field '.cached_skeleton_head')
 FETCHED_AT=$(read_field '.cached_skeleton_head_fetched_at')
 
 if [ -z "$CACHED" ]; then
-  emit "$NOTICE_PREFIX cache empty (no last-known remote version)."
-  emit "  installed: ${VERSION:-unknown}"
-  emit "  refresh:   bash scripts/update.sh --check-remote"
+  # Phase 130: one line, same ambient discipline as the behind state.
+  emit "$NOTICE_PREFIX remote never checked — run: bash scripts/update.sh --check-remote"
   exit 0
 fi
 
@@ -75,9 +74,16 @@ if [ "$VERSION" = "$CACHED" ]; then
   exit 0
 fi
 
+# Phase 130: the behind state is ONE line within the ambient budget. The
+# honest offline quantity is RELEASE drift + cache age — the cache holds
+# the latest release tag (normalized), and commit counts are not
+# computable without the skeleton's history, so none are claimed. The
+# cache age states staleness plainly; nothing here touches the network.
 DAYS=$(days_since "$FETCHED_AT")
-emit "$NOTICE_PREFIX update available."
-emit "  installed: ${VERSION:-unknown}"
-emit "  available: $CACHED   (cache: ${DAYS} day(s) old)"
-emit "  run:       bash scripts/update.sh"
+if [ "$DAYS" = "unknown" ]; then
+  AGE="cache age unknown"
+else
+  AGE="last checked ${DAYS} day(s) ago"
+fi
+emit "$NOTICE_PREFIX behind: ${VERSION:-unknown} installed, $CACHED available (${AGE}) — run update.sh to catch up"
 exit 0

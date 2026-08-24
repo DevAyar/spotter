@@ -5043,6 +5043,66 @@ print(json.load(open(sys.argv[1] + '/.claude/.skeleton-version'))['raw_template_
   echo "PASS local-merge (3 legs)"
 }
 
+
+# ---- Phase 130: drift-nudge ----
+# The behind state is ONE line within the ambient budget (asserted by
+# line count, not implied), silent when current, and the honest offline
+# quantity is release drift + cache age -- commit counts are not
+# computable without the skeleton's history, so none are claimed.
+scenario_drift_nudge() {
+  echo ">> drift-nudge: behind -> one honest line; current -> silent; never-checked -> one line (Phase 130)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh"     --source "$SKELETON_DIR" --target "$TEST_DIR"     --mode=fresh --claude-only > /dev/null
+  local dc="$TEST_DIR/.claude/scripts/drift-check.sh"
+  local marker="$TEST_DIR/.claude/.skeleton-version"
+  set_marker() { # <version> <cached> <fetched_at>
+    python -c "
+import json, sys
+m, v, c, f = sys.argv[1:5]
+d = json.load(open(m))
+d['version'] = v
+d['cached_skeleton_head'] = c if c else None
+d['cached_skeleton_head_fetched_at'] = f if f else None
+json.dump(d, open(m, 'w'), indent=2, sort_keys=True)
+" "$marker" "$1" "$2" "$3"
+  }
+
+  # leg 1: behind -> exactly one line, both versions + the nudge present.
+  set_marker "1.1.4" "1.1.5" "2026-07-01T00:00:00Z"
+  local out lines
+  out=$(CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$dc")
+  lines=$(printf '%s' "$out" | grep -c . || true)
+  [ "$lines" -eq 1 ] || { echo "ERROR: behind state emitted $lines lines (ambient budget is 1):" >&2; printf '%s
+' "$out" >&2; exit 1; }
+  assert_contains "$out" "1.1.4"
+  assert_contains "$out" "1.1.5"
+  assert_contains "$out" "catch up"
+  echo "  leg 1: behind -> one line, both versions, the nudge OK"
+
+  # leg 2: current -> SILENT (zero bytes), exit 0.
+  set_marker "1.1.5" "1.1.5" "2026-07-01T00:00:00Z"
+  local rc2=0
+  out=$(CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$dc") || rc2=$?
+  [ "$rc2" -eq 0 ] || { echo "ERROR: drift-check exited $rc2 when current" >&2; exit 1; }
+  [ -z "$out" ] || { echo "ERROR: current install is not silent: [$out]" >&2; exit 1; }
+  echo "  leg 2: current -> silent OK"
+
+  # leg 3: remote never checked -> one line naming --check-remote, no
+  # drift claim (never guess).
+  set_marker "1.1.5" "" ""
+  out=$(CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$dc")
+  lines=$(printf '%s' "$out" | grep -c . || true)
+  [ "$lines" -eq 1 ] || { echo "ERROR: never-checked state emitted $lines lines:" >&2; printf '%s
+' "$out" >&2; exit 1; }
+  assert_contains "$out" "check-remote"
+  if printf '%s' "$out" | grep -qi "behind"; then
+    echo "ERROR: never-checked state claims drift" >&2; exit 1
+  fi
+  echo "  leg 3: never-checked -> one honest line, no drift claim OK"
+
+  echo "PASS drift-nudge (3 legs)"
+}
+
 # ---- dispatch ----
 case "${1:-}" in
   fresh-install)                scenario_fresh_install ;;
@@ -5090,6 +5150,7 @@ case "${1:-}" in
   match-rebaseline)                 scenario_match_rebaseline ;;
   monitoring-log-window)            scenario_monitoring_log_window ;;
   local-merge)                      scenario_local_merge ;;
+  drift-nudge)                      scenario_drift_nudge ;;
   rebase-only-persist)              scenario_rebase_only_persist ;;
   check-remote-identity)            scenario_check_remote_identity ;;
   telemetry-generator-fixture)      scenario_telemetry_generator_fixture ;;
@@ -5154,6 +5215,7 @@ case "${1:-}" in
     scenario_match_rebaseline
     scenario_monitoring_log_window
     scenario_local_merge
+    scenario_drift_nudge
     scenario_rebase_only_persist
     scenario_check_remote_identity
     scenario_telemetry_generator_fixture
@@ -5228,6 +5290,7 @@ Scenarios:
   match-rebaseline             Stale-but-matching baseline -> UNCHANGED + caught up; converse stays LOCALLY_MODIFIED (Phase 59).
   monitoring-log-window        The monitoring-helper .md read recipe lands on the newest log entries (Phase 127).
   local-merge                  LOCALLY_MODIFIED three-way merge: clean applies with backup, conflict holds, dead baseline holds honestly (Phase 129).
+  drift-nudge                  Behind installs announce it in one honest ambient line; current stays silent (Phase 130).
   rebase-only-persist          Rebase-only run (all buckets empty) persists the marker through the early exit (Phase 62).
   check-remote-identity        --check-remote round-trips install_uuid/label/created byte-identical (Phase 62).
   telemetry-generator-fixture  Synthetic transcript -> events/rollup/observation via the cwd-match fallback (Phase 63).
