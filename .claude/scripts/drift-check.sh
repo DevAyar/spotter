@@ -64,9 +64,26 @@ VERSION=$(read_field '.version')
 CACHED=$(read_field '.cached_skeleton_head')
 FETCHED_AT=$(read_field '.cached_skeleton_head_fetched_at')
 
+# Phase 132 (gauntlet F1): the remedy must be runnable FROM WHERE THE
+# USER IS. The marker records where the skeleton checkout lives
+# (`source`: a local path, `<self>` when this project IS the checkout,
+# or a URL after a clone-based update). Build the command from what the
+# install actually knows; when the source is not a local path, say so
+# generically — never print a path that does not exist here.
+SRC=$(read_field '.source')
+case "$SRC" in
+  '<self>')            REMEDY="bash scripts/update.sh" ;;
+  /*|[A-Za-z]:/*|'~'*) REMEDY="bash ${SRC}/scripts/update.sh" ;;
+  *)                   REMEDY="" ;;
+esac
+
 if [ -z "$CACHED" ]; then
   # Phase 130: one line, same ambient discipline as the behind state.
-  emit "$NOTICE_PREFIX remote never checked — run: bash scripts/update.sh --check-remote"
+  if [ -n "$REMEDY" ]; then
+    emit "$NOTICE_PREFIX remote never checked — run: $REMEDY --check-remote"
+  else
+    emit "$NOTICE_PREFIX remote never checked — run update.sh --check-remote from your spotter checkout"
+  fi
   exit 0
 fi
 
@@ -85,5 +102,9 @@ if [ "$DAYS" = "unknown" ]; then
 else
   AGE="last checked ${DAYS} day(s) ago"
 fi
-emit "$NOTICE_PREFIX behind: ${VERSION:-unknown} installed, $CACHED available (${AGE}) — run update.sh to catch up"
+if [ -n "$REMEDY" ]; then
+  emit "$NOTICE_PREFIX behind: ${VERSION:-unknown} installed, $CACHED available (${AGE}) — run: $REMEDY to catch up"
+else
+  emit "$NOTICE_PREFIX behind: ${VERSION:-unknown} installed, $CACHED available (${AGE}) — run update.sh from your spotter checkout to catch up"
+fi
 exit 0

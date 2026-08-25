@@ -5100,7 +5100,84 @@ json.dump(d, open(m, 'w'), indent=2, sort_keys=True)
   fi
   echo "  leg 3: never-checked -> one honest line, no drift claim OK"
 
-  echo "PASS drift-nudge (3 legs)"
+  # Leg 4 (Phase 132, gauntlet F1) — RUNNABILITY: content assertions
+  # alone let a non-runnable remedy ship (the gap leg 1's own guard
+  # missed). With a real local `source` in the marker, the path inside
+  # the printed command must EXIST from the target's cwd; with a URL
+  # source, the line must carry the generic wording and no path at all.
+  python -c "
+import json, sys
+m = sys.argv[1] + '/.claude/.skeleton-version'
+d = json.load(open(m))
+d['source'] = sys.argv[2]
+json.dump(d, open(m, 'w'), indent=2, sort_keys=True)
+" "$TEST_DIR" "$SKELETON_DIR"
+  set_marker "1.1.4" "1.1.5" "2026-07-01T00:00:00Z"
+  out=$(cd "$TEST_DIR" && CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$dc")
+  local rpath
+  # || true: the probe must not die under pipefail when the line names no
+  # command at all -- the assertion below owns that failure (Phase 117).
+  rpath=$(printf '%s' "$out" | grep -o 'bash [^ ]*update\.sh' | head -1 | cut -d' ' -f2 || true)
+  [ -n "$rpath" ] || { echo "ERROR: behind line names no runnable command: [$out]" >&2; exit 1; }
+  # Expand a leading ~ the way the user's shell would at the prompt --
+  # the printed command is typed there, not tested with -f.
+  case "$rpath" in "~"*) rpath="${HOME}${rpath#\~}" ;; esac
+  ( cd "$TEST_DIR" && [ -f "$rpath" ] ) || {
+    echo "ERROR: the printed remedy path does not exist from the target's cwd: [$rpath]" >&2
+    printf '%s\n' "$out" >&2
+    exit 1
+  }
+  python -c "
+import json, sys
+m = sys.argv[1] + '/.claude/.skeleton-version'
+d = json.load(open(m))
+d['source'] = 'https://github.com/DevAyar/spotter.git'
+json.dump(d, open(m, 'w'), indent=2, sort_keys=True)
+" "$TEST_DIR"
+  out=$(cd "$TEST_DIR" && CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$dc")
+  printf '%s' "$out" | grep -q "from your spotter checkout" \
+    || { echo "ERROR: URL source did not degrade to the generic wording: [$out]" >&2; exit 1; }
+  if printf '%s' "$out" | grep -q "scripts/update.sh"; then
+    echo "ERROR: URL source still prints a path: [$out]" >&2; exit 1
+  fi
+  lines=$(printf '%s' "$out" | grep -c . || true)
+  [ "$lines" -eq 1 ] || { echo "ERROR: budget broke under the resolver ($lines lines)" >&2; exit 1; }
+  echo "  leg 4: remedy path resolves from the target; URL source degrades generically; budget holds OK"
+
+  echo "PASS drift-nudge (4 legs)"
+}
+
+
+# ---- Phase 132 (gauntlet F2): the gitignore the install promised ----
+# template/*.template never matches dotfiles, so .gitignore.template
+# never copied and GETTING-STARTED's promise had no implementation.
+# Absent -> written from the template; present -> untouched + a note.
+scenario_install_gitignore() {
+  echo ">> install-gitignore: absent target gets the runtime excludes; existing target untouched + note (Phase 132)"
+  init_target
+  local out
+  out=$(bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" --mode=fresh 2>&1)
+  [ -f "$TEST_DIR/.gitignore" ] || { echo "ERROR: install wrote no .gitignore into a target that had none" >&2; exit 1; }
+  grep -q "\.claude/receipts/" "$TEST_DIR/.gitignore" || { echo "ERROR: runtime excludes missing (.claude/receipts/)" >&2; exit 1; }
+  grep -qF '*.tmp.[0-9]*' "$TEST_DIR/.gitignore" || { echo "ERROR: runtime excludes missing (*.tmp.[0-9]*)" >&2; exit 1; }
+  echo "  leg 1: absent -> written from the template, sentinels present OK"
+
+  TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-gi2)
+  ( cd "$TEST_DIR" && git init -q && git config user.email "ci@test.local" \
+      && git config user.name "CI Test" && printf 'node_modules/\n' > .gitignore \
+      && printf '# t\n' > README.md && git add -A && git commit -q -m init )
+  local h_before
+  h_before=$(sha256_of "$TEST_DIR/.gitignore")
+  out=$(bash "$SKELETON_DIR/scripts/install.sh" \
+    --source "$SKELETON_DIR" --target "$TEST_DIR" --mode=fresh 2>&1)
+  [ "$(sha256_of "$TEST_DIR/.gitignore")" = "$h_before" ] \
+    || { echo "ERROR: install MUTATED a pre-existing .gitignore" >&2; exit 1; }
+  printf '%s' "$out" | grep -q "your .gitignore already exists" \
+    || { echo "ERROR: existing-gitignore note not printed" >&2; exit 1; }
+  echo "  leg 2: existing -> byte-identical + the note OK"
+
+  echo "PASS install-gitignore (2 legs)"
 }
 
 # ---- dispatch ----
@@ -5151,6 +5228,7 @@ case "${1:-}" in
   monitoring-log-window)            scenario_monitoring_log_window ;;
   local-merge)                      scenario_local_merge ;;
   drift-nudge)                      scenario_drift_nudge ;;
+  install-gitignore)                scenario_install_gitignore ;;
   rebase-only-persist)              scenario_rebase_only_persist ;;
   check-remote-identity)            scenario_check_remote_identity ;;
   telemetry-generator-fixture)      scenario_telemetry_generator_fixture ;;
@@ -5216,6 +5294,7 @@ case "${1:-}" in
     scenario_monitoring_log_window
     scenario_local_merge
     scenario_drift_nudge
+    scenario_install_gitignore
     scenario_rebase_only_persist
     scenario_check_remote_identity
     scenario_telemetry_generator_fixture
@@ -5291,6 +5370,7 @@ Scenarios:
   monitoring-log-window        The monitoring-helper .md read recipe lands on the newest log entries (Phase 127).
   local-merge                  LOCALLY_MODIFIED three-way merge: clean applies with backup, conflict holds, dead baseline holds honestly (Phase 129).
   drift-nudge                  Behind installs announce it in one honest ambient line; current stays silent (Phase 130).
+  install-gitignore            Absent .gitignore gets the runtime excludes; existing one untouched + a note (Phase 132).
   rebase-only-persist          Rebase-only run (all buckets empty) persists the marker through the early exit (Phase 62).
   check-remote-identity        --check-remote round-trips install_uuid/label/created byte-identical (Phase 62).
   telemetry-generator-fixture  Synthetic transcript -> events/rollup/observation via the cwd-match fallback (Phase 63).

@@ -16,6 +16,7 @@ TMP_CLONE_DIR=""
 
 # Rollback tracking
 ADDED_FILES=()
+GITIGNORE_NOTE=false
 ADDED_DIRS=()
 
 # Per-file install hashes: one "<relpath><TAB><sha256>" entry per non-top file copied/overwritten.
@@ -452,6 +453,21 @@ plan_and_execute() {
     done
   fi
 
+  # Phase 132 (gauntlet F2): the dotfile the glob above cannot see.
+  # template/*.template never matches dotfiles, so .gitignore.template
+  # silently never copied — GETTING-STARTED's promise had no
+  # implementation. Same never-overwrite contract as every top-level
+  # file: absent -> written (tracked + rollback-covered by
+  # process_file); present -> the summary prints a one-line note
+  # instead. No prompt either way.
+  if [ -f "$SOURCE_PATH/template/.gitignore.template" ]; then
+    if [ -f "$TARGET_PATH/.gitignore" ]; then
+      GITIGNORE_NOTE=true
+    else
+      process_file "$SOURCE_PATH/template/.gitignore.template" "$TARGET_PATH/.gitignore" "top"
+    fi
+  fi
+
   # template/docs/*.template
   if [ -d "$SOURCE_PATH/template/docs" ]; then
     for src in "$SOURCE_PATH/template/docs"/*.template; do
@@ -550,6 +566,10 @@ summary() {
   printf 'Plugins:    ask for the plugin manifest - plugin-discovery drafts it with evidence, you review, /plugin installs by hand.\n'
   if [ "$CLAUDE_ONLY" = false ]; then
     printf 'Then:       dispatch project-tuner-helper to fill placeholders and tune to this project.\n'
+  fi
+  if [ "$GITIGNORE_NOTE" = true ]; then
+    printf 'Note:       your .gitignore already exists — add the runtime excludes from\n'
+    printf '            template/.gitignore.template (they keep hook noise out of your diffs).\n'
   fi
   printf 'Mechanics:  docs/INSTALLATION.md (update / uninstall).\n'
 }

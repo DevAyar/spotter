@@ -1,12 +1,12 @@
 # claude-skeleton baseline .gitignore for target projects.
 #
-# How this lands (install.sh's real behavior, not a merge): install.sh copies
+# How this lands (install.sh's real behavior, not a merge): install.sh writes
 # this file only when the target has NO top-level .gitignore — existing
-# top-level files are never overwritten or merged. If your repo already has a
-# .gitignore, add the entries below to it manually; the skeleton's hooks write
-# these runtime paths in EVERY install, and without the excludes they show up
-# as untracked noise. (A guarded merge/propagation mechanism is the known
-# Phase 49 gap — until it ships, this note is the honest contract.)
+# top-level files are never overwritten or merged; when yours exists, the
+# install's completion block prints a note instead (Phase 132). If your repo
+# already has a .gitignore, add the entries below to it manually; the
+# skeleton's hooks write these runtime paths in EVERY install, and without
+# the excludes they show up as untracked noise.
 
 # Claude Code session-local state
 .claude/agent-memory/
