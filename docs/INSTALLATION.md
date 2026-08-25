@@ -298,7 +298,9 @@ The sentinel written to the remote carries `schema_version`,
 
 ## Uninstall
 
-There is no `uninstall.sh` in v1. To remove:
+There is no `uninstall.sh` in v1. Run these in a normal terminal, **not
+inside a Claude Code session** — the safety hooks Spotter installed treat
+bulk deletion as exactly what it is and will block the `rm`. To remove:
 
 ```bash
 rm -rf .claude/

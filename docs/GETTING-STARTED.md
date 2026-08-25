@@ -11,7 +11,7 @@ it.
 
 ## What just happened to your project
 
-The install copied the skeleton baseline in (a fresh run reports 82 files):
+The install copied the skeleton baseline in (the completion block reports the exact count it copied):
 
 - **`.claude/agents/`** — 19 helpers in numbered role folders: research,
   audit, monitoring, planning, and a meta tier that watches the system
@@ -60,9 +60,7 @@ Durable rules:
 - After compaction, Read the anchor region before the first Edit to any file - read-state does not survive summarization.
 (Generic defaults - dispatch project-tuner-helper to tune this block to your project.)
 
-[skeleton-drift] cache empty (no last-known remote version).
-  installed: 1.1.5
-  refresh:   bash scripts/update.sh --check-remote
+[skeleton-drift] remote never checked — run: bash ~/path/to/spotter/scripts/update.sh --check-remote
 
 [task-watchdog] transcript not resolved for <your project> — check project-dir encoding
 ```
@@ -73,11 +71,13 @@ Line by line:
   dropped and this first session consumed); you'll never see it again.
 - **`Durable rules`** — the generic defaults every install ships with; the
   block's own last line says the move: dispatch `project-tuner-helper` to
-  tune it to your project.
-- **`[skeleton-drift] cache empty`** — the marker has no cached remote
-  version yet. Optional: run `bash <skeleton>/scripts/update.sh
-  --check-remote` once and this goes silent until a new skeleton release
-  actually exists. No urgency.
+  tune it to your project. ("Dispatch" just means ask Claude in your
+  session — literally type: *use project-tuner-helper to tune this
+  project* — Claude runs the agent.)
+- **`[skeleton-drift] remote never checked`** — the marker has no cached
+  remote version yet. The line prints the command with your own checkout's
+  path filled in. Optional: run it once and this goes silent until a new
+  skeleton release actually exists. No urgency.
 - **`[task-watchdog] transcript not resolved`** — expected on a first-ever
   session: the watchdog looks for the *prior* session's transcript and there
   isn't one yet. It disappears from your second session onward. (Known
@@ -91,7 +91,7 @@ Line by line:
   second session it looks like:
 
 ```
-[token-cost] last sitting ~$29.23 (in 0.1M / out 45,000 / cache 32.0M @ claude-opus-4-8 rates) | 7d ~$29.23 across 1 lineage(s)
+[token-cost] last sitting ~$29.23 (in 0.1M / out 45,000 / cache 32.0M @ <your model> rates) | 7d ~$29.23 across 1 lineage(s)
 ```
 
   "Last sitting" means exactly that — what the previous sitting cost, not a

@@ -534,7 +534,7 @@ summary() {
     [ "$OVERWRITTEN" -gt 0 ] && printf '  would overwrite: %d\n' "$OVERWRITTEN"
     return 0
   fi
-  ok "claude-skeleton install complete"
+  ok "Spotter install complete (engine: claude-skeleton)"
   printf '  source:   %s\n' "$SOURCE_PATH"
   printf '  target:   %s\n' "$TARGET_PATH"
   if [ "$CLAUDE_ONLY" = true ]; then
@@ -563,9 +563,10 @@ summary() {
   printf '            (or https://github.com/DevAyar/spotter/blob/main/docs/GETTING-STARTED.md)\n'
   printf 'First move: /goals <a real small goal>  - research, one round of questions, then a\n'
   printf '            draft spec in .claude/specs/ that waits for YOUR approval.\n'
-  printf 'Plugins:    ask for the plugin manifest - plugin-discovery drafts it with evidence, you review, /plugin installs by hand.\n'
+  printf 'Plugins:    in a session, type: draft the plugin manifest - plugin-discovery drafts it with evidence, you review, /plugin installs by hand.\n'
   if [ "$CLAUDE_ONLY" = false ]; then
-    printf 'Then:       dispatch project-tuner-helper to fill placeholders and tune to this project.\n'
+    printf 'Then:       in your Claude session, type: use project-tuner-helper to tune this project\n'
+    printf '            (it fills the template placeholders from what it reads in your repo).\n'
   fi
   if [ "$GITIGNORE_NOTE" = true ]; then
     printf 'Note:       your .gitignore already exists — add the runtime excludes from\n'

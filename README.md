@@ -68,10 +68,15 @@ record, which is the point.
 
 ## Install
 
-Fresh project: `bash <spotter-checkout>/scripts/install.sh` from the target
-repo. Updating later: `bash <spotter-checkout>/scripts/update.sh`, which
-classifies every file and never overwrites your local changes without a
-per-file prompt.
+```bash
+git clone https://github.com/DevAyar/spotter.git
+cd <your-project> && bash <path-to>/spotter/scripts/install.sh
+```
+
+No prompts; the completion block tells you what landed and what to do first.
+Updating later: `bash <path-to>/spotter/scripts/update.sh` from the same
+place, which classifies every file and never overwrites your local changes
+without a per-file prompt.
 
 First 15 minutes: [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md).
 Mechanics: [docs/INSTALLATION.md](docs/INSTALLATION.md).
