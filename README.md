@@ -2,13 +2,25 @@
 
 [![CI](https://github.com/DevAyar/spotter/actions/workflows/ci.yml/badge.svg)](https://github.com/DevAyar/spotter/actions/workflows/ci.yml)
 
-Spotter is a governance layer for Claude Code. Install it into a repo and it
-watches for scope drift while you work, then files what it finds as drafts
-you review. Nothing changes your project until you say yes. If you
-searched for Claude Code governance, AI coding guardrails, or a way to keep
-scope drift from quietly eating a six-month project, this is that. It assumes
-you already know Claude Code's agents, hooks, skills, and plugins, and it
-composes with that ecosystem instead of replacing it.
+Spotter is a governance layer for Claude Code: it watches your project for
+scope drift while you work and files what it finds as drafts you review.
+
+**Start here: [the 60-second quickstart](docs/QUICKSTART.md)** - clone,
+install, open your project.
+
+It flows by default, keeps receipts always, and stops only at doors that do
+not reopen. Free for individuals; company or commercial use needs a license
+([LICENSE](LICENSE), [COMMERCIAL.md](COMMERCIAL.md)).
+
+## The pitch
+
+Install it into a repo and it watches for scope drift while you work, then
+files what it finds as drafts you review. Nothing changes your project until
+you say yes. If you searched for Claude Code governance, AI coding
+guardrails, or a way to keep scope drift from quietly eating a six-month
+project, this is that. It assumes you already know Claude Code's agents,
+hooks, skills, and plugins, and it composes with that ecosystem instead of
+replacing it.
 
 Each install runs its own copy and tunes it to its own project. The template
 in this repo (engine codename `claude-skeleton`) is the seed, not the product.
@@ -42,7 +54,7 @@ The watchers and reports run at session start and session end. Three things
 fire mid-task, deliberately: the two destructive-command gates
 ([bash](template/.claude/hooks/pretooluse-bash-safety.sh),
 [PowerShell](template/.claude/hooks/pretooluse-powershell-safety.sh)) and a
-pre-compact backup — each announces itself when it acts. No cron, no daemons,
+pre-compact backup; each announces itself when it acts. No cron, no daemons,
 nothing polling in the background.
 
 ## The system keeps receipts

@@ -5180,6 +5180,56 @@ scenario_install_gitignore() {
   echo "PASS install-gitignore (2 legs)"
 }
 
+
+# ---- Phase 133: public-surface style laws ----
+# README + QUICKSTART are the first-contact surfaces; the style laws bind
+# their PROSE: zero em-dashes (fenced blocks are stripped first -- the
+# first-session transcript in QUICKSTART quotes real hook output verbatim,
+# and the quotes stay verbatim), zero wedge/marketing register, and every
+# relative link resolves.
+scenario_public_style() {
+  echo ">> public-style: em-dash zero + wedge zero in README/QUICKSTART prose; links resolve (Phase 133)"
+  local f prose n
+  for f in README.md docs/QUICKSTART.md; do
+    [ -f "$SKELETON_DIR/$f" ] || { echo "ERROR: $f missing" >&2; exit 1; }
+    prose=$(awk '/^```/{fence=!fence; next} !fence' "$SKELETON_DIR/$f")
+    n=$(printf '%s' "$prose" | grep -c $'—' || true)
+    [ "$n" -eq 0 ] || {
+      echo "ERROR: $f prose carries $n line(s) with em-dashes (the law is zero; quotes in fences are exempt)" >&2
+      printf '%s' "$prose" | grep -n $'—' >&2 | head -5
+      exit 1
+    }
+  done
+  echo "  leg 1: em-dash zero in prose, both files OK"
+
+  # The currently-known wedge vocabulary -- grows as reviews find more.
+  local wedge='blazing|game-chang|revolutioniz|supercharge|unleash|effortless|seamless|spending the scarcity|withdrawal from the attention'
+  for f in README.md docs/QUICKSTART.md; do
+    if grep -qiE "$wedge" "$SKELETON_DIR/$f"; then
+      echo "ERROR: $f carries wedge register:" >&2
+      grep -niE "$wedge" "$SKELETON_DIR/$f" | head -3 >&2
+      exit 1
+    fi
+  done
+  echo "  leg 2: wedge register zero, both files OK"
+
+  # Relative links resolve: all of QUICKSTART; README's first screen (20 lines).
+  local link
+  for link in $(grep -o '](\([^)#]*\)' "$SKELETON_DIR/docs/QUICKSTART.md" | sed 's/](//'); do
+    case "$link" in http*) continue ;; esac
+    [ -z "$link" ] && continue
+    ( cd "$SKELETON_DIR/docs" && [ -e "$link" ] )       || { echo "ERROR: QUICKSTART link dead: $link" >&2; exit 1; }
+  done
+  for link in $(head -20 "$SKELETON_DIR/README.md" | grep -o '](\([^)#]*\)' | sed 's/](//'); do
+    case "$link" in http*) continue ;; esac
+    [ -z "$link" ] && continue
+    [ -e "$SKELETON_DIR/$link" ]       || { echo "ERROR: README top link dead: $link" >&2; exit 1; }
+  done
+  echo "  leg 3: links resolve OK"
+
+  echo "PASS public-style (3 legs)"
+}
+
 # ---- dispatch ----
 case "${1:-}" in
   fresh-install)                scenario_fresh_install ;;
@@ -5229,6 +5279,7 @@ case "${1:-}" in
   local-merge)                      scenario_local_merge ;;
   drift-nudge)                      scenario_drift_nudge ;;
   install-gitignore)                scenario_install_gitignore ;;
+  public-style)                     scenario_public_style ;;
   rebase-only-persist)              scenario_rebase_only_persist ;;
   check-remote-identity)            scenario_check_remote_identity ;;
   telemetry-generator-fixture)      scenario_telemetry_generator_fixture ;;
@@ -5295,6 +5346,7 @@ case "${1:-}" in
     scenario_local_merge
     scenario_drift_nudge
     scenario_install_gitignore
+    scenario_public_style
     scenario_rebase_only_persist
     scenario_check_remote_identity
     scenario_telemetry_generator_fixture
@@ -5371,6 +5423,7 @@ Scenarios:
   local-merge                  LOCALLY_MODIFIED three-way merge: clean applies with backup, conflict holds, dead baseline holds honestly (Phase 129).
   drift-nudge                  Behind installs announce it in one honest ambient line; current stays silent (Phase 130).
   install-gitignore            Absent .gitignore gets the runtime excludes; existing one untouched + a note (Phase 132).
+  public-style                 README/QUICKSTART prose: zero em-dashes, zero wedge register, links resolve (Phase 133).
   rebase-only-persist          Rebase-only run (all buckets empty) persists the marker through the early exit (Phase 62).
   check-remote-identity        --check-remote round-trips install_uuid/label/created byte-identical (Phase 62).
   telemetry-generator-fixture  Synthetic transcript -> events/rollup/observation via the cwd-match fallback (Phase 63).

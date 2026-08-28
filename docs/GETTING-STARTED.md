@@ -1,5 +1,9 @@
 # Getting started — your first 15 minutes after install
 
+(This is the 15-minute page: what landed and why. The 60-second page,
+commands and first-session expectations only, is
+[QUICKSTART.md](QUICKSTART.md).)
+
 You just ran `install.sh` and your project has a new `.claude/` tree and some
 unfamiliar session-start output. This walks what happened, what you'll see,
 and what to do first. (Install mechanics themselves — modes, flags, updates —
