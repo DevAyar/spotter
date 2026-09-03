@@ -76,5 +76,9 @@
       "enabled": true,
       "sessions_between_dispatches": 30
     }
+  },
+  "lanes": {
+    "_comment": "Phase 135: shadow trials for judgment lanes. Every Nth judgment dispatch on a trial model runs a cheap shadow; the orchestrator logs agree/disagree to telemetry/shadow-log.jsonl.",
+    "shadow_every": 5
   }
 }

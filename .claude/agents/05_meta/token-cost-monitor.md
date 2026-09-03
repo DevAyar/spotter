@@ -18,8 +18,14 @@ acts on what it finds — it reports and drafts; humans decide.
   `useful_units_drafted`, `tokens_per_useful_unit`, `data_available`
   (skip sessions where `data_available` is not true).
 - `.claude/telemetry/events/<session_id>.jsonl` — per-tool-call token rows for
-  per-helper / per-tool attribution. Note: events carry NO model field, so any
-  dollar figure must state the model assumption it was computed under.
+  per-helper / per-tool attribution. Note: tool rows carry NO model field, so any
+  dollar figure must state the model assumption it was computed under. Since
+  Phase 135, Agent/Workflow rows DO carry `dispatch.{subagent_type, model}` (named or `"inherited"`) — per-dispatch model attribution, no token split claimed.
+- `.claude/telemetry/shadow-log.jsonl` (Phase 135, may be absent) — the shadow-trial
+  agreement record: `{when, helper, primary_model, shadow_model, agree, note}`.
+  A re-tier draft that can cite it argues from evidence — "N dispatches, M
+  shadowed, K disagreements — demote/hold" — and that form supersedes
+  threshold-only arguments wherever the data exists.
 - `.claude/telemetry/model-pricing.json` — published per-MTok prices + cache
   multipliers, with an `as_of` date. Static data; refreshed via normal updates.
 - `.claude/gate-config.json` → `cost` block — `assumed_model` and the warning
