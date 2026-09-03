@@ -1934,6 +1934,8 @@ scenario_telemetry_generator_fixture() {
 {"type":"summary","sessionId":"sess-tg-1","timestamp":"2026-07-01T00:00:00Z"}
 {"type":"assistant","sessionId":"sess-tg-1","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T00:01:00Z","message":{"usage":{"input_tokens":100,"output_tokens":40,"cache_read_input_tokens":10,"cache_creation_input_tokens":5},"content":[{"type":"tool_use","id":"t1","name":"Read","input":{"file_path":"docs/x.md"}}]}}
 {"type":"assistant","sessionId":"sess-tg-1","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T00:02:00Z","message":{"usage":{"input_tokens":60,"output_tokens":20,"cache_read_input_tokens":0,"cache_creation_input_tokens":0},"content":[{"type":"tool_use","id":"t2","name":"Bash","input":{"command":"ls"}}]}}
+{"type":"assistant","sessionId":"sess-tg-1","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T00:03:00Z","message":{"usage":{"input_tokens":30,"output_tokens":10,"cache_read_input_tokens":0,"cache_creation_input_tokens":0},"content":[{"type":"tool_use","id":"t3","name":"Agent","input":{"subagent_type":"audit-helper","model":"sonnet","description":"d","prompt":"p"}}]}}
+{"type":"assistant","sessionId":"sess-tg-1","isSidechain":false,"cwd":"__CWD__","timestamp":"2026-07-01T00:04:00Z","message":{"usage":{"input_tokens":10,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0},"content":[{"type":"tool_use","id":"t4","name":"Agent","input":{"subagent_type":"general-purpose","description":"d","prompt":"p"}}]}}
 JSONL
   sed "s|__CWD__|$cwd_as_python_sees|g" "$fx/sess.jsonl.tmpl" > "$fx/sess.jsonl"
   rm -f "$fx/sess.jsonl.tmpl"
@@ -1954,10 +1956,19 @@ JSONL
     ls "$TEST_DIR/.claude/telemetry/events" >&2 2>/dev/null || true
     exit 1
   fi
-  assert_eq "$(grep -c . "$ev")" "2"
+  assert_eq "$(grep -c . "$ev")" "4"
   grep -q '"tool_name": "Read"' "$ev" || { echo "ERROR: Read tool line missing in events JSONL" >&2; exit 1; }
-  assert_contains "$(cat "$md")" "total_tokens_in: 160"
-  assert_contains "$(cat "$md")" "total_tokens_out: 60"
+  # Phase 135: the dispatch ledger. A named dispatch records its model; an
+  # unnamed one records the honest word for what happened: "inherited".
+  grep -q '"dispatch": {"model": "sonnet", "subagent_type": "audit-helper"}' "$ev" \
+    || { echo "ERROR: named dispatch not recorded in events" >&2; exit 1; }
+  grep -q '"dispatch": {"model": "inherited", "subagent_type": "general-purpose"}' "$ev" \
+    || { echo "ERROR: inherited dispatch not recorded as such" >&2; exit 1; }
+  assert_contains "$(cat "$md")" "dispatches: 2"
+  assert_contains "$(cat "$md")" "dispatches_inherited: 1"
+  echo "  dispatch ledger: named + inherited recorded, counters in the rollup OK (Phase 135)"
+  assert_contains "$(cat "$md")" "total_tokens_in: 200"
+  assert_contains "$(cat "$md")" "total_tokens_out: 75"
   assert_contains "$(cat "$md")" "data_available: true"
   [ -f "$obs" ] || { echo "ERROR: observation not at <pattern_id>.json (Phase 65 filename rule)" >&2; ls "$TEST_DIR/.claude/observations" >&2 2>/dev/null; exit 1; }
   "$pybin" -c "
@@ -1966,7 +1977,7 @@ d = json.load(open(sys.argv[1]))
 required = ['pattern_id','source','pattern_type','occurrences','first_seen','last_seen','resolved_at','evidence','confidence','privacy_class']
 missing = [k for k in required if k not in d]
 if missing: sys.exit(f'ERROR: observation missing schema fields: {missing}')
-if d['total_tokens_in'] != 160: sys.exit(f\"ERROR: total_tokens_in {d['total_tokens_in']} != 160\")
+if d['total_tokens_in'] != 200: sys.exit(f\"ERROR: total_tokens_in {d['total_tokens_in']} != 200\")
 if d['pattern_type'] != 'token_telemetry': sys.exit('ERROR: wrong pattern_type')
 # Phase 65 schema-conformance counts:
 if os.path.basename(sys.argv[1]) != d['pattern_id'] + '.json': sys.exit('ERROR: filename != <pattern_id>.json')

@@ -345,6 +345,14 @@ total_cache_read = 0
 turns_with_usage = 0
 tool_counter = Counter()
 top_turns = []  # (total_tokens, timestamp, tool_names)
+# Phase 135: the dispatch ledger. Every Agent/Workflow call is a model
+# choice — named, or inherited from the session. Recorded per event and
+# counted in the rollup so the choice is visible after the fact. Token
+# attribution per dispatch is NOT claimed: sidechain usage is not
+# reliably linkable in transcripts (verified on real data, Phase 135).
+dispatch_count = 0
+dispatch_inherited = 0
+
 subagent_dispatches = []  # (timestamp, agent_type, tokens)
 
 try:
@@ -393,6 +401,16 @@ try:
                 }
                 if tr:
                     entry['target_resource'] = tr
+                if tu['name'] in ('Agent', 'Workflow'):
+                    _inp = tu.get('input') or {}
+                    _m = _inp.get('model')
+                    entry['dispatch'] = {
+                        'subagent_type': _inp.get('subagent_type', ''),
+                        'model': _m if _m else 'inherited',
+                    }
+                    dispatch_count += 1
+                    if not _m:
+                        dispatch_inherited += 1
                 ef.write(json.dumps(entry, sort_keys=True) + '\n')
     os.replace(_ev_tmp, events_path)
 except OSError:
@@ -482,6 +500,8 @@ try:
         rf.write(f'useful_units_shipped: {useful_shipped}\n')
         rf.write(f'useful_units_drafted: {useful_drafted}\n')
         rf.write(f'tokens_per_useful_unit: {tokens_per_useful:.1f}\n')
+        rf.write(f'dispatches: {dispatch_count}\n')
+        rf.write(f'dispatches_inherited: {dispatch_inherited}\n')
         rf.write(f'data_available: {str(data_available).lower()}\n')
         rf.write('---\n\n')
         rf.write(f'# Session {session_id}\n\n')
