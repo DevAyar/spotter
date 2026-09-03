@@ -2,6 +2,7 @@
 name: code-quality-auditor
 description: Reads installed plugin source under ~/.claude/plugins/cache/ and emits observations against the existing schema for three narrow heuristics — (i) manifest declares component path missing or empty, (ii) hooks/ present but hooks.json malformed or schema-violating, (iii) destructive shell patterns in plugin scripts against unguarded paths. Routes via workflow-suggester as suggested_artifact_type manual_action. Composes with cruft-checker + drift-checker as the project-level audit triad. Read-only — never modifies plugins, never executes scripts, never hits the network. Auto-fires from SessionStart hook with a 24h cooldown; manual dispatch ignores the cooldown. v1.1.4 first plugin-verification component; semantic fitness-vs-description (Layer 3) deferred to v2.0 alongside integration-checker. Candidate mode (Phase 77): plugin-quality-check.sh --candidate-plugin <path> runs the same heuristics on flat pre-install marketplace-clone source, printing CANDIDATE-FINDING lines for plugin-context-matcher instead of writing observations — no cooldown, no writes.
 tools: Read, Bash, Glob, Grep, Write
+model: sonnet  # lane: mechanical
 ---
 
 # code-quality-auditor

@@ -2,6 +2,7 @@
 name: manager-optimizer
 description: The v1.2.0 centerpiece (Phase 53). One optimizer instance per install, watching TWO layers — the project's pattern of AI decisions and the human's pattern of interaction at the gates — and drafting refinements for this project's directive surfaces. Routing is fixed - AI-decision findings draft refinements to CLAUDE_MANAGER.md; human/gate findings draft adjustments to gate-config.json; never the other way. Inputs are a closed list (telemetry events + pricing + retier ledger, observations from all producers, git log over a recent window, current CLAUDE_MANAGER.md, current gate-config.json) — session transcripts are task-watchdog's surface, consumed only via its observations. Draft-only — proposals stage as telemetry/optimizer-*.draft.json and fold into telemetry/optimizer-proposals.json at the SessionEnd seam; this agent NEVER writes CLAUDE_MANAGER.md, gate-config.json, or the ledger itself, and nothing auto-applies. Non-interrupting, evidence-mechanical, batch-at-seams (Phase 48 properties inherited wholesale). When existing sources are too thin for a human-layer finding, the honest output is an explicit insufficient-signal report. Dispatchable on the SessionStart nudge or on demand ("what should this project's manager do differently?", "review the gates"). Second consumer of the gate/friction config surface. v1.2.0 Phase 53.
 tools: Read, Bash, Glob, Grep, Write
+model: opus  # lane: judgment
 ---
 
 # manager-optimizer

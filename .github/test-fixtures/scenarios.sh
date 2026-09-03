@@ -5230,6 +5230,58 @@ scenario_public_style() {
   echo "PASS public-style (3 legs)"
 }
 
+
+# ---- Phase 134: model lanes (the LOADED graduation) ----
+# Every shipped agent names its model on purpose -- an unstamped agent
+# inherits the session model at dispatch, which is how a 97-agent run
+# dies at a session limit (the LOADED incident). Leg 3 pins the mirror
+# parity this phase found broken in committed state (audit-helper's 127
+# fix landed dogfood-only): the drift class gets a standing guard.
+scenario_agent_model_stamps() {
+  echo ">> agent-model-stamps: every installed agent carries model:; the manager carries the lane clause; pairs identical (Phase 134)"
+  init_target
+  bash "$SKELETON_DIR/scripts/install.sh"     --source "$SKELETON_DIR" --target "$TEST_DIR" --mode=fresh > /dev/null
+
+  # leg 1: every installed agent .md (schema files excluded) has a
+  # model: line in frontmatter with a plausible value.
+  local f missing="" val
+  for f in $(find "$TEST_DIR/.claude/agents" -name '*.md' ! -name '*.schema.md'); do
+    val=$(head -8 "$f" | grep "^model:" | head -1 || true)
+    if [ -z "$val" ]; then
+      missing="$missing ${f#"$TEST_DIR"/}"
+      continue
+    fi
+    case "$val" in
+      model:\ sonnet*|model:\ opus*|model:\ haiku*|model:\ inherit*) : ;;
+      *) echo "ERROR: unrecognized model value in ${f#"$TEST_DIR"/}: [$val]" >&2; exit 1 ;;
+    esac
+  done
+  if [ -n "$missing" ]; then
+    echo "ERROR: installed agents without a model: stamp (dispatch would inherit the session model):" >&2
+    printf '  %s
+' $missing >&2
+    exit 1
+  fi
+  echo "  leg 1: every installed agent names its model OK"
+
+  # leg 2: the per-dispatch lane clause ships in the installed manager
+  # (full-mode install writes CLAUDE_MANAGER.md).
+  grep -q "Per-dispatch lanes (Phase 134" "$TEST_DIR/CLAUDE_MANAGER.md"     || { echo "ERROR: the per-dispatch lane clause is missing from the installed manager" >&2; exit 1; }
+  echo "  leg 2: the lane clause ships OK"
+
+  # leg 3: dogfood/template agent pairs byte-identical -- the committed
+  # drift class this phase found (a mirror copy that never got staged).
+  local p d bad=0
+  for p in $(find "$SKELETON_DIR/template/.claude/agents" -name '*.md' ! -name '*.schema.md'); do
+    d="$SKELETON_DIR/${p#"$SKELETON_DIR"/template/}"
+    cmp -s "$p" "$d" || { echo "ERROR: agent pair differs: ${p#"$SKELETON_DIR"/}" >&2; bad=1; }
+  done
+  [ "$bad" -eq 0 ] || exit 1
+  echo "  leg 3: all agent pairs byte-identical OK"
+
+  echo "PASS agent-model-stamps (3 legs)"
+}
+
 # ---- dispatch ----
 case "${1:-}" in
   fresh-install)                scenario_fresh_install ;;
@@ -5280,6 +5332,7 @@ case "${1:-}" in
   drift-nudge)                      scenario_drift_nudge ;;
   install-gitignore)                scenario_install_gitignore ;;
   public-style)                     scenario_public_style ;;
+  agent-model-stamps)               scenario_agent_model_stamps ;;
   rebase-only-persist)              scenario_rebase_only_persist ;;
   check-remote-identity)            scenario_check_remote_identity ;;
   telemetry-generator-fixture)      scenario_telemetry_generator_fixture ;;
@@ -5347,6 +5400,7 @@ case "${1:-}" in
     scenario_drift_nudge
     scenario_install_gitignore
     scenario_public_style
+    scenario_agent_model_stamps
     scenario_rebase_only_persist
     scenario_check_remote_identity
     scenario_telemetry_generator_fixture
@@ -5424,6 +5478,7 @@ Scenarios:
   drift-nudge                  Behind installs announce it in one honest ambient line; current stays silent (Phase 130).
   install-gitignore            Absent .gitignore gets the runtime excludes; existing one untouched + a note (Phase 132).
   public-style                 README/QUICKSTART prose: zero em-dashes, zero wedge register, links resolve (Phase 133).
+  agent-model-stamps           Every installed agent names its model; the lane clause ships; pairs identical (Phase 134).
   rebase-only-persist          Rebase-only run (all buckets empty) persists the marker through the early exit (Phase 62).
   check-remote-identity        --check-remote round-trips install_uuid/label/created byte-identical (Phase 62).
   telemetry-generator-fixture  Synthetic transcript -> events/rollup/observation via the cwd-match fallback (Phase 63).

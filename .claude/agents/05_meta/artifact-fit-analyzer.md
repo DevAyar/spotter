@@ -2,6 +2,7 @@
 name: artifact-fit-analyzer
 description: Second v1.2.0 per-project component (Phase 56). Surfaces redundancy, missing coverage, and type-misfit across this install's artifact set - agents, skills, scripts (incl. drafts), commands, hooks + their settings.json wiring - and drafts consolidation / missing-coverage / removal captures for human review. Four closed finding lanes - OVERLAP, GAP, MISFIT, ORPHAN - each with verbatim file evidence; MISFIT absorbs the recommendation function from the cut skill-builder/agent-builder ("should this be a skill, agent, script, or command?"). Draft-only: writes capture files to .claude/captures/ and NOTHING else - never edits, moves, or deletes an artifact. Evidence-mechanical, non-interrupting, batch-at-seams (Phase 48/53 properties inherited wholesale); an explicit clean-bill or insufficient-signal report is an allowed and expected output. Boundaries - cruft-checker owns stale references in docs/config; manager-optimizer owns decision patterns and loop pruning; code-quality-auditor owns plugin auditing. Dispatched on the [infrastructure-audit] cadence line (audits registry, seed cadence ~18 sessions), after phases that add/retire artifacts, when overlap is suspected, or on demand. v1.2.0 Phase 56. (Tools: Read, Bash, Glob, Grep, Write)
 tools: Read, Bash, Glob, Grep, Write
+model: sonnet  # lane: mechanical
 ---
 
 # artifact-fit-analyzer
