@@ -1,0 +1,121 @@
+{
+  "case-01": {
+    "adjudication": "| RESOLVED Phase 110 (5723185, 60f6ed3): detect_json_tool now probes python3 first and validates by execution + version. Guard: update-integrity scenario.",
+    "judge_at_basis": "repo state at filing time (2026-07-30)",
+    "judge_at_commit": "f6967faf8158",
+    "source_observation": "54a350212044f7c62034b48f5960839eb85781c1b8cfc5471243bfab681cd194",
+    "verdict": "real"
+  },
+  "case-02": {
+    "adjudication": "| RESOLVED Phase 110 (5723185, 60f6ed3): empty-array expansions guarded + post-marker section made unable to abort (ordering decision recorded). Guard: update-integrity scenario.",
+    "judge_at_basis": "repo state at filing time (2026-07-30)",
+    "judge_at_commit": "f6967faf8158",
+    "source_observation": "5f65accb9e0183f4e7126a93f6abacd66e00e110e8f3c2a0ce32a224636dd731",
+    "verdict": "real"
+  },
+  "case-03": {
+    "adjudication": "| RESOLVED Phase 106 (2eedb47): canonicalized matching (raw + canonical scanned, never replaced), confident-only stripping, asserted non-empty pattern arrays, cross-shell application, path-free pre-flight deny payloads. Guard hook-destructive-canonicalization, 34 cases, RED-proven before the fix.",
+    "judge_at_basis": "repo state at filing time (2026-07-30)",
+    "judge_at_commit": "f6967faf8158",
+    "source_observation": "4d699500d9d597d9d881b21bdb530c86d2b437f701db28e9d24e57a21730d0c6",
+    "verdict": "real"
+  },
+  "case-04": {
+    "adjudication": "| RESOLVED Phase 106 (2eedb47): canonicalized matching (raw + canonical scanned, never replaced), confident-only stripping, asserted non-empty pattern arrays, cross-shell application, path-free pre-flight deny payloads. Guard hook-destructive-canonicalization, 34 cases, RED-proven before the fix.",
+    "judge_at_basis": "repo state at filing time (2026-07-30)",
+    "judge_at_commit": "f6967faf8158",
+    "source_observation": "33ab7e89ea96c4577305ec66b645a83a80b6cf4f51a33232b832643442bb745b",
+    "verdict": "real"
+  },
+  "case-05": {
+    "adjudication": "| RESOLVED Phase 106 (2eedb47): canonicalized matching (raw + canonical scanned, never replaced), confident-only stripping, asserted non-empty pattern arrays, cross-shell application, path-free pre-flight deny payloads. Guard hook-destructive-canonicalization, 34 cases, RED-proven before the fix.",
+    "judge_at_basis": "repo state at filing time (2026-07-30)",
+    "judge_at_commit": "f6967faf8158",
+    "source_observation": "2e0cbabd06f8cfb0695433490c60308c5eaa840fdfd788f715f9086d9a6da771",
+    "verdict": "real"
+  },
+  "case-06": {
+    "adjudication": "| RESOLVED Phase 122: fixed by ORDERING \u2014 the disable now commits before the purge. Sufficient because sm_share_enabled already hard-gates the push at shared-memory-push.sh:80, so enabled=false alone stops a re-push; no new state file and no new gate in the push path were needed. Chosen on failure direction: the halves are not equally reversible (disable is cheap and locally undoable, purge is a d",
+    "judge_at_basis": "repo state at filing time (2026-07-30)",
+    "judge_at_commit": "f6967faf8158",
+    "source_observation": "3b7a6849e7515f47b95fc22b767c54da4909239b34f50ef7cf2d2b07455a82fe",
+    "verdict": "real"
+  },
+  "case-07": {
+    "adjudication": "| RESOLVED Phase 127 (84de031): steps 1-2 now read from offset 0 with limit N (the log is newest-at-top; the tail is its OLDEST content) and the description drops 'recent tail'. Guarded by scenario monitoring-log-window: the leg derives the documented recipe from the INSTALLED .md (matching the full prescriptive phrase, not the bare formula) and executes it on a fixture log of known order -- RED a",
+    "judge_at_basis": "repo state at filing time (2026-08-01)",
+    "judge_at_commit": "b7744711c43c",
+    "source_observation": "13d807bc18a67a9d7fe7f23ba833223b1020031ae2c921c7ba74a3469a27affc",
+    "verdict": "real"
+  },
+  "case-08": {
+    "adjudication": "| RESOLVED Phase 126 (5583766): all seven filed surfaces now source the canonical detector (the cruft-check idiom verbatim; the two cost hooks source it too -- sourcing from .claude/lib was already the hooks' pattern, so no inline exception was created). The Phase 112 B subject -- 'every consumer sources the one detector' -- is now TRUE AS ORIGINALLY WRITTEN, and the widened leg-4 net (loop shape ",
+    "judge_at_basis": "repo state at filing time (2026-08-01)",
+    "judge_at_commit": "e72fc478404a",
+    "source_observation": "04ae4733b85bf3a7f1c055997badf5cd9964711c4aa2510a8dac36b7b17a3209",
+    "verdict": "real"
+  },
+  "case-09": {
+    "adjudication": "| RESOLVED Phase 119: lines made unconditional (git config writes the clone's LOCAL scope; the user's global identity is untouched), matching what share-enable.sh already did in its own clone. Guard leg 4 clones the pushed remote back and asserts both zero username occurrences and the neutral author present.",
+    "judge_at_basis": "repo state at filing time (2026-08-06)",
+    "judge_at_commit": "c32c0ee6e446",
+    "source_observation": "22768e5e682798d41b58081eee92ca2d97d666089777f49ebfe6f60ad965d0a6",
+    "verdict": "real"
+  },
+  "case-10": {
+    "adjudication": "| RESOLVED Phase 121: all three converted to temp+rename, failing open exactly as before; guard leg 6 asserts the idiom at each site.",
+    "judge_at_basis": "repo state at filing time (2026-08-11)",
+    "judge_at_commit": "11a270977487",
+    "source_observation": "0dc9d36782d84f2372d5df9864fd8488b792a5580da9550ef2e0382b38c13dd6",
+    "verdict": "real"
+  },
+  "case-11": {
+    "adjudication": "| REFUTED-AND-RESOLVED Phase 125 (141c4e9): the mechanism named here cannot produce the state. match-rebaseline lives in classify()'s final else, reachable ONLY when current == template, so the value it writes IS the template's own hash -- it can never record unique user content because it fires only where there is none. Verified by execution (baseline staled to 64 zeros, file untouched, real run:",
+    "judge_at_basis": "repo state at filing time (2026-08-01)",
+    "judge_at_commit": "e72fc478404a",
+    "source_observation": "6b7cb45836f80f4013088c59b8fb5e56b6c1c81a095eed728e66fd45402e4e88",
+    "verdict": "refuted"
+  },
+  "case-12": {
+    "adjudication": "| RESOLVED Phase 130 (as accurate on inspection, the Phase 114 rule): all three cited sites now attribute the 24h cooldown to the plugin auditor, not drift-check -- README:36-37 says version drift runs every session, ROADMAP:13 and :262 say drift-checker fires every session -- corrected by an earlier doc sweep; verified mechanically this phase while giving drift-check its first guard (drift-nudge,",
+    "judge_at_basis": "repo state at filing time (2026-07-27)",
+    "judge_at_commit": "bb245f873e97",
+    "source_observation": "ddee66132b4e923acd9f6fa5b01941f139bbec6a07fc8465e15cfe245070b8a0",
+    "verdict": "refuted"
+  },
+  "case-13": {
+    "adjudication": "| RESOLVED Phase 127 (acceptable as-is): the silent-misreport path is dead: with empty ROOT the detector source fails and the script dies loud (checked mechanically this phase); a cd failure requires the script's own ancestors to vanish mid-run.",
+    "judge_at_basis": "repo state at filing time (2026-07-30)",
+    "judge_at_commit": "f6967faf8158",
+    "source_observation": "80adadb57866cb36e1f1593a0c130e64646ffd972e53a8a3bc5ff4351e04f8b9",
+    "verdict": "refuted"
+  },
+  "case-14": {
+    "adjudication": "| RESOLVED Phase 127 (acceptable as-is): --dry-run promises no CHANGES and keeps that promise; the prompt is friction, not mutation.",
+    "judge_at_basis": "repo state at filing time (2026-07-30)",
+    "judge_at_commit": "f6967faf8158",
+    "source_observation": "a523aa290a6357b3bcc6b1c32890d2b86b2226fba8e38246f4ed81cd586d1051",
+    "verdict": "refuted"
+  },
+  "case-15": {
+    "adjudication": "| RESOLVED Phase 127 (acceptable as-is): the guard's job is the first-arg shape; erroring on extras is new CLI behavior beyond a cosmetic pass, and the verbatim report still surfaces the miscall.",
+    "judge_at_basis": "repo state at filing time (2026-07-30)",
+    "judge_at_commit": "f6967faf8158",
+    "source_observation": "1c9430998111c725da3151dd4cf0eccae6b20514bdc6e6aa27d7946c58fd1f54",
+    "verdict": "refuted"
+  },
+  "case-16": {
+    "adjudication": "| RESOLVED Phase 127 (acceptable as-is): no shipped deploy flag carries an extension-bearing value today; the false positive is theoretical until one does.",
+    "judge_at_basis": "repo state at filing time (2026-07-30)",
+    "judge_at_commit": "f6967faf8158",
+    "source_observation": "25dfb0f11505d2bb27725d61e74692ce44c46a0be200f2dff00aa1d7c52b694a",
+    "verdict": "refuted"
+  },
+  "case-17": {
+    "adjudication": "| RESOLVED Phase 127 (acceptable as-is): failure is loud either way; every real install ships the lib beside the script (the Phase 126 fixture lesson).",
+    "judge_at_basis": "repo state at filing time (2026-07-30)",
+    "judge_at_commit": "f6967faf8158",
+    "source_observation": "85fb430c475236ce762135950309631e938ad4ecf11b937193293cc5f0641075",
+    "verdict": "refuted"
+  }
+}

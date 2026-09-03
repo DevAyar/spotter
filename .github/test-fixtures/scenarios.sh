@@ -5293,6 +5293,87 @@ scenario_agent_model_stamps() {
   echo "PASS agent-model-stamps (3 legs)"
 }
 
+
+# ---- Phase 135: judgment-battery integrity ----
+# CI validates the measuring stick, not the judgment: cases and key are a
+# bijection, no case leaks its adjudication, and the scorer scores. The
+# battery RUN needs an LLM and stays a maintainer action.
+scenario_judgment_battery_integrity() {
+  echo ">> judgment-battery-integrity: cases<->key bijection; no adjudication leaks; scorer proven (Phase 135)"
+  local B="$SKELETON_DIR/experiments/judgment-battery"
+  [ -d "$B/cases" ] || { echo "ERROR: battery directory missing" >&2; exit 1; }
+
+  # leg 1: bijection.
+  python - "$B" <<'PYB'
+import json, os, sys
+B = sys.argv[1]
+key = json.load(open(os.path.join(B, "verdict-key.json"), encoding="utf-8"))
+cases = {f[:-3] for f in os.listdir(os.path.join(B, "cases")) if f.endswith(".md")}
+missing_key = sorted(cases - set(key))
+missing_case = sorted(set(key) - cases)
+if missing_key or missing_case:
+    raise SystemExit(f"ERROR: bijection broken - no key: {missing_key}; no case: {missing_case}")
+for cid, e in key.items():
+    for f in ("verdict", "source_observation", "judge_at_commit", "adjudication"):
+        if not e.get(f):
+            raise SystemExit(f"ERROR: {cid} key entry missing {f}")
+    if e["verdict"] not in ("real", "refuted"):
+        raise SystemExit(f"ERROR: {cid} unknown verdict {e['verdict']}")
+print(f"  leg 1: {len(key)} cases <-> key bijection, entries complete OK")
+PYB
+  [ $? -eq 0 ] || exit 1
+
+  # leg 2: no case file leaks its adjudication - neither the resolution
+  # marker text nor its own source-observation id. (Case files legitimately
+  # contain the words real/refuted in their instructions; the leak that
+  # matters is the ANSWER material.)
+  python - "$B" <<'PYL'
+import json, os, sys
+B = sys.argv[1]
+key = json.load(open(os.path.join(B, "verdict-key.json"), encoding="utf-8"))
+checked = 0
+for cid, e in key.items():
+    body = open(os.path.join(B, "cases", cid + ".md"), encoding="utf-8").read()
+    if "RESOLVED" in body or "REFUTED Phase" in body or "adjudic" in body.lower():
+        raise SystemExit(f"ERROR: {cid} leaks adjudication text")
+    if e["source_observation"][:8] in body:
+        raise SystemExit(f"ERROR: {cid} leaks its source observation id")
+    checked += 1
+if checked == 0:
+    raise SystemExit("ERROR: leak check examined zero cases (vacuous)")
+print(f"  leg 2: no adjudication leaks across {checked} cases OK")
+PYL
+  [ $? -eq 0 ] || exit 1
+
+  # leg 3: the scorer, proven on fixtures - a perfect set passes, a planted
+  # missed-real is named and fails the bar.
+  local sd
+  sd=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-jbatt)
+  python - "$B" "$sd" <<'PYS'
+import json, os, subprocess, sys
+B, sd = sys.argv[1], sys.argv[2]
+key = json.load(open(os.path.join(B, "verdict-key.json"), encoding="utf-8"))
+perfect = {cid: e["verdict"] for cid, e in key.items()}
+json.dump(perfect, open(os.path.join(sd, "v-perfect.json"), "w"))
+flawed = dict(perfect)
+real_cases = [c for c, e in key.items() if e["verdict"] == "real"]
+flawed[real_cases[0]] = "refuted"
+json.dump(flawed, open(os.path.join(sd, "v-flawed.json"), "w"))
+r1 = subprocess.run([sys.executable, "score.py", os.path.join(sd, "v-perfect.json")],
+                    cwd=B, capture_output=True, text=True).stdout
+r2 = subprocess.run([sys.executable, "score.py", os.path.join(sd, "v-flawed.json")],
+                    cwd=B, capture_output=True, text=True).stdout
+if "agreement: 100%" not in r1 or "battery passed" not in r1:
+    raise SystemExit("ERROR: perfect verdict set did not pass: " + r1)
+if "MISSED REAL              (fn): 1" not in r2 or real_cases[0] not in r2    or "does not enter the judgment lane" not in r2:
+    raise SystemExit("ERROR: planted miss not named/failed: " + r2)
+print("  leg 3: scorer passes perfect, names and fails the planted miss OK")
+PYS
+  [ $? -eq 0 ] || exit 1
+
+  echo "PASS judgment-battery-integrity (3 legs)"
+}
+
 # ---- dispatch ----
 case "${1:-}" in
   fresh-install)                scenario_fresh_install ;;
@@ -5344,6 +5425,7 @@ case "${1:-}" in
   install-gitignore)                scenario_install_gitignore ;;
   public-style)                     scenario_public_style ;;
   agent-model-stamps)               scenario_agent_model_stamps ;;
+  judgment-battery-integrity)       scenario_judgment_battery_integrity ;;
   rebase-only-persist)              scenario_rebase_only_persist ;;
   check-remote-identity)            scenario_check_remote_identity ;;
   telemetry-generator-fixture)      scenario_telemetry_generator_fixture ;;
@@ -5412,6 +5494,7 @@ case "${1:-}" in
     scenario_install_gitignore
     scenario_public_style
     scenario_agent_model_stamps
+    scenario_judgment_battery_integrity
     scenario_rebase_only_persist
     scenario_check_remote_identity
     scenario_telemetry_generator_fixture
@@ -5490,6 +5573,7 @@ Scenarios:
   install-gitignore            Absent .gitignore gets the runtime excludes; existing one untouched + a note (Phase 132).
   public-style                 README/QUICKSTART prose: zero em-dashes, zero wedge register, links resolve (Phase 133).
   agent-model-stamps           Every installed agent names its model; the lane clause ships; pairs identical (Phase 134).
+  judgment-battery-integrity   Battery cases<->key bijection, no adjudication leaks, scorer proven (Phase 135).
   rebase-only-persist          Rebase-only run (all buckets empty) persists the marker through the early exit (Phase 62).
   check-remote-identity        --check-remote round-trips install_uuid/label/created byte-identical (Phase 62).
   telemetry-generator-fixture  Synthetic transcript -> events/rollup/observation via the cwd-match fallback (Phase 63).
