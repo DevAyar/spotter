@@ -3,6 +3,7 @@ name: task-watchdog
 description: Retrospective observer of the prior Claude Code session's tool calls. Reads the prior session's JSONL transcript at session start, detects long-running bash calls and Agent dispatches (per-tool duration thresholds — 5m Bash, 60m Agent; Agent coverage added per obs 6708b966) and recurring failures (same normalized error signature ≥3 times in-session), and writes structured observation files to .claude/observations/ using the observation schema (session-observer.schema.md). Invoked automatically by the SessionStart hook chain after drift-check.sh; manually dispatchable on request. Retrospective only — no real-time polling, no network, no writes outside .claude/observations/. Workflow-suggester picks up these observations like any other source. v1.1+ Phase 5, final v1.1.0 component; canonical producer against the observation schema (its namesake first producer, session-observer, retired Phase 58).
 tools: Read, Bash, Write
 model: sonnet  # lane: mechanical
+effort: low
 ---
 
 # task-watchdog

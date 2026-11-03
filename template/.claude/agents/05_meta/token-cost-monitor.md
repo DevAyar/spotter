@@ -3,6 +3,7 @@ name: token-cost-monitor
 description: Reads Phase 46 session telemetry (.claude/telemetry/sessions/ frontmatter + events/*.jsonl) together with the pricing reference (.claude/telemetry/model-pricing.json) and the cost thresholds in .claude/gate-config.json, and surfaces token spend ambiently — (a) a per-session cost summary, (b) trend/budget warnings against gate-config thresholds, (c) re-tier proposals staged as drafts (.claude/telemetry/retier-*.draft.json) that the SessionEnd hook folds into retier-proposals.json at the session seam. Draft-only — no code path here modifies a model pin, settings, or any live component. Non-interrupting — ambient output and batched drafts only; nothing fires mid-flow. Evidence-mechanical — every claim cites measured telemetry, published pricing, or actual runs. Dispatchable on request ("what did that session cost?", "which helpers burn the most tokens?", "should anything re-tier?"). First consumer of the gate/friction config surface (gate-config.json); the v1.2.0 per-project manager-optimizer is its second. v1.1.x Phase 48. (Tools: Read, Bash, Glob, Write)
 tools: Read, Bash, Glob, Write
 model: sonnet  # lane: mechanical
+effort: low
 ---
 
 # token-cost-monitor

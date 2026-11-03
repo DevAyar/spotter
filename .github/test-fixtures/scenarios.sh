@@ -5361,7 +5361,24 @@ scenario_agent_model_stamps() {
   [ "$bad" -eq 0 ] || exit 1
   echo "  leg 3: all agent pairs byte-identical OK"
 
-  echo "PASS agent-model-stamps (3 legs)"
+  # leg 4 (Phase 136): a mechanical lane also names its effort. The platform
+  # honours `effort:` frontmatter (2.1.267); an unstamped mechanical agent
+  # runs an inventory at the session's effort.
+  local m noeff="" nmech=0
+  for f in $(find "$TEST_DIR/.claude/agents" -name '*.md' ! -name '*.schema.md'); do
+    head -8 "$f" | grep -q "^model:.*# lane: mechanical" || continue
+    nmech=$((nmech + 1))
+    head -8 "$f" | grep -q "^effort: low$" || noeff="$noeff ${f#"$TEST_DIR"/}"
+  done
+  [ "$nmech" -ge 9 ] || { echo "ERROR: expected at least 9 mechanical-lane agents, found $nmech (vacuous leg)" >&2; exit 1; }
+  if [ -n "$noeff" ]; then
+    echo "ERROR: mechanical-lane agents without effort: low:" >&2
+    printf '  %s\n' $noeff >&2
+    exit 1
+  fi
+  echo "  leg 4: every mechanical-lane agent carries effort: low ($nmech) OK"
+
+  echo "PASS agent-model-stamps (4 legs)"
 }
 
 

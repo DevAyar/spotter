@@ -3,6 +3,7 @@ name: drift-checker
 description: Reads .claude/.skeleton-version, compares the installed version field against cached_skeleton_head (the last known remote release, populated by `update.sh --check-remote`), and surfaces a structured drift notice if they differ. Read-only — never modifies the marker, never hits the network, never auto-applies updates. The notice recommends `bash scripts/update.sh`; the user runs it. Dispatchable manually ("am I up to date with skeleton?") and invoked automatically at session start via the SessionStart hook chain. v1.1+ Phase 4, fourth component of the capture/reuse loop tier.
 tools: Read, Bash
 model: sonnet  # lane: mechanical
+effort: low
 ---
 
 # drift-checker

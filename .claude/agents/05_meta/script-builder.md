@@ -3,6 +3,7 @@ name: script-builder
 description: Reads approved capture markdown from .claude/captures/ filtered to suggested_artifact_type=script, drafts bash scripts under .claude/scripts/drafts/<source_pattern_id>.sh.draft following the 5-section discipline + path-shape guards + bash-safety conventions. Draft-first — user reviews, optionally edits, then manually promotes (rename to <descriptive>.sh, optionally flip capture status to shipped). Idempotent: re-runs against same captures + existing drafts produce zero new files. v1.1+ Phase 3, first X-builder of the capture/reuse loop.
 tools: Read, Grep, Glob, Write
 model: sonnet  # lane: mechanical
+effort: low
 ---
 
 # script-builder

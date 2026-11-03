@@ -35,7 +35,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pretooluse-bash-safety.sh\""
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pretooluse-bash-safety.sh\"",
+            "onFailure": "block"
           }
         ]
       },
@@ -44,7 +45,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pretooluse-powershell-safety.sh\""
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pretooluse-powershell-safety.sh\"",
+            "onFailure": "block"
           }
         ]
       }

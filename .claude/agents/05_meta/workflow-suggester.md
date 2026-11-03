@@ -3,6 +3,7 @@ name: workflow-suggester
 description: Reads observations from .claude/observations/ and drafts capture markdown files to .claude/captures/ for human review. Idempotent — skips observations that already have any capture (draft / approved / rejected) AND skips observations marked resolved by their producer (resolved_at non-null). Pure drafting; does not build downstream artifacts, modify observations, or auto-approve. v1.1+ Phase 2 consumer of the capture/reuse loop.
 tools: Read, Grep, Glob, Write
 model: sonnet  # lane: mechanical
+effort: low
 ---
 
 # workflow-suggester
