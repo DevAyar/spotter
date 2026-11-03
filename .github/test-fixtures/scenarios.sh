@@ -1988,6 +1988,31 @@ if d['confidence'] != 'high': sys.exit(f\"ERROR: data-case confidence should be 
 print('  observation schema fields + totals + Phase 65 conformance OK')
 " "$obs"
 
+  # Phase 136 leg: a git failure is not a zero. Same transcript, delivered
+  # by path, against a PROJECT_DIR that is not a git repository: the
+  # commit count must read null (schema-allowed), the efficiency figure
+  # must be absent, and the body must name the error - never the silent
+  # 0 that poisoned the dogfood and LOADED corpora.
+  # (outside TEST_DIR: git -C walks UP, and TEST_DIR is itself a repo)
+  local nogit
+  nogit=$(mktemp -d 2>/dev/null || mktemp -d -t claude-skel-ci-nogit)
+  cp -R "$TEST_DIR/.claude" "$nogit/.claude"
+  rm -rf "$nogit/.claude/telemetry/sessions" "$nogit/.claude/observations"
+  CLAUDE_PROJECT_DIR="$nogit" CLAUDE_HOOK_TRANSCRIPT_PATH="$fx/sess.jsonl" \
+  CLAUDE_HOOK_SESSION_ID=sess-tg-1 \
+    bash "$nogit/.claude/lib/generate-session-telemetry.sh" > "$TEST_DIR/gen-nogit.out" 2>&1
+  local mdn="$nogit/.claude/telemetry/sessions/sess-tg-1.md"
+  [ -f "$mdn" ] || { echo "ERROR: no rollup written for the non-git project dir" >&2; cat "$TEST_DIR/gen-nogit.out" >&2; exit 1; }
+  assert_contains "$(cat "$mdn")" "data_available: true"
+  assert_contains "$(cat "$mdn")" "useful_units_shipped: null"
+  assert_contains "$(cat "$mdn")" "tokens_per_useful_unit: null"
+  assert_contains "$(cat "$mdn")" "commit count unavailable"
+  if grep -q "^useful_units_shipped: 0$" "$mdn"; then
+    echo "ERROR: git failure recorded as a zero commit count (the silent-zero class)" >&2; exit 1
+  fi
+  echo "  git failure -> null, not zero; the body names the error OK (Phase 136)"
+  rm -rf "$nogit"
+
   # Phase 65 stub leg: an empty projects dir must produce an HONEST stub —
   # confidence not 'high', resolved_at null, filename == pattern_id, summary present.
   local target2="$TEST_DIR/target2"
@@ -2116,6 +2141,24 @@ JSON
     echo "ERROR: elevated-but-under-threshold state printed dollars or a trip: $out4" >&2; exit 1
   fi
   echo "  leg 4: elevated ratio wording, still relative-only OK"
+  # Leg 5 (Phase 136): one lineage, two spellings of `started` - the
+  # pre-Phase-123 fractional form and the normalised form. They must group
+  # as ONE lineage (checkpoint 5M, cumulative 8M -> sitting \$3, no trip);
+  # keyed on the raw string the second rollup is a fresh lineage whose
+  # delta == total (\$8 > 5) and the hook trips on a sitting that never was.
+  local root5="$TEST_DIR/proj5"
+  mkdir -p "$root5/.claude/telemetry/sessions"
+  cp "$root/.claude/telemetry/model-pricing.json" "$root5/.claude/telemetry/model-pricing.json"
+  cp "$root/.claude/gate-config.json" "$root5/.claude/gate-config.json"
+  mk_rollup "$root5/.claude/telemetry/sessions/old.md" "2026-07-01T00:00:00.133Z" "2026-07-01T01:00:00Z" 5000000
+  mk_rollup "$root5/.claude/telemetry/sessions/new.md" "2026-07-01T00:00:00Z"     "2026-07-01T02:00:00Z" 8000000
+  local out5
+  out5=$(CLAUDE_PROJECT_DIR="$root5" bash "$SKELETON_DIR/.claude/hooks/sessionstart-cost-summary.sh" 2>&1)
+  assert_contains "$out5" "last sitting ~\$3.00"
+  if printf '%s' "$out5" | grep -q '!!'; then
+    echo "ERROR: split lineage key priced one rollup as a whole sitting: $out5" >&2; exit 1
+  fi
+  echo "  leg 5: fractional and normalised started group as one lineage OK (Phase 136)"
   echo "PASS cost-line-sitting-delta"
 }
 

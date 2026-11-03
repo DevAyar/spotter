@@ -74,6 +74,17 @@ def frontmatter(path):
 
 UTC = datetime.timezone.utc
 
+def norm_started(s):
+    if "." not in s:
+        return s
+    head, _, tail = s.partition(".")
+    tz = ""
+    for i, ch in enumerate(tail):
+        if ch in "Z+-":
+            tz = tail[i:]
+            break
+    return head + tz
+
 def parse_ts(s):
     try:
         ts = datetime.datetime.fromisoformat(s.replace("Z", "+00:00"))
@@ -97,7 +108,13 @@ for fn in os.listdir(sess_dir):
         toks = {k: int(float(fm.get(k, "0"))) for k in
                 ("total_tokens_in", "total_tokens_out",
                  "total_cache_creation", "total_cache_read")}
-        sessions.append((fm.get("started", "") or ended.isoformat(), ended, toks))
+        # Phase 136: the lineage KEY is `started` at second precision. Phase
+        # 123 A normalised the field on ingest; rollups written before it
+        # carry fractional seconds, so one lineage read as two and the
+        # first SessionStart after the split priced a single rollup as a
+        # whole sitting (observation 1c3321ba). Read-side only - the
+        # corpus is never rewritten.
+        sessions.append((norm_started(fm.get("started", "") or ended.isoformat()), ended, toks))
     except Exception:
         continue
 if not sessions:

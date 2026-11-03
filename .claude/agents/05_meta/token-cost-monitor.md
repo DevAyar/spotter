@@ -17,6 +17,9 @@ acts on what it finds — it reports and drafts; humans decide.
   `total_cache_read`, `turns_with_usage`, `useful_units_shipped`,
   `useful_units_drafted`, `tokens_per_useful_unit`, `data_available`
   (skip sessions where `data_available` is not true).
+  Since Phase 136 `useful_units_shipped` and `tokens_per_useful_unit` are `null`
+  when git could not be asked (the rollup body names the error); null is
+  "unmeasured", never zero, and such rollups carry no efficiency claim.
 - `.claude/telemetry/events/<session_id>.jsonl` — per-tool-call token rows for
   per-helper / per-tool attribution. Note: tool rows carry NO model field, so any
   dollar figure must state the model assumption it was computed under. Since

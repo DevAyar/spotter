@@ -420,9 +420,19 @@ except OSError:
         pass
 
 # ---- useful unit metrics ----
+# Phase 136: a git failure is NOT a zero. The old form returned 0 on
+# rc != 0 and on every exception, indistinguishable from a real zero -
+# one dogfood rollup read 0 against 199 commits, five LOADED rollups
+# read 0 against 383-633 (observation 56e54e46). Now: None, with git's
+# first stderr line kept for the rollup body, and the consumers write
+# null (the schema allows it) instead of a number nobody measured.
+commit_count_error = ''
+
 def count_commits_in_window(start_iso, end_iso):
+    global commit_count_error
     if not start_iso or not end_iso:
-        return 0
+        commit_count_error = 'session window unknown'
+        return None
     try:
         result = subprocess.run(
             ['git', '-C', project_dir, 'log',
@@ -431,11 +441,14 @@ def count_commits_in_window(start_iso, end_iso):
             capture_output=True, text=True, timeout=10,
         )
         if result.returncode != 0:
-            return 0
+            err = (result.stderr or '').strip().splitlines()
+            commit_count_error = (err[0] if err else f'git exited {result.returncode}')[:160]
+            return None
         lines = [l for l in result.stdout.splitlines() if l.strip()]
         return len(lines)
-    except Exception:
-        return 0
+    except Exception as exc:
+        commit_count_error = f'{type(exc).__name__}: {exc}'[:160]
+        return None
 
 def count_captures_in_window(start_iso, end_iso):
     if not os.path.isdir(captures_dir):
@@ -460,12 +473,17 @@ def count_captures_in_window(start_iso, end_iso):
 
 useful_shipped = count_commits_in_window(session_start, session_end)
 useful_drafted = count_captures_in_window(session_start, session_end)
-useful_total = max(1, useful_shipped + useful_drafted)
+useful_total = max(1, (useful_shipped or 0) + useful_drafted)
 # Total tokens processed = raw input + cache (read + creation) + output. All
 # four count as model effort even though cache reads are billed cheaply.
 # CORE 11 (token-cost-as-design-driver) is about consumption, not billing.
 total_processed = total_in + total_cache_read + total_cache_creation + total_out
-tokens_per_useful = total_processed / useful_total
+# Phase 136: no commit count, no efficiency figure - a ratio over a
+# denominator nobody measured is the 1.2-billion-tokens-per-unit lie.
+tokens_per_useful = None if useful_shipped is None else total_processed / useful_total
+
+def yaml_or_null(v, fmt='{}'):
+    return 'null' if v is None else fmt.format(v)
 
 # ---- write per-session markdown rollup ----
 def fmt_int(n):
@@ -497,9 +515,9 @@ try:
         rf.write(f'total_cache_creation: {total_cache_creation}\n')
         rf.write(f'total_cache_read: {total_cache_read}\n')
         rf.write(f'turns_with_usage: {turns_with_usage}\n')
-        rf.write(f'useful_units_shipped: {useful_shipped}\n')
+        rf.write(f'useful_units_shipped: {yaml_or_null(useful_shipped)}\n')
         rf.write(f'useful_units_drafted: {useful_drafted}\n')
-        rf.write(f'tokens_per_useful_unit: {tokens_per_useful:.1f}\n')
+        rf.write(f'tokens_per_useful_unit: {yaml_or_null(tokens_per_useful, "{:.1f}")}\n')
         rf.write(f'dispatches: {dispatch_count}\n')
         rf.write(f'dispatches_inherited: {dispatch_inherited}\n')
         rf.write(f'data_available: {str(data_available).lower()}\n')
@@ -513,9 +531,14 @@ try:
             rf.write(f'**Tokens:** {fmt_int(total_in)} in + {fmt_int(total_out)} out '
                      f'(cache: {fmt_int(total_cache_read)} read, '
                      f'{fmt_int(total_cache_creation)} create)\n\n')
-            rf.write(f'**Useful units shipped this session:** {useful_shipped} commits + '
-                     f'{useful_drafted} captures drafted → {tokens_per_useful:,.0f} tokens '
-                     f'per useful unit.\n\n')
+            if useful_shipped is None:
+                rf.write(f'**Useful units:** commit count unavailable ({commit_count_error}); '
+                         f'{useful_drafted} captures drafted. No tokens-per-unit figure: '
+                         f'the denominator was not measured.\n\n')
+            else:
+                rf.write(f'**Useful units shipped this session:** {useful_shipped} commits + '
+                         f'{useful_drafted} captures drafted → {tokens_per_useful:,.0f} tokens '
+                         f'per useful unit.\n\n')
             rf.write('## Tool usage\n\n')
             rf.write('| Tool | Calls |\n|---|---|\n')
             for tool, count in tool_counter.most_common():
@@ -573,7 +596,7 @@ out = {
     'turns_with_usage': turns_with_usage,
     'useful_units_shipped': useful_shipped,
     'useful_units_drafted': useful_drafted,
-    'tokens_per_useful_unit': round(tokens_per_useful, 2),
+    'tokens_per_useful_unit': None if tokens_per_useful is None else round(tokens_per_useful, 2),
     'data_available': data_available,
 }
 
