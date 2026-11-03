@@ -135,11 +135,14 @@ for key in lineages:
 p_in, p_out = row["input_per_mtok"], row["output_per_mtok"]
 c_read = pricing.get("cache_read_multiplier", 0.1)
 c_write = pricing.get("cache_write_multiplier_5m", 1.25)
+# Phase 136: cache reads are priced per model when the row says so (the
+# platform publishes them that way now); the multiplier is the fallback.
+read_rate = row.get("cache_read_per_mtok", p_in * c_read)
 
 def usd(t):
     return (t["total_tokens_in"] * p_in
             + t["total_tokens_out"] * p_out
-            + t["total_cache_read"] * p_in * c_read
+            + t["total_cache_read"] * read_rate
             + t["total_cache_creation"] * p_in * c_write) / 1e6
 
 def fmt(n):

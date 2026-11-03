@@ -14,7 +14,7 @@
   },
   "cost": {
     "enabled": true,
-    "assumed_model": "claude-opus-4-8",
+    "assumed_model": "claude-opus-5-5",
     "warn_usd_per_session": 50.0,
     "warn_usd_per_7d": 250.0
   },

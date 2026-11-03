@@ -2159,6 +2159,34 @@ JSON
     echo "ERROR: split lineage key priced one rollup as a whole sitting: $out5" >&2; exit 1
   fi
   echo "  leg 5: fractional and normalised started group as one lineage OK (Phase 136)"
+  # Leg 6 (Phase 136): a model row's cache_read_per_mtok prices cache reads;
+  # the global multiplier (0 here) is only the fallback. 4M cache-read tokens
+  # at \$0.50/MTok = \$2.00; under the multiplier alone the sitting reads \$0.
+  local root6="$TEST_DIR/proj6"
+  mkdir -p "$root6/.claude/telemetry/sessions"
+  cat > "$root6/.claude/telemetry/model-pricing.json" <<'JSON'
+{"models": {"test-model-cr": {"input_per_mtok": 1, "output_per_mtok": 1, "cache_read_per_mtok": 0.5}}, "cache_read_multiplier": 0, "cache_write_multiplier_5m": 0}
+JSON
+  cat > "$root6/.claude/gate-config.json" <<'JSON'
+{"cost": {"enabled": true, "assumed_model": "test-model-cr", "warn_usd_per_session": 5, "warn_usd_per_7d": 10000}}
+JSON
+  cat > "$root6/.claude/telemetry/sessions/cr.md" <<'EOF'
+---
+session_id: cr
+started: 2026-07-12T00:00:00Z
+ended: 2026-07-12T01:00:00Z
+total_tokens_in: 0
+total_tokens_out: 0
+total_cache_creation: 0
+total_cache_read: 4000000
+turns_with_usage: 1
+data_available: true
+---
+EOF
+  local out6
+  out6=$(CLAUDE_PROJECT_DIR="$root6" bash "$SKELETON_DIR/.claude/hooks/sessionstart-cost-summary.sh" 2>&1)
+  assert_contains "$out6" "last sitting ~\$2.00"
+  echo "  leg 6: per-model cache_read_per_mtok prices the reads OK (Phase 136)"
   echo "PASS cost-line-sitting-delta"
 }
 

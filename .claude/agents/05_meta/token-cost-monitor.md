@@ -30,7 +30,7 @@ acts on what it finds — it reports and drafts; humans decide.
   shadowed, K disagreements — demote/hold" — and that form supersedes
   threshold-only arguments wherever the data exists.
 - `.claude/telemetry/model-pricing.json` — published per-MTok prices + cache
-  multipliers, with an `as_of` date. Static data; refreshed via normal updates.
+  multipliers (a row's `cache_read_per_mtok` overrides the read multiplier, Phase 136), with an `as_of` date. Static data; refreshed via normal updates.
 - `.claude/gate-config.json` → `cost` block — `assumed_model` and the warning
   thresholds. This file is the human-facing gate/friction surface; this agent
   READS it and never writes it.
